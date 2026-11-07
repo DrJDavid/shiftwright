@@ -161,7 +161,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     const prov = (c.constraints ?? []).filter((x) => x.status === 'provisional')
     const checks = [
       check('store_basics', 'Store basics', st.basicsDone, st.basicsDone ? c.store.name : 'Confirm name, location and hours'),
-      check('jurisdiction', 'Labor law resolved', c.law_pack != null, c.law_pack ? c.law_pack.coverage : 'Not resolved (mock API has no law data)'),
+      check('jurisdiction', 'Labor law resolved', c.law_pack != null, c.law_pack ? c.law_pack.coverage : 'Not resolved (mock API has no law data)', true),
       check('roles', 'Roles', c.roles.length > 0, c.roles.length ? `${c.roles.length} roles` : 'No roles yet.'),
       check('employees', 'Employees', c.employees.length > 0, c.employees.length ? `${c.employees.length} employees` : 'No employees yet.'),
       check('training', 'Every role has a trained employee', c.roles.length > 0 && !untrained.length,
@@ -173,7 +173,8 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       check('budget', 'Payroll budget', st.payrollDone, st.payrollDone ? `${c.budget.weekly_hours_cap}h cap` : 'Set the weekly hours cap'),
       check('provisional_rules', 'No unconfirmed rules', !prov.length, prov.length ? `${prov.length} unconfirmed rule(s)` : 'None.', true),
     ]
-    return { ready: checks.every((x) => x.ok || x.id === 'provisional_rules'), checks }
+    // The mock has no law data, so a missing law pack only warns here (the real API blocks on it).
+    return { ready: checks.every((x) => x.ok || x.severity === 'warn'), checks }
   }
 
   function chatStream(st: StoreState, req: ChatRequest, signal?: AbortSignal | null): Response {

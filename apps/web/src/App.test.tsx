@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from './App'
@@ -9,6 +9,8 @@ import { AuthProvider } from './auth/AuthProvider'
 import { createMockFetch } from './mock/server'
 
 afterEach(cleanup)
+// Autopilot's ~2 s countdown, shortened so the whole sample-business setup runs in a test.
+vi.mock('./lib/autopilot', async (orig) => ({ ...(await orig<typeof import('./lib/autopilot')>()), AUTOPILOT_DELAY_MS: 20 }))
 // jsdom has no layout; the chat pane scrolls its transcript.
 Element.prototype.scrollTo ??= () => {}
 
@@ -229,5 +231,45 @@ describe('setup mode → workspace mode (B4)', () => {
     expect(screen.getByRole('button', { name: 'Coverage by hour' }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByRole('tab', { name: 'Team & rules' }))
     expect(screen.getByRole('complementary', { name: 'Rules' })).toBeTruthy()
+  })
+})
+
+describe('sample business (B7)', () => {
+  it('one click on Restaurant sets itself up; the user only answers the decision card, then builds', async () => {
+    const t = setup('/signup')
+    await signUp()
+    await screen.findByRole('heading', { name: 'New workplace' })
+    fireEvent.click(screen.getByRole('button', { name: /^Restaurant/ }))
+    await waitFor(() => expect(t.path()).toMatch(/^\/w\/mock-\d+$/))
+    expect(t.calls.find((c) => c.url === '/api/workplaces/generated')?.body).toEqual({ sector: 'food', size: 'S', difficulty: 'easy' })
+
+    // Setup mode, manager's message already sent with its files, autopilot on.
+    await screen.findByRole('complementary', { name: 'Setup steps' })
+    expect(await screen.findByRole('list', { name: 'Attached files' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Autopilot on · Pause' })).toBeTruthy()
+
+    // The only stop: the equipment-tags decision.
+    await screen.findByText('Check the equipment tags', {}, { timeout: 5000 })
+    fireEvent.click(screen.getByLabelText('Keep tags'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    // Routine cards after it go through on their own, then the agent offers the build.
+    await screen.findByText('Setup is done. Build the week now?', {}, { timeout: 5000 })
+    const chat = screen.getByRole('region', { name: 'Chat' })
+    fireEvent.click(within(chat).getByRole('button', { name: 'Build my schedule' }))
+    await screen.findByRole('tablist', { name: 'Views' }, { timeout: 5000 })
+  }, 20000)
+
+  it('More options sends size, difficulty, location and seed', async () => {
+    const t = setup('/signup')
+    await signUp()
+    await screen.findByRole('heading', { name: 'New workplace' })
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }))
+    fireEvent.change(screen.getByLabelText('Seed (optional)'), { target: { value: '42' } })
+    fireEvent.change(screen.getByLabelText('Size'), { target: { value: 'M' } })
+    fireEvent.click(screen.getByLabelText('Legal traps'))
+    fireEvent.click(screen.getByRole('button', { name: /^Retail store/ }))
+    await waitFor(() => expect(t.path()).toMatch(/^\/w\//))
+    expect(t.calls.find((c) => c.url === '/api/workplaces/generated')?.body).toEqual({ sector: 'retail', size: 'M', difficulty: 'legal_trap', seed: 42 })
   })
 })
