@@ -6,6 +6,7 @@ import type { OutreachState, SolveResponse } from '../api/protocol'
 import type { FixAction, FixPlan, InboundMessage, LawPack, LawRule, OutboundMessage, Schedule, StoreConfig } from '../contracts'
 import { fmtMoney, fmtPct, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
+import { EmployeeApp } from './EmployeeApp'
 
 type Props = {
   api: Api
@@ -39,6 +40,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ status?: number; message: string } | null>(null)
   const [outreach, setOutreach] = useState<OutreachState | null>(null)
+  const [phoneOf, setPhoneOf] = useState<string | null>(null)
   const emp = useMemo(() => new Map(config.employees.map((e) => [e.id, e])), [config.employees])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
@@ -266,6 +268,30 @@ export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
         {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} lawPack={lawPack} />}
       </div>
 
+      {phoneOf && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => setPhoneOf(null)}>
+          <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-3 text-sm text-white">
+              {apiMode === 'live' && (
+                <a
+                  className="underline"
+                  href={`?employee=${encodeURIComponent(phoneOf)}&store=${encodeURIComponent(storeId)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in a new window
+                </a>
+              )}
+              <button type="button" onClick={() => setPhoneOf(null)} className="font-semibold">
+                Close
+              </button>
+            </div>
+            <div className="h-[min(844px,90vh)] w-[390px] overflow-hidden rounded-[2rem] border-8 border-ink bg-paper shadow-2xl">
+              <EmployeeApp employeeId={phoneOf} storeId={storeId} />
+            </div>
+          </div>
+        </div>
+      )}
       {plan && (
         <Phone
           plan={plan}
@@ -274,6 +300,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
           onStart={() => void startTexting()}
           onStop={() => void stop()}
           nameOf={(id) => emp.get(id)?.name ?? id}
+          onOpenPhone={setPhoneOf}
           byPhone={byPhone}
           onReply={async (phone, body) => {
             try {
@@ -504,6 +531,7 @@ function Phone({
   onReply,
   nameOf,
   byPhone,
+  onOpenPhone,
 }: {
   plan: FixPlan
   outreach: OutreachState | null
@@ -512,6 +540,7 @@ function Phone({
   onStop: () => void
   onReply: (phone: string, body: string) => Promise<void>
   nameOf: (id: string) => string
+  onOpenPhone: (employeeId: string) => void
   byPhone: (p: string) => { id: string; name: string } | undefined
 }) {
   const status = outreach?.status ?? 'idle'
@@ -558,7 +587,10 @@ function Phone({
               <div key={m.id} className="ml-8">
                 <div className="mb-0.5 text-right text-[10px] text-muted">
                   To {nameOf(m.to_employee_id)}
-                  {m.outreach_rank ? ` · #${m.outreach_rank}` : ''} · {fmtClock(m.sent_at)}
+                  {m.outreach_rank ? ` · #${m.outreach_rank}` : ''} · {fmtClock(m.sent_at)} ·{' '}
+                  <button type="button" onClick={() => onOpenPhone(m.to_employee_id)} className="font-semibold text-pine-dark hover:underline">
+                    Open {nameOf(m.to_employee_id).split(' ')[0]}'s phone
+                  </button>
                 </div>
                 <div className="rounded-2xl rounded-br-sm bg-pine px-3 py-2 text-sm text-white">{m.body}</div>
               </div>
