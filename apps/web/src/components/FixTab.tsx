@@ -225,7 +225,8 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={`min-h-0 flex-1 overflow-y-auto ${phoneOf ? 'pl-[380px]' : ''}`}>
+        <TextAsEmployee config={config} schedule={result.schedule} onOpen={setPhoneOf} />
         {incoming && (
           <section className="border-b border-rule bg-pine-wash px-4 py-3 text-sm">
             <div className="flex items-start justify-between gap-3">
@@ -371,9 +372,9 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
       </div>
 
       {phoneOf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => setPhoneOf(null)}>
-          <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
-            <div className="flex gap-3 text-sm text-white">
+        <div className="fixed bottom-4 left-4 z-50">
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-3 rounded-full bg-ink px-3 py-1 text-sm text-white shadow">
               {apiMode === 'live' && (
                 <a
                   className="underline"
@@ -388,7 +389,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
                 Close
               </button>
             </div>
-            <div className="h-[min(844px,90vh)] w-[390px] overflow-hidden rounded-[2rem] border-8 border-ink bg-paper shadow-2xl">
+            <div className="h-[min(760px,80vh)] w-[360px] overflow-hidden rounded-[2rem] border-8 border-ink bg-paper shadow-2xl">
               <EmployeeApp employeeId={phoneOf} storeId={storeId} />
             </div>
           </div>
@@ -982,4 +983,50 @@ const STATUS_CLS: Record<OutreachState['status'], string> = {
   texting: 'bg-warn-wash text-warn',
   filled: 'bg-pine text-white',
   exhausted: 'bg-rule text-ink-2',
+}
+
+/** "Text as an employee": pick someone and their phone opens beside the manager's view. People working
+ *  today (store time) come first, so a call-out has a shift to land on. */
+function TextAsEmployee({ config, schedule, onOpen }: { config: StoreConfig; schedule: Schedule; onOpen: (id: string) => void }) {
+  const [who, setWho] = useState('')
+  const today = useMemo(() => {
+    try {
+      const wd = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: config.store.timezone || 'America/Chicago' }).format(new Date())
+      return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(wd)
+    } catch {
+      return (new Date().getDay() + 6) % 7
+    }
+  }, [config.store.timezone])
+  const people = useMemo(() => {
+    const working = new Set(schedule.shifts.filter((s) => s.day === today).map((s) => s.employee_id))
+    const scheduled = new Set(schedule.shifts.map((s) => s.employee_id))
+    return config.employees
+      .filter((e) => e.phone && scheduled.has(e.id))
+      .map((e) => ({ e, today: working.has(e.id) }))
+      .sort((a, b) => Number(b.today) - Number(a.today) || a.e.name.localeCompare(b.e.name))
+  }, [config.employees, schedule.shifts, today])
+  if (people.length === 0) return null
+  return (
+    <section className="flex flex-wrap items-center gap-2 border-b border-rule bg-panel px-4 py-2.5 text-sm">
+      <span className="font-semibold">Text the store as an employee:</span>
+      <select className="rounded-md border border-rule bg-paper px-2 py-1" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Employee">
+        <option value="">Pick someone…</option>
+        {people.map(({ e, today: t }) => (
+          <option key={e.id} value={e.id}>
+            {e.name}
+            {t ? ` (works ${WEEKDAY_NAMES[today]})` : ''}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!who}
+        onClick={() => onOpen(who)}
+        className="rounded-md bg-ink px-3 py-1 font-semibold text-white disabled:opacity-40"
+      >
+        Open their phone
+      </button>
+      <span className="text-xs text-muted">Type a message like "I'm sick, can't make it today" and watch the fix start here.</span>
+    </section>
+  )
 }
