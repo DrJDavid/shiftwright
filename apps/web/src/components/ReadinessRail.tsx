@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react'
 import type { Readiness } from '../api/protocol'
 import { SolveButton, type SolveState } from './SolveButton'
 
@@ -8,10 +9,15 @@ type Props = {
   onSolve: () => void
   open: boolean
   onToggle: () => void
+  /** The rule list (Rulebook), shown under the checklist. */
+  children?: ReactNode
 }
 
-/** Top of the Rulebook pane: readiness checklist + Build schedule. The rule list arrives in M2. */
-export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle }: Props) {
+/** Rulebook pane: readiness meter + checklist, the rule list, and Build schedule. */
+export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle, children }: Props) {
+  // null = automatic: checklist open until everything is ready.
+  const [listOpen, setListOpen] = useState<boolean | null>(null)
+  const showList = listOpen ?? !readiness?.ready
   const done = readiness?.checks.filter((c) => c.ok).length ?? 0
   const total = readiness?.checks.length ?? 0
   if (!open) {
@@ -35,7 +41,7 @@ export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle
   }
   return (
     <aside className="flex min-h-0 flex-col border-l border-rule bg-panel" aria-label="Rulebook">
-      <div className="border-b border-rule px-4 py-3">
+      <div className="shrink-0 border-b border-rule px-4 py-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-semibold">Ready to build</h2>
           <span className="flex items-baseline gap-3">
@@ -50,17 +56,26 @@ export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle
           </span>
         </div>
         {readiness && (
-          <div className="mt-2 flex gap-1" aria-hidden>
-            {readiness.checks.map((c) => (
-              <div key={c.id} className={`h-1.5 flex-1 rounded-full ${c.ok ? 'bg-pine' : 'bg-rule'}`} />
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setListOpen(!showList)}
+            aria-expanded={showList}
+            className="mt-2 flex w-full items-center gap-2"
+            title={showList ? 'Hide checklist' : 'Show checklist'}
+          >
+            <span className="flex flex-1 gap-1" aria-hidden>
+              {readiness.checks.map((c) => (
+                <span key={c.id} className={`h-1.5 flex-1 rounded-full ${c.ok ? 'bg-pine' : 'bg-rule'}`} />
+              ))}
+            </span>
+            <span className="text-xs text-muted">{showList ? '▴' : '▾'}</span>
+          </button>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {error && <p className="text-sm text-gap">Couldn't load readiness: {error}</p>}
         {!readiness && !error && <p className="text-sm text-muted">Checking…</p>}
-        <ul className="space-y-2.5">
+        <ul className={`space-y-2.5 ${showList ? 'mb-4 border-b border-rule pb-4' : 'hidden'}`}>
           {readiness?.checks.map((c) => (
             <li key={c.id} className="flex gap-2.5 text-sm">
               <span
@@ -78,8 +93,9 @@ export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle
             </li>
           ))}
         </ul>
+        {children}
       </div>
-      <div className="border-t border-rule px-4 py-3">
+      <div className="shrink-0 border-t border-rule px-4 py-3">
         <SolveButton state={solve} onSolve={onSolve} />
         {readiness && !readiness.ready && (
           <p className="mt-2 text-xs text-muted">Some items aren't done yet. A build now uses whatever is set so far.</p>

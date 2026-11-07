@@ -129,6 +129,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       stores.set(id, st)
       return ok(st.config)
     }
+    if (path === '/laws/resolve') return notFound('The mock API has no law data. Open with ?api=live for real law.')
     const m = path.match(/^\/stores\/([^/]+)(\/.*)$/)
     if (!m) return notFound(`No mock route for ${method} ${path}`)
     const st = stores.get(decodeURIComponent(m[1]))

@@ -20,25 +20,25 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
     <div className="relative flex items-stretch gap-px border-b border-rule bg-rule">
       <Stat label="Hours used" wide>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold">{fmtHours(used).replace('h', '')}</span>
-          <span className="text-sm text-muted">of {fmtHours(cap)} cap</span>
+          <span className="text-xl font-semibold">{fmtHours(used).replace('h', '')}</span>
+          <span className="text-sm whitespace-nowrap text-muted">of {fmtHours(cap)}</span>
         </div>
         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-rule-soft" aria-hidden>
           <div className={`h-full ${over ? 'bg-gap' : 'bg-ink'}`} style={{ width: `${frac * 100}%` }} />
         </div>
       </Stat>
-      <Stat label="Wage cost">
-        <span className="text-2xl font-semibold">{fmtMoney(m.total_wage_cost)}</span>
+      <Stat label="Wages">
+        <span className="text-xl font-semibold">{fmtMoney(m.total_wage_cost)}</span>
       </Stat>
       <Stat label="Coverage">
-        <span className="text-2xl font-semibold">{fmtPct(m.coverage_pct)}</span>
+        <span className="text-xl font-semibold">{fmtPct(m.coverage_pct)}</span>
       </Stat>
-      <Stat label="Uncovered cost">
-        <span className={`text-2xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>
+      <Stat label="Gap cost">
+        <span className={`text-xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>
           {fmtMoney(m.gap_penalty_dollars)}
         </span>
       </Stat>
-      <div className="flex items-center bg-panel px-4">
+      <div className="flex shrink-0 items-center bg-panel px-3">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -103,8 +103,8 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
 
 function Stat({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className={`flex flex-col justify-center bg-panel px-4 py-2.5 ${wide ? 'min-w-56 flex-[1.4]' : 'flex-1'}`}>
-      <span className="text-xs text-muted">{label}</span>
+    <div className={`flex min-w-0 flex-col justify-center bg-panel px-3 py-2.5 ${wide ? 'min-w-36 flex-[1.4]' : 'flex-1'}`}>
+      <span className="truncate text-xs text-muted">{label}</span>
       {children}
     </div>
   )

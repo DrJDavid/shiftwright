@@ -20,6 +20,11 @@ export function fmtMoney(dollars: number, opts: { cents?: boolean } = {}): strin
   return (opts.cents ? usd2 : usd0).format(dollars)
 }
 
+/** Compact money for tight spaces: $950, $8.8k. */
+export function fmtMoneyShort(dollars: number): string {
+  return Math.abs(dollars) >= 1000 ? `$${(dollars / 1000).toFixed(1)}k` : usd0.format(dollars)
+}
+
 export function fmtHours(hours: number): string {
   const r = Math.round(hours * 10) / 10
   return `${Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1)}h`

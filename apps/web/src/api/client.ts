@@ -1,4 +1,4 @@
-import type { StoreConfig } from '../contracts'
+import type { Gap, GapReason, Jurisdiction, LawPack, StoreConfig } from '../contracts'
 import type {
   CardSubmission,
   ChatEvent,
@@ -53,6 +53,9 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
     solve: (id: string, timeLimitS?: number) =>
       post<SolveResponse>(`${s(id)}/solve`, timeLimitS ? { time_limit_s: timeLimitS } : {}),
     latestSchedule: (id: string) => json<SolveResponse>(`${s(id)}/schedule`),
+    resolveLaw: (j: Jurisdiction) =>
+      json<LawPack>(`/laws/resolve?state=${encodeURIComponent(j.state)}${j.city ? `&city=${encodeURIComponent(j.city)}` : ''}`),
+    explainGap: (id: string, gap: Gap) => post<{ text: string; reasons: GapReason[] }>(`${s(id)}/gaps/explain`, { gap }),
     submitCard: (id: string, sub: CardSubmission) => post<unknown>(`${s(id)}/chat/card`, sub),
 
     /** Streams one chat turn. Resolves when the stream closes. */

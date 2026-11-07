@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
-import { fmtDayDate, fmtHours, fmtMoney, fmtRange } from '../lib/format'
+import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
 
 type Props = { schedule: Schedule; config: StoreConfig }
@@ -121,7 +121,7 @@ export function ScheduleGrid({ schedule, config }: Props) {
                     className={`truncate text-xs ${dayGaps.length ? 'font-medium text-gap' : 'text-muted'}`}
                     title={dayGaps.length ? `${dayGaps.length} uncovered stretches, ${fmtMoney(cost)} penalty` : undefined}
                   >
-                    {dayGaps.length ? `${fmtMoney(cost)} gaps` : closed ? 'Closed' : 'Covered'}
+                    {dayGaps.length ? `${fmtMoneyShort(cost)} gaps` : closed ? 'Closed' : 'Covered'}
                   </div>
                 </th>
               )
