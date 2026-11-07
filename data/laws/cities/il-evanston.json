@@ -5,9 +5,10 @@
   },
   "level": "city",
   "notes": [
-    "Evanston Fair Workweek Ordinance 24-O-23 covers employers with 100+ employees globally (incl. franchises) in retail and other listed industries; effective date moved to Jan. 1, 2024 (city page).",
-    "Predictability pay rate equals the employee's regular hourly rate for changes with <14 days' notice; the number of hours per change is not stated on the city page, so change_premium_hours=1 is a placeholder and the rule is confidence=low (excluded by default) until the ordinance text is read.",
-    "No right-to-rest rule stated on the city page; not encoded."
+    "Evanston Fair Workweek Ordinance 24-O-23 (City Code ch. 3-34), effective Jan. 1, 2024: covered employers have 100+ employees globally in covered industries (retail, hospitality, warehouse, manufacturing, building services); restaurants need 30+ locations and 200+ employees globally; franchisees of networks with 30+ locations are covered. Employees: 2+ hours/week in Evanston.",
+    "Predictability pay (\u00a7 3-34-5(B)): per shift the employer adds/subtracts hours, moves, cancels, or adds: with <14 days but >=24 h notice, 1 h; with <24 h notice, min(4, hours in the scheduled shift) when hours are cancelled or reduced, 1 h for all other changes. Paid at the regular rate. Employees may decline hours added with <14 days' notice (\u00a7 3-34-5(A)).",
+    "Exceptions (\u00a7 3-34-5(D)): emergencies (with $2/h hazard pay if extra hours are required); mutually agreed shift trades or coverage arrangements between employees; employee-requested changes confirmed in writing (incl. sick leave); documented discipline; self-scheduling. Unlike Chicago there is no exemption for employer-proposed changes the employee agrees to. 'Writing' includes email and text message (definitions). On-call employees paid for on-call time are not owed predictability pay when called in (FAQ Q11).",
+    "Right to rest (\u00a7 3-34-7): 1.5x only for the hours worked within 11 h of the previous shift (no premium_applies_to='shift')."
   ],
   "rules": [
     {
@@ -20,18 +21,57 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
+        "applies_to": "both",
         "applies_if_employees_over": 99,
-        "applies_to": "both"
+        "employee_count_scope": "global",
+        "premium_basis": "regular_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "reduced_premium_hours": 1,
+        "reduced_hours_fraction": 1.0,
+        "reduced_hours_measure": "scheduled_shift",
+        "reduced_premium_hours_cap": 4,
+        "reduced_fraction_notice_hours": 24,
+        "voluntary_additional_hours_exempt": false,
+        "consent_must_be_written": false,
+        "text_message_counts_as_written": true,
+        "coworker_coverage_exempt": true,
+        "exemption_requires_group_message": false,
+        "exemption_note": "Exempt only for \"a mutually agreed upon shift trade or coverage arrangement between Employees\" or an employee-requested change \"confirmed in writing\"; an employer-requested call-in owes predictability pay even if accepted."
       },
-      "summary": "Employers with 100+ employees globally must post schedules 14 days before the first shift and pay predictability pay for later changes.",
+      "summary": "Evanston (100+ employees globally, retail and other industries): inside 14 days, 1 hour at the regular rate per added, moved or changed shift; cuts/cancellations with <24 h notice pay 4 hours or the scheduled shift length, whichever is less.",
       "citation": {
-        "url": "https://www.cityofevanston.org/business/fair_workweek.php",
-        "title": "City of Evanston \u2014 Fair Workweek",
-        "excerpt": "Employers have to post schedules 14 days before the first scheduled shift.",
-        "last_verified": "2026-11-06"
+        "url": "https://www.cityofevanston.org/Documents/Business/Fair%20Workweek/Correctly%20Amended%2024O23.pdf",
+        "title": "Evanston Ordinance 24-O-23 (as amended), City Code \u00a7 3-34-5 \u2014 Compensation for schedule changes",
+        "excerpt": "With less than 24 hours to the Employee: (i) four hours or the number of hours in the Employee's scheduled Shift, whichever is less, when hours are canceled or reduced; (ii) one hour",
+        "last_verified": "2026-11-07"
       },
-      "confidence": "low",
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.evanston.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": "evanston"
+      },
+      "level": "city",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 660,
+        "premium_multiplier": 1.5,
+        "waivable": true,
+        "consent_must_be_written": true
+      },
+      "summary": "Employees may decline hours within 11 hours of their last shift; if they agree in writing, those hours are paid at 1.5x the regular rate.",
+      "citation": {
+        "url": "https://www.cityofevanston.org/Documents/Business/Fair%20Workweek/Correctly%20Amended%2024O23.pdf",
+        "title": "Evanston City Code \u00a7 3-34-7 \u2014 Right to rest (Ord. 24-O-23)",
+        "excerpt": "An Employee who agrees in writing to work hours described in this Section shall be compensated at one-and-a-half (1.5) times the Employee's regular rate of pay for any hours worked less than 11 hours",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
