@@ -63,6 +63,34 @@ def tags_for(role_id: str, name: str) -> list[str]:
     return out
 
 
+# Job titles that name the tagged work outright. A tag is "clear" when the role's *name* matches one of these
+# (not just a loose keyword like "deli", "bar", "delivery" or "bakery"), so we keep it without asking: keeping a
+# tag is the protective direction, and the owner can still remove it. Loose matches still go to the card.
+_STRONG: dict[str, list[str]] = {
+    "powered_industrial_truck": [r"fork ?lifts?( (operator|driver)s?)?", r"powered industrial truck( operator)?",
+                                 r"reach (truck|lift)( operator)?", r"order picker", r"cherry picker",
+                                 r"lift truck( operator)?", r"hi ?lo( driver)?", r"pit (operator|driver)"],
+    "meat_slicer": [r"(deli )?slicer( operator)?", r"butchers?", r"meat cutters?"],
+    "bakery_machine": [r"bakers?", r"mixer operators?"],
+    "baler_compactor": [r"baler( operator)?", r"compactor( operator)?"],
+    "motor_vehicle_driving": [r"(delivery |truck |van |shuttle )?drivers?", r"couriers?", r"chauffeurs?", r"valets?"],
+    "cooking": [r"(line |prep |grill |fry |fryer |short order |head )?cooks?", r"(sous |head |executive )?chefs?",
+                r"pizzaiolo", r"grill (cook|chef)"],
+    "fryer": [r"fry cooks?", r"fryer( operator| cook)?"],
+    "power_saw": [r"saw operators?", r"lumber cutters?"],
+    "ladder_scaffold": [r"riggers?", r"scaffold(er|ing)"],
+    "alcohol_service": [r"bartenders?", r"barbacks?", r"sommeliers?", r"mixologists?"],
+}
+_STRONG_RX = {tag: re.compile(r"^(" + "|".join(p) + r")$") for tag, p in _STRONG.items()}
+
+
+def clear_tag(name: str, tag: str) -> bool:
+    """Is this role's name an unambiguous job title for `tag`? (Whole name, e.g. "Line Cook", "Bartender".)"""
+    n = _norm(name)
+    rx = _STRONG_RX.get(tag)
+    return bool(rx and rx.match(n)) and not (tag in _NOT and _NOT[tag].search(n))
+
+
 def looks_powered(role_id: str, name: str) -> bool:
     return PIT_TAG in tags_for(role_id, name)
 
@@ -87,12 +115,18 @@ def tag_in_dict(d: dict, review: dict[str, dict]) -> list[tuple[str, str, list[s
     return out
 
 
-def record_auto(db: Database, store_id: str, tagged: list) -> None:
+def record_auto(db: Database, store_id: str, tagged: list) -> dict[str, str]:
+    """Record new automatic tags: "clear" when every tag is plainly the job's name (kept, not asked), else "auto"
+    (the owner keeps or removes them on the confirm_tags card). Returns {role_id: status}."""
+    out: dict[str, str] = {}
     if tagged:
         review = state(db, store_id)
-        for rid, _, tags in tagged:
-            review[rid] = {"status": "auto", "tags": list(tags)}
+        for rid, name, tags in tagged:
+            status = "clear" if tags and all(clear_tag(name, t) for t in tags) else "auto"
+            review[rid] = {"status": status, "tags": list(tags)}
+            out[rid] = status
         db.put(store_id, "equipment_review", "roles", review)
+    return out
 
 
 def describe(tagged: list) -> str:

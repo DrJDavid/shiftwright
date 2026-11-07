@@ -91,12 +91,20 @@ class ToolContext:
             return ToolResult({"error": str(e)})
         content: dict = {"ok": True, "config_version": cfg.config_version, "changed": summary}
         if tagged:
-            equipment.record_auto(self.db, self.store_id, tagged)
+            status = equipment.record_auto(self.db, self.store_id, tagged)
             summary = summary + [f"tagged: {equipment.describe(tagged)}"]
+            unclear = [t for t in tagged if status.get(t[0]) == "auto"]
+            clear = [t for t in tagged if status.get(t[0]) == "clear"]
+            notes = []
+            if clear:
+                notes.append(f"Clearly hazard/equipment work by name, tags kept: {equipment.describe(clear)}. Mention it "
+                             "in one short clause (minor-labor rules in the law dataset will apply; they can remove a "
+                             "tag on Team & rules). Don't ask about these.")
+            if unclear:
+                notes.append(f"Unsure from the name: {equipment.describe(unclear)}. Ask the owner to keep or remove "
+                             "these on the confirm_tags card (ask_confirm_tags), once, after roles are set up.")
             content.update(changed=summary, equipment_tagged={rid: tags for rid, _, tags in tagged},
-                           note="These roles look like hazard/equipment work (tags from a fixed list), so minor-labor "
-                                "rules in the law pack now apply to them. Tell the leader in one sentence and ask "
-                                "them to keep or remove the tags on the confirm_tags card (ask_confirm_tags).")
+                           equipment_status=status, note=" ".join(notes))
         return ToolResult(content, patch_summary=summary, config_version=cfg.config_version)
 
 

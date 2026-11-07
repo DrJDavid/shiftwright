@@ -1,6 +1,8 @@
 """department_staffing card (API.md v1.3), equipment tagging, priorities readiness."""
 from __future__ import annotations
 
+import pytest
+
 from api_helpers import make_store, parse_sse, tiny_config
 from shiftwright_api.agent.llm import call, say
 from shiftwright_api.agent.tools import staffing_to_demand
@@ -67,7 +69,8 @@ def test_imported_forklift_role_is_tagged_and_reviewable(client):
     w = client.get(f"/api/stores/{sid}/import/roster/warnings").json()["warnings"]
     assert any("powered_industrial_truck" in x for x in w)
     check = next(c for c in client.get(f"/api/stores/{sid}/readiness").json()["checks"] if c["id"] == "equipment_roles")
-    assert "Forklift Operator" in check["detail"] and "confirm" in check["detail"]
+    # "Forklift Operator" names the work outright: the tag is kept without asking (still removable)
+    assert "Forklift Operator" in check["detail"] and check["severity"] == "ok"
     r = client.post(f"/api/stores/{sid}/equipment_roles", json={"role_id": "forklift_operator", "decision": "reject"})
     assert "forklift_operator" not in r.json()["role_tags"]
     # a rejected role is not re-tagged by the next import
@@ -179,9 +182,10 @@ def test_closed_days_dropped_and_chat_employee_defaults(client, fake_llm):
 def test_confirm_tags_card_is_the_only_way(client, fake_llm):
     from shiftwright_api.agent.llm import call, say
     sid = make_store(client, template="bigbox_small")["store"]["id"]
-    fake_llm.script([call("upsert_role", role={"id": "fry_cook", "department_id": "grocery", "name": "Fry Cook",
+    # unclear names (a station, a place), so the owner is asked; clear titles are kept without a card
+    fake_llm.script([call("upsert_role", role={"id": "fry_cook", "department_id": "grocery", "name": "Fry Station",
                                                "gap_penalty_per_hour": 20}),
-                     call("upsert_role", role={"id": "bartender", "department_id": "grocery", "name": "Bartender",
+                     call("upsert_role", role={"id": "bartender", "department_id": "grocery", "name": "Bar",
                                                "gap_penalty_per_hour": 20}),
                      call("ask_confirm_tags"), say("ok")])
     script = {"confirm_tags": [{"decisions": {"fry_cook": "keep", "bartender": "remove"}}]}
@@ -208,3 +212,24 @@ def test_agent_cannot_confirm_rules(client, fake_llm):
     assert c["status"] == "provisional"
     tool_msgs = [m["content"] for m in fake_llm.calls[-1] if m["role"] == "tool"]
     assert "Only the leader confirms" in tool_msgs[-1]
+
+
+@pytest.mark.parametrize("name,tag,clear", [
+    ("Line Cook", "cooking", True), ("Bartender", "alcohol_service", True), ("Forklift Operator", "powered_industrial_truck", True),
+    ("Delivery Driver", "motor_vehicle_driving", True), ("Butcher", "meat_slicer", True),
+    ("Fryer Cook", "cooking", True), ("Fryer Cook", "fryer", True),
+    ("Deli", "meat_slicer", False), ("Bar", "alcohol_service", False), ("Delivery", "motor_vehicle_driving", False),
+    ("Bakery Associate", "bakery_machine", False), ("Grill", "cooking", False), ("Dish / Prep", "cooking", False),
+])
+def test_clear_job_titles_skip_the_question(name, tag, clear):
+    from shiftwright_api import equipment
+    assert equipment.clear_tag(name, tag) is clear
+
+
+def test_only_unclear_tags_are_left_for_the_owner(client):
+    from shiftwright_api import equipment
+    sid = make_store(client, template="tiny")["store"]["id"]
+    db = client.app.state.db
+    status = equipment.record_auto(db, sid, [("cook", "Line Cook", ["cooking"]), ("deli", "Deli", ["meat_slicer"])])
+    assert status == {"cook": "clear", "deli": "auto"}
+    assert equipment.pending(db, sid) == ["deli"]
