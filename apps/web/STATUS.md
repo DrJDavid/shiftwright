@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B3: routes, accounts, create workplace, switcher), branch
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B4: routes, accounts, create workplace, switcher, guided setup), branch
 `cursor/B1-web-shell` off main 9413f5e. Built against the PUNCHLIST A1 endpoint table; A1 isn't on main yet._
 
 ## How David runs it locally
@@ -31,6 +31,21 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
   written when a workplace opens (the phone view `?employee=` falls back to it).
 - Production builds are always live (unless built with `VITE_API_MODE=mock`): no "Mock API" pill, no `?api=mock` hints,
   and the mock + fixtures are tree-shaken out (main chunk 2.6 MB → 467 kB). `npm run dev` keeps `?api=mock|live`.
+
+## Guided setup (B4)
+
+- `/w/:id` is in **setup mode** until `GET /schedule` returns a schedule: a step tracker on the left and the chat
+  centered (max 3xl). No tabs. Once a schedule exists (Build, or the agent's own solve via `onScheduleChanged`) it
+  switches to **workspace mode**; the chat becomes the **Ask Shiftwright** drawer. The `ChatPane` keeps its place in
+  the tree, so the conversation survives the switch (tested).
+- Steps (`src/lib/setupSteps.ts`, tested) use the check ids from `apps/api/.../readiness.py`:
+  Business = `store_basics`, `jurisdiction`, `business_type`; Hours & budget = `budget`; Team = `roles`, `employees`,
+  `training`, `equipment_roles`, `minors_on_tagged_roles`, `minimum_wage`; Staffing = `demand`, `priorities`,
+  `roles_without_demand`, `staffing_draft`; Rules = `provisional_rules` (+ any id the map doesn't know). A step is
+  done when all its checks are `ok`; `severity: warn` shows "!" (attention). Hover/focus shows each check's detail;
+  the current step shows its first open detail inline. Team carries the Is equipment / Not equipment buttons.
+- **Build my schedule** is enabled when `ready`; otherwise it's disabled with "Build anyway" and a one-line warning.
+- The mock's readiness now emits the same ids (it used `law_pack` for `jurisdiction`) with `severity`.
 
 ## Assumptions about the backend (Lane A)
 

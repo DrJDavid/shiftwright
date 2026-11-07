@@ -140,7 +140,8 @@ export type SolveResponse = { schedule: Schedule; validation: ValidationReport |
 
 export type Readiness = {
   ready: boolean
-  checks: { id: string; label: string; ok: boolean; detail: string }[]
+  /** v1.5 `severity`: warnings keep `ok: true`. */
+  checks: { id: string; label: string; ok: boolean; detail: string; severity?: 'ok' | 'warn' | 'block' }[]
 }
 
 export type ImportPreview = {

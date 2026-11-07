@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from './App'
 import { ApiContext } from './api/context'
@@ -158,5 +158,46 @@ describe('create a workplace', () => {
     await waitFor(() => expect(t.path()).toMatch(/^\/w\/mock-\d+$/))
     expect(t.calls.find((c) => c.url === '/api/workplaces/sample')?.body).toEqual({ template: 'demo' })
     expect(await screen.findByText(/^Sample: /)).toBeTruthy()
+  })
+})
+
+async function createHarborGrill() {
+  await signUp()
+  await screen.findByRole('heading', { name: 'New workplace' })
+  type('Name', 'Harbor Grill')
+  fireEvent.click(screen.getByLabelText('Restaurant / café'))
+  type('City', 'Chicago')
+  type('State', 'IL')
+  fireEvent.click(screen.getByRole('button', { name: 'Create workplace' }))
+}
+
+describe('setup mode → workspace mode (B4)', () => {
+  it('starts in setup mode, then switches to the workspace after the first build, keeping the chat', async () => {
+    setup('/signup')
+    await createHarborGrill()
+
+    // Setup mode: step tracker + centered chat, no tabs.
+    const steps = await screen.findByRole('complementary', { name: 'Setup steps' })
+    for (const label of ['Business', 'Hours & budget', 'Team', 'Staffing', 'Rules', 'Build'])
+      expect(within(steps).getByText(label)).toBeTruthy()
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Build my schedule' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByLabelText('Business: not done')).toBeTruthy()
+
+    // Talk to the chat first; the conversation must survive the mode switch.
+    fireEvent.click(screen.getByRole('button', { name: 'Set up my store' }))
+    await screen.findByText(/Let's start with the store itself/)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Build anyway' }))
+    await screen.findByRole('tablist', { name: 'Views' })
+    expect(screen.queryByRole('complementary', { name: 'Setup steps' })).toBeNull()
+
+    // The chat is now a drawer behind "Ask Shiftwright", with the same conversation.
+    expect(screen.queryByText(/Let's start with the store itself/)).toBeTruthy()
+    const ask = screen.getByRole('button', { name: 'Ask Shiftwright' })
+    expect(ask.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(ask)
+    expect(ask.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('region', { name: 'Chat' })).toBeTruthy()
   })
 })

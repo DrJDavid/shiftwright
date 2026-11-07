@@ -12,6 +12,7 @@ import { GapSheet } from './components/GapSheet'
 import { ReadinessRail } from './components/ReadinessRail'
 import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
+import { SetupSteps } from './components/SetupSteps'
 import { WorkplaceMenu } from './components/WorkplaceMenu'
 import { StoreTab } from './components/StoreTab'
 import { ReceiptTab } from './components/ReceiptTab'
@@ -39,7 +40,9 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const [solve, setSolve] = useState<SolveState>({ status: 'idle' })
   const [tab, setTab] = useState<Tab>('schedule')
   const [railOpen, setRailOpen] = useState(true)
-  const [chatOpen, setChatOpen] = useState(true)
+  const [chatOpen, setChatOpen] = useState(false)
+  // B4: setup mode until a schedule exists (GET /schedule answered), then workspace mode.
+  const [scheduleChecked, setScheduleChecked] = useState(false)
   const [openGap, setOpenGap] = useState<Gap | null>(null)
   const [coverageDay, setCoverageDay] = useState(0)
   const [callouts, setCallouts] = useState<{ employee_id: string; day: number }[]>([])
@@ -86,22 +89,30 @@ export function Workspace({ storeId: id }: { storeId: string }) {
     }
   }, [api, id])
 
-  const refreshReadiness = useCallback(async (id: string) => {
-    try {
-      setReadiness(await api.readiness(id))
-      setReadinessError(null)
-    } catch (e) {
-      setReadinessError((e as Error).message)
-    }
-  }, [api])
+  const refreshReadiness = useCallback(
+    async (id: string) => {
+      try {
+        setReadiness(await api.readiness(id))
+        setReadinessError(null)
+      } catch (e) {
+        setReadinessError((e as Error).message)
+      }
+    },
+    [api],
+  )
 
-  const refreshSchedule = useCallback(async (id: string) => {
-    try {
-      setResult(await api.latestSchedule(id))
-    } catch (e) {
-      if (!(e instanceof ApiError && e.status === 404)) setSolve({ status: 'error', message: (e as Error).message })
-    }
-  }, [api])
+  const refreshSchedule = useCallback(
+    async (id: string) => {
+      try {
+        setResult(await api.latestSchedule(id))
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 404)) setSolve({ status: 'error', message: (e as Error).message })
+      } finally {
+        setScheduleChecked(true)
+      }
+    },
+    [api],
+  )
 
   useEffect(() => {
     if (!storeId) return
@@ -146,7 +157,6 @@ export function Workspace({ storeId: id }: { storeId: string }) {
       setResult(await api.solve(storeId))
       setOpenGap(null)
       setSolve({ status: 'idle' })
-      setRailOpen(false) // give the week grid the room
     } catch (e) {
       setSolve({ status: 'error', message: (e as Error).message })
     }
@@ -188,6 +198,123 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const end = fmtDayDate(config.store.week_start, 6)
   const juris = config.store.jurisdiction
 
+  const setup = !result
+  const onEquipment = async (roleId: string, decision: 'confirm' | 'reject') => {
+    try {
+      setConfig(await api.equipmentRole(config.store.id, roleId, decision))
+      void refreshReadiness(config.store.id)
+    } catch (e) {
+      setReadinessError(`Couldn't save: ${(e as Error).message}`)
+    }
+  }
+
+  const workspaceMain = (
+    <>
+      <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
+        <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              disabled={!t.ready}
+              title={t.ready ? undefined : 'Not built yet'}
+              onClick={() => {
+                setTab(t.id)
+                if (t.id === 'fix' || t.id === 'receipt' || t.id === 'store') setChatOpen(false)
+              }}
+              className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold ${
+                tab === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
+              } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted`}
+            >
+              {t.label}
+            </button>
+          ))}
+          <span className="ml-auto self-center" />
+          <button
+            type="button"
+            onClick={() => setChatOpen((o) => !o)}
+            aria-expanded={chatOpen}
+            className="self-center rounded-full border border-ink/25 bg-panel px-3 py-1 text-sm font-semibold hover:border-ink"
+          >
+            Ask Shiftwright
+          </button>
+        </nav>
+        {tab === 'schedule' && (
+          <ScheduleTab
+            config={config}
+            result={result}
+            solve={solve}
+            onSolve={() => void runSolve()}
+            onGapClick={setOpenGap}
+            callouts={callouts}
+            lawRules={lawPack?.rules}
+            onDayClick={(d) => {
+              setCoverageDay(d)
+              setTab('coverage')
+            }}
+          />
+        )}
+        {tab === 'coverage' && (
+          <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
+        )}
+        {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
+        {tab === 'receipt' && (
+          <ReceiptTab
+            api={api}
+            config={config}
+            result={result}
+            lawPack={lawPack}
+            onValidated={(validation) => setResult((r) => (r ? { ...r, validation } : r))}
+          />
+        )}
+        {/* Kept mounted so a running outreach survives tab switches. */}
+        <div className={tab === 'fix' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+          <FixTab
+            key={config.store.id}
+            api={api}
+            config={config}
+            result={result}
+            lawPack={lawPack}
+            onCallouts={setCallouts}
+            onSchedule={(schedule) => {
+              // The API saves each accepted call-in with a fresh validator report; fall back to the state's copy.
+              api
+                .latestSchedule(config.store.id)
+                .then(setResult)
+                .catch(() => setResult({ schedule, validation: null }))
+            }}
+          />
+        </div>
+        {openGap && result && (
+          <GapSheet
+            api={api}
+            storeId={config.store.id}
+            gap={openGap}
+            weekStart={result.schedule.week_start}
+            config={config}
+            lawPack={lawPack}
+            onClose={() => setOpenGap(null)}
+          />
+        )}
+      </main>
+
+      <ReadinessRail
+        readiness={readiness}
+        error={readinessError}
+        solve={solve}
+        onSolve={() => void runSolve()}
+        open={railOpen}
+        onToggle={() => setRailOpen((o) => !o)}
+        roles={config.roles}
+        onEquipment={onEquipment}
+      >
+        <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
+      </ReadinessRail>
+    </>
+  )
+
   return (
     <div className="grid h-full grid-rows-[auto_1fr]">
       <header className="flex items-center gap-4 border-b border-ink bg-ink px-4 py-2 text-white">
@@ -212,134 +339,56 @@ export function Workspace({ storeId: id }: { storeId: string }) {
         <WorkplaceMenu currentId={config.store.id} />
       </header>
 
+      {/* The chat keeps its place in this tree in both modes, so the conversation survives the first build. */}
       <div
-        className="grid min-h-0"
-        style={{ gridTemplateColumns: `${chatOpen ? 'minmax(320px,30%)' : '3rem'} minmax(0,1fr) ${railOpen ? '19rem' : '3rem'}` }}
+        className="relative grid min-h-0"
+        style={{ gridTemplateColumns: !scheduleChecked ? '1fr' : setup ? '17rem minmax(0,1fr)' : 'minmax(0,1fr)' }}
       >
-        {!chatOpen && (
-          <button
-            type="button"
-            onClick={() => setChatOpen(true)}
-            aria-expanded={false}
-            className="flex flex-col items-center gap-2 border-r border-rule bg-paper py-3 text-sm font-semibold text-ink-2 hover:text-ink"
-          >
-            <span className="[writing-mode:vertical-rl]">Chat</span>
-          </button>
-        )}
-        <div className={chatOpen ? 'contents' : 'hidden'}>
-          <ChatPane
-            key={config.store.id}
-            sector={config.store.sector}
-            api={api}
-            storeId={config.store.id}
-            mode="onboard"
-            onConfigChanged={() => void onConfigChanged()}
-            onScheduleChanged={() => void refreshSchedule(config.store.id)}
-            onHide={() => setChatOpen(false)}
+        {!scheduleChecked ? (
+          <div className="flex items-center justify-center text-muted">Loading workplace…</div>
+        ) : setup ? (
+          <SetupSteps
+            readiness={readiness}
+            error={readinessError}
+            solve={solve}
+            onBuild={() => void runSolve()}
+            roles={config.roles}
+            onEquipment={onEquipment}
           />
-        </div>
-
-        <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
-          <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.id}
-                disabled={!t.ready}
-                title={t.ready ? undefined : 'Not built yet'}
-                onClick={() => {
-                  setTab(t.id)
-                  // These views need the width; the chat is one click away.
-                  if (t.id === 'fix' || t.id === 'receipt' || t.id === 'store') setChatOpen(false)
-                }}
-                className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold ${
-                  tab === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
-                } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
-          {tab === 'schedule' && (
-            <ScheduleTab
-              config={config}
-              result={result}
-              solve={solve}
-              onSolve={() => void runSolve()}
-              onGapClick={setOpenGap}
-              callouts={callouts}
-              lawRules={lawPack?.rules}
-              onDayClick={(d) => {
-                setCoverageDay(d)
-                setTab('coverage')
-              }}
-            />
-          )}
-          {tab === 'coverage' && (
-            <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
-          )}
-          {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
-          {tab === 'receipt' && (
-            <ReceiptTab
-              api={api}
-              config={config}
-              result={result}
-              lawPack={lawPack}
-              onValidated={(validation) => setResult((r) => (r ? { ...r, validation } : r))}
-            />
-          )}
-          {/* Kept mounted so a running outreach survives tab switches. */}
-          <div className={tab === 'fix' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
-            <FixTab
+        ) : (
+          <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_auto]">{workspaceMain}</div>
+        )}
+        <div
+          className={
+            !scheduleChecked
+              ? 'hidden'
+              : setup
+                ? 'flex min-h-0 justify-center bg-paper'
+                : chatOpen
+                  ? 'absolute inset-y-0 right-0 z-30 flex w-[28rem] max-w-full flex-col border-l border-rule bg-paper shadow-2xl'
+                  : 'hidden'
+          }
+        >
+          <div className={`grid min-h-0 w-full ${setup ? 'max-w-3xl grid-rows-[minmax(0,1fr)]' : 'flex-1 grid-rows-[auto_minmax(0,1fr)]'}`}>
+            {!setup && (
+              <div className="flex items-center justify-between border-b border-rule bg-panel px-4 py-2">
+                <span className="font-semibold">Ask Shiftwright</span>
+                <button type="button" onClick={() => setChatOpen(false)} className="text-sm text-muted hover:text-ink">
+                  Close
+                </button>
+              </div>
+            )}
+            <ChatPane
               key={config.store.id}
-              api={api}
-              config={config}
-              result={result}
-              lawPack={lawPack}
-              onCallouts={setCallouts}
-              onSchedule={(schedule) => {
-                // The API saves each accepted call-in with a fresh validator report; fall back to the state's copy.
-                api
-                  .latestSchedule(config.store.id)
-                  .then(setResult)
-                  .catch(() => setResult({ schedule, validation: null }))
-              }}
-            />
-          </div>
-          {openGap && result && (
-            <GapSheet
+              sector={config.store.sector}
               api={api}
               storeId={config.store.id}
-              gap={openGap}
-              weekStart={result.schedule.week_start}
-              config={config}
-              lawPack={lawPack}
-              onClose={() => setOpenGap(null)}
+              mode="onboard"
+              onConfigChanged={() => void onConfigChanged()}
+              onScheduleChanged={() => void refreshSchedule(config.store.id)}
             />
-          )}
-        </main>
-
-        <ReadinessRail
-          readiness={readiness}
-          error={readinessError}
-          solve={solve}
-          onSolve={() => void runSolve()}
-          open={railOpen}
-          onToggle={() => setRailOpen((o) => !o)}
-          roles={config.roles}
-          onEquipment={async (roleId, decision) => {
-            try {
-              setConfig(await api.equipmentRole(config.store.id, roleId, decision))
-              void refreshReadiness(config.store.id)
-            } catch (e) {
-              setReadinessError(`Couldn't save: ${(e as Error).message}`)
-            }
-          }}
-        >
-          <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
-        </ReadinessRail>
+          </div>
+        </div>
       </div>
     </div>
   )

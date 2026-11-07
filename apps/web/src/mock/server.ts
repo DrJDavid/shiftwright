@@ -16,6 +16,7 @@ import type {
 } from '../api/protocol'
 import type { FetchLike } from '../api/client'
 import { mockStoreConfig } from './fixture'
+import { WEEKDAY_NAMES } from '../lib/format'
 import { mockScore, mockSolve } from './solver'
 import { MockOutreach, mockFix } from './fix'
 import { applyStaffing, mockStaffingProps } from './staffing'
@@ -123,16 +124,34 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     return null
   }
 
+  // Same check ids as apps/api readiness.py (a subset: the mock has no law data or equipment review).
   function readiness(st: StoreState): Readiness {
     const c = st.config
+    const sev = (ok: boolean, warn = false) => (ok ? 'ok' : warn ? 'warn' : 'block') as 'ok' | 'warn' | 'block'
+    const check = (id: string, label: string, ok: boolean, detail: string, warn = false) => ({ id, label, ok, detail, severity: sev(ok, warn) })
+    const openDays = [...new Set(c.store.hours.filter((h) => h.close > h.open).map((h) => h.day))].sort()
+    const trained = new Set(c.employees.flatMap((e) => e.trained_role_ids))
+    const untrained = c.roles.filter((r) => !trained.has(r.id)).map((r) => r.name)
+    const demandDays = new Set(c.demand.filter((d) => d.headcount > 0).map((d) => d.day))
+    const noDemand = openDays.filter((d) => !demandDays.has(d))
+    const demandRoles = new Set(c.demand.filter((d) => d.headcount > 0).map((d) => d.role_id))
+    const unpriced = c.roles.filter((r) => demandRoles.has(r.id) && !(r.gap_penalty_per_hour > 0)).map((r) => r.name)
+    const prov = (c.constraints ?? []).filter((x) => x.status === 'provisional')
     const checks = [
-      { id: 'store_basics', label: 'Store basics', ok: st.basicsDone, detail: st.basicsDone ? c.store.name : 'Confirm name, location and hours' },
-      { id: 'law_pack', label: 'Labor law for this location', ok: c.law_pack != null, detail: c.law_pack ? c.law_pack.coverage : 'Not resolved (mock API has no law data)' },
-      { id: 'roles', label: 'Roles', ok: c.roles.length > 0, detail: `${c.roles.length} roles` },
-      { id: 'employees', label: 'Employees', ok: c.employees.length > 0, detail: `${c.employees.length} people` },
-      { id: 'budget', label: 'Payroll budget', ok: st.payrollDone, detail: st.payrollDone ? `${c.budget.weekly_hours_cap}h cap` : 'Set the weekly hours cap' },
+      check('store_basics', 'Store basics', st.basicsDone, st.basicsDone ? c.store.name : 'Confirm name, location and hours'),
+      check('jurisdiction', 'Labor law resolved', c.law_pack != null, c.law_pack ? c.law_pack.coverage : 'Not resolved (mock API has no law data)'),
+      check('roles', 'Roles', c.roles.length > 0, c.roles.length ? `${c.roles.length} roles` : 'No roles yet.'),
+      check('employees', 'Employees', c.employees.length > 0, c.employees.length ? `${c.employees.length} employees` : 'No employees yet.'),
+      check('training', 'Every role has a trained employee', c.roles.length > 0 && !untrained.length,
+        untrained.length ? `Nobody trained for: ${untrained.join(', ')}` : 'All roles covered.'),
+      check('demand', 'Demand for every open day', openDays.length > 0 && !noDemand.length,
+        noDemand.length ? `No demand on ${noDemand.map((d) => WEEKDAY_NAMES[d]).join(', ')}` : 'Demand set for all open days.'),
+      check('priorities', 'Role priorities set', demandRoles.size > 0 && !unpriced.length,
+        unpriced.length ? `Set priorities for: ${unpriced.join(', ')}` : demandRoles.size ? 'Every role with demand has a gap cost.' : 'No demand yet.'),
+      check('budget', 'Payroll budget', st.payrollDone, st.payrollDone ? `${c.budget.weekly_hours_cap}h cap` : 'Set the weekly hours cap'),
+      check('provisional_rules', 'No unconfirmed rules', !prov.length, prov.length ? `${prov.length} unconfirmed rule(s)` : 'None.', true),
     ]
-    return { ready: checks.every((x) => x.ok), checks }
+    return { ready: checks.every((x) => x.ok || x.id === 'provisional_rules'), checks }
   }
 
   function chatStream(st: StoreState, req: ChatRequest, signal?: AbortSignal | null): Response {
