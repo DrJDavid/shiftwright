@@ -5,6 +5,7 @@ import type {
   CallOut,
   Budget,
   Constraint,
+  DayHours,
   Department,
   Event,
   Infeasibility,
@@ -23,6 +24,7 @@ export type CardType =
   | 'roles'
   | 'training_matrix'
   | 'coverage_grid'
+  | 'department_staffing'
   | 'events'
   | 'csv_import'
   | 'propose_rule'
@@ -48,9 +50,29 @@ export type CoverageGridProps = {
   days: number[]
   start_minute: number
   prefill: Record<string, number[]>
+  /** Sent as a read-only preview (e.g. after department_staffing): render without inputs. */
+  readonly?: boolean
 }
 /** API.md: "same grid". apps/api reads `prefill` (or `grid`) from the result. */
 export type CoverageGridResult = { prefill: Record<string, number[]> }
+export type DayGroupId = 'weekday' | 'saturday' | 'sunday'
+/** API.md v1.3 department_staffing. Times are minutes after midnight. */
+export type RoleStaffing = {
+  base: number
+  peaks: { day_group: DayGroupId | string; start: number; end: number; headcount: number }[]
+  open: { headcount: number; minutes_before_open: number } | null
+  close: { headcount: number; minutes_after_close: number } | null
+}
+export type DepartmentStaffingProps = {
+  department: Department
+  roles: Role[]
+  day_groups: { id: DayGroupId | string; days: number[] }[]
+  hours: DayHours[]
+  pre_open_minutes: number
+  post_close_minutes: number
+  suggested: Record<string, RoleStaffing>
+}
+export type DepartmentStaffingResult = { staffing: Record<string, RoleStaffing> }
 export type EventsProps = { events: Event[] }
 export type EventsResult = EventsProps
 export type CsvImportKind = 'roster' | 'training' | 'availability' | 'forecast' | 'history'
