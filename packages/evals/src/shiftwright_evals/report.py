@@ -169,7 +169,7 @@ table{border-collapse:collapse;width:100%%;margin:8px 0 18px}
 th,td{border-bottom:1px solid #e3e3e3;padding:7px 9px;text-align:left;vertical-align:top}
 th{background:#f6f6f6;font-size:17px}td:first-child{white-space:nowrap}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .big td{font-size:22px}.good{color:#0b7a53;font-weight:700}.bad{color:#b3261e;font-weight:700}
-.charts{display:grid;grid-template-columns:1fr;gap:30px}
+.charts{display:grid;grid-template-columns:1fr;gap:30px}\n.cols{display:grid;grid-template-columns:3fr 2fr;gap:28px}table.vs{width:auto;min-width:60%%}
 table.runs{font-size:14px}table.runs td,table.runs th{padding:3px 6px}
 code{background:#f3f3f3;padding:1px 5px;border-radius:4px;font-size:90%%}
 .swatch{display:inline-block;width:16px;height:16px;border-radius:3px;vertical-align:-2px;margin-right:6px}
@@ -255,25 +255,62 @@ def _repair_table(rows, systems, colors) -> str:
     return "".join(out)
 
 
-def _worked(ex, run_dir: Path, rel: str) -> str:
-    if ex is None:
-        return '<p class="note">No baseline weekly run with violations.</p>'
-    val = json.loads((run_dir / ex["path"] / "validation.json").read_text())
-    hard = [v for v in val["violations"] if v["severity"] == "hard"]
+def _violation_list(run_dir: Path, run: dict) -> str:
+    val = json.loads((run_dir / run["path"] / "validation.json").read_text())
     by: dict[str, list] = {}
-    for v in hard:
-        by.setdefault(v["code"], []).append(v)
-    out = [f'<p><b>{esc(short(ex["system"]))}</b> on <code>{esc(ex["scenario"])}</code>: '
-           f'{ex["hard_count"]} hard violations across {len(by)} rule types, coverage {fmt(ex["coverage_pct"], 1, "%")}, '
-           f'{fmt(ex["hours_used"])} h scheduled against a {fmt(ex["hours_cap"])} h cap. '
-           f'Status claimed by the model: <code>{esc(ex["status"])}</code>. '
-           f'Files: <a href="{esc(rel)}/{esc(ex["path"])}/">{esc(ex["path"])}/</a></p>',
-           '<table><tr><th>Rule broken</th><th class="n">Count</th><th>What the validator says (first 3)</th></tr>']
+    for v in val["violations"]:
+        if v["severity"] == "hard":
+            by.setdefault(v["code"], []).append(v)
+    out = ['<table><tr><th>Rule broken</th><th class="n">Count</th><th>What the validator says (first 2)</th></tr>']
     for code, vs in sorted(by.items(), key=lambda kv: (-len(kv[1]), kv[0])):
-        msgs = "<br>".join(esc(v["message"]) + (f' <span class="note">[{esc(v["law_rule_id"])}]</span>' if v.get("law_rule_id") else "")
-                           for v in vs[:3])
+        msgs = "<br>".join(esc(v["message"]) + (f' <span class="note">[{esc(v["law_rule_id"])}]</span>'
+                                                if v.get("law_rule_id") else "") for v in vs[:2])
         out.append(f'<tr><td><code>{esc(code)}</code></td><td class="n">{len(vs)}</td><td>{msgs}</td></tr>')
     out.append("</table>")
+    return "".join(out)
+
+
+def _worked(ex, sw, run_dir: Path, rel: str, colors) -> str:
+    if ex is None:
+        return '<p class="note">No baseline weekly run with violations.</p>'
+    def cell(r, key, nd=1, suffix=""):
+        return fmt(r.get(key), nd, suffix) if r and r.get("parsed") else "–"
+    sw_ok = sw is not None and sw.get("parsed")
+    head = [("System", short(ex["system"]), "Shiftwright")]
+    rows = [
+        ("Hard violations", str(ex["hard_count"]), str(sw["hard_count"]) if sw_ok else "unavailable"),
+        ("Rule types broken", str(len(ex["by_code"])), str(len(sw["by_code"])) if sw_ok else "–"),
+        ("Status claimed", ex.get("status") or "–", sw.get("status") if sw_ok else "–"),
+        ("Coverage of demand", cell(ex, "coverage_pct", 1, "%"), cell(sw, "coverage_pct", 1, "%")),
+        ("Hours scheduled / cap", f'{fmt(ex["hours_used"])} / {fmt(ex["hours_cap"])}',
+         f'{fmt(sw["hours_used"])} / {fmt(sw["hours_cap"])}' if sw_ok else "–"),
+        ("Wage cost", cell(ex, "wage_cost", 2, ""), cell(sw, "wage_cost", 2, "")),
+        ("Latency", fmt(ex["latency_s"], 1, " s"), fmt(sw["latency_s"], 1, " s") if sw else "–"),
+    ]
+    c_b, c_s = colors.get(ex["system"], "#999"), SW_COLOR
+    out = [f'<p>Same store, same inputs: <code>{esc(ex["scenario"])}</code>. '
+           f'Files: <a href="{esc(rel)}/{esc(ex["path"])}/">{esc(short(ex["system"]))}</a>'
+           + (f' · <a href="{esc(rel)}/{esc(sw["path"])}/">Shiftwright</a>' if sw else "") + '</p>',
+           '<table class="big vs"><tr><th></th>'
+           f'<th class="n"><span class="swatch" style="background:{c_b}"></span>{esc(head[0][1])}</th>'
+           f'<th class="n"><span class="swatch" style="background:{c_s}"></span>Shiftwright</th></tr>']
+    for label, a, b in rows:
+        bad_a = label == "Hard violations" and a != "0"
+        good_b = label == "Hard violations" and b == "0"
+        out.append(f'<tr><td>{esc(label)}</td><td class="n {"bad" if bad_a else ""}">{esc(a)}</td>'
+                   f'<td class="n {"good" if good_b else ""}">{esc(b)}</td></tr>')
+    out.append("</table>")
+    out.append(f'<div class="cols"><div><h3>{esc(short(ex["system"]))}: what the validator found</h3>'
+               f'{_violation_list(run_dir, ex)}</div>')
+    if sw_ok and sw["hard_count"] == 0:
+        out.append('<div><h3>Shiftwright: what the validator found</h3><p class="good" style="font-size:26px">'
+                   'No hard violations.</p><p class="note">Every shift checked against training, availability, '
+                   'minor and break law from the law pack, hours caps and the budget.</p></div>')
+    elif sw_ok:
+        out.append(f'<div><h3>Shiftwright: what the validator found</h3>{_violation_list(run_dir, sw)}</div>')
+    else:
+        out.append('<div><h3>Shiftwright</h3><p class="note">Not run on this scenario.</p></div>')
+    out.append("</div>")
     return "".join(out)
 
 
@@ -305,7 +342,7 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     agg = aggregate(rows, names)
     agg["_notes"] = {s["name"]: s.get("unavailable_reason") or "" for s in systems}
     colors = color_for(names)
-    ex = worked_example(rows)
+    ex, ex_sw = worked_example(rows)
     report_dir.mkdir(parents=True, exist_ok=True)
     rel = os.path.relpath(run_dir, report_dir)
 
@@ -365,7 +402,7 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     p.append("<h2>Call-out repair</h2>")
     p.append(_repair_table(rows, names, colors))
     p.append("<h2>Worked example</h2>")
-    p.append(_worked(ex, run_dir, rel))
+    p.append(_worked(ex, ex_sw, run_dir, rel, colors))
     p.append("<h2>Intake</h2><p class='note'>Intake suite (stretch): not implemented in this run.</p>")
     p.append("<h2>All runs</h2>")
     p.append(_runs_table(rows, rel))

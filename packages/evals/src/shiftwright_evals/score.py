@@ -196,10 +196,20 @@ def aggregate(rows: list[dict], systems: list[str]) -> dict:
     return agg
 
 
-def worked_example(rows: list[dict]) -> dict | None:
-    """The baseline weekly run whose violations span the most distinct codes (ties: most, then key)."""
+def worked_example(rows: list[dict]) -> tuple[dict | None, dict | None]:
+    """(baseline run, Shiftwright run on the same scenario). Prefers scenarios where Shiftwright passed,
+    then a baseline that put a minor on a prohibited role (the demo's law catch), then the most distinct
+    violation codes. Deterministic."""
+    sw = {r["scenario"]: r for r in rows if r["system"] == "shiftwright" and r["suite"] == "weekly"}
     cands = [r for r in rows if r["system"].startswith("baseline:") and r["suite"] == "weekly"
              and r.get("parsed") and r.get("hard_count")]
     if not cands:
-        return None
-    return max(cands, key=lambda r: (len(r["by_code"]), r["hard_count"], r["key"]))
+        return None, None
+
+    def rank(r):
+        ref = sw.get(r["scenario"])
+        return (bool(ref and ref.get("passed")), "minor_prohibited_role" in r["by_code"],
+                len(r["by_code"]), r["hard_count"], r["key"])
+
+    best = max(cands, key=rank)
+    return best, sw.get(best["scenario"])

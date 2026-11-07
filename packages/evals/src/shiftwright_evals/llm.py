@@ -43,7 +43,7 @@ class OpenRouterClient:
     """Plain chat completions, temperature 0, max output tokens as high as the model allows."""
 
     def __init__(self, api_key: str | None = None, transport: httpx.AsyncBaseTransport | None = None,
-                 timeout_s: float = 900, base_url: str = OPENROUTER_URL):
+                 timeout_s: float = 900, base_url: str = OPENROUTER_URL, max_output_cap: int | None = None):
         self.api_key = api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
         if not self.api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not set")
@@ -53,10 +53,13 @@ class OpenRouterClient:
             "HTTP-Referer": "https://github.com/shiftwright",
             "X-Title": "Shiftwright evals",
         })
-        self._limits: dict[str, int] | None = None
+        self._limits: dict[str, tuple[int, int | None]] | None = None  # id -> (max completion, context)
+        self.max_output_cap = max_output_cap
         self._lock = asyncio.Lock()
 
-    async def max_output_tokens(self, model: str) -> int:
+    async def max_output_tokens(self, model: str, prompt_chars: int = 0) -> int:
+        """The model's max completion tokens, kept inside its context window (prompt estimated at
+        3 chars/token, generously), optionally capped by --max-output-tokens."""
         async with self._lock:
             if self._limits is None:
                 self._limits = {}
@@ -64,16 +67,22 @@ class OpenRouterClient:
                     resp = await self._client.get(f"{self.base_url}/models")
                     for m in resp.json().get("data", []):
                         top = m.get("top_provider") or {}
-                        limit = top.get("max_completion_tokens") or m.get("context_length")
+                        ctx = top.get("context_length") or m.get("context_length")
+                        limit = top.get("max_completion_tokens") or ctx
                         if isinstance(limit, int) and limit > 0:
-                            self._limits[m["id"]] = limit
+                            self._limits[m["id"]] = (limit, ctx if isinstance(ctx, int) else None)
                 except Exception:  # noqa: BLE001 - fall back to the default limit
                     pass
-        return self._limits.get(model, DEFAULT_MAX_TOKENS)
+        limit, ctx = self._limits.get(model, (DEFAULT_MAX_TOKENS, None))
+        if ctx:
+            limit = min(limit, ctx - prompt_chars // 2 - 2000)
+        if self.max_output_cap:
+            limit = min(limit, self.max_output_cap)
+        return max(1024, limit)
 
     async def complete(self, model: str, messages: list[dict]) -> ChatResult:
         body = {"model": model, "messages": messages, "temperature": 0,
-                "max_tokens": await self.max_output_tokens(model)}
+                "max_tokens": await self.max_output_tokens(model, sum(len(m["content"]) for m in messages))}
         t0 = time.perf_counter()
         try:
             resp = await self._client.post(f"{self.base_url}/chat/completions", json=body)
