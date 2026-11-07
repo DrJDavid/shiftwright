@@ -48,6 +48,7 @@ from .models import (
 from .outreach import OutreachBusy, OutreachManager
 from .settings import Settings
 
+CHAT_PING_S = 15.0  # keep-alive comment interval on the chat stream
 SMS_OPTIN_SCOPE = "_public"  # kv scope for opt-ins (not tied to one store)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -498,12 +499,35 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
                 return
             try:
                 abort = app.state.turn_abort[store_id] = asyncio.Event()
-                async for event, data in run_turn(
+                events = run_turn(
                     db=db(), llm=app.state.llm, store_id=store_id, mode=req.mode,
                     user_messages=[m.model_dump() for m in req.messages], await_card=waiter,
                     aborted=abort.is_set,
-                ):
-                    yield sse(event, data)
+                )
+                # While the turn waits (on a card the leader hasn't answered, or a long solve), send an SSE
+                # comment every CHAT_PING_S so proxies and browsers don't close the idle connection and
+                # orphan the open card. The pending step is never cancelled by the ping.
+                nxt = asyncio.ensure_future(events.__anext__())
+                try:
+                    while True:
+                        done, _ = await asyncio.wait({nxt}, timeout=CHAT_PING_S)
+                        if not done:
+                            yield ": ping\n\n"
+                            continue
+                        try:
+                            event, data = nxt.result()
+                        except StopAsyncIteration:
+                            break
+                        yield sse(event, data)
+                        nxt = asyncio.ensure_future(events.__anext__())
+                finally:
+                    if not nxt.done():
+                        nxt.cancel()
+                        try:  # let the generator unwind before closing it
+                            await nxt
+                        except BaseException:  # noqa: BLE001 - cancelled or finished; either way it's done
+                            pass
+                    await events.aclose()
             finally:
                 lock.release()
 
