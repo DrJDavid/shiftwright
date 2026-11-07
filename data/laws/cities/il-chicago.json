@@ -14,7 +14,8 @@
     "Coverage (MCC 6-110-020): 'Employer' = 100+ employees globally (250+ for not-for-profits), 50 of whom are Covered Employees, primarily engaged in a Covered Industry (Retail is one); Restaurants need 30+ locations and 250+ employees globally. Covered Employee: majority of work time in Chicago, in a covered industry, and pay <= the indexed threshold ($26.00/h or $50,000/yr in the code; $33.85/h or $64,945.55/yr per chicago.gov for 2026).",
     "Tipped minimum wage: max_tip_credit_per_hour 4.09 = $17.05 \u2212 $12.96 (chicago.gov, read 2026-11-07). Chicago's One Fair Wage ordinance phases the tip credit out by July 1, 2028 (not encoded; future steps need their published amounts).",
     "applies_to='both': Covered Industries include Retail and Restaurants (MCC 6-110-020); Restaurants also need 30+ locations and 250+ employees globally.",
-    "excludes_same_day_split=true: MCC 6-110-070 applies to 'a shift that begins less than 10 hours after the end of the previous day's shift' (previous day only)."
+    "excludes_same_day_split=true: MCC 6-110-070 applies to 'a shift that begins less than 10 hours after the end of the previous day's shift' (previous day only).",
+    "exemption_applies_to: MCC 6-110-050(d)(3) exempts any 'Work Schedule change that is mutually agreed to ... and is confirmed in writing' \u2014 call-ins and extensions alike."
   ],
   "rules": [
     {
@@ -47,7 +48,11 @@
         "exemption_requires_group_message": false,
         "exemption_note": "Exempt: \"A Work Schedule change that is mutually agreed to by the Covered Employee and Employer and is confirmed in writing\"; \"writing\" includes \"text message\" (MCC 6-110-050(d)(3), 6-110-020).",
         "food_applies_if_employees_over": 249,
-        "food_min_locations": 30
+        "food_min_locations": 30,
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ]
       },
       "summary": "Inside 14 days, Chicago Fair Workweek pays 1 hour at the regular rate per shift where the employer adds hours, moves the shift, or cuts it with >24 h notice; cuts with <24 h notice pay 50% of the lost hours. Changes the employee agrees to in writing (text counts) are exempt.",
       "citation": {

@@ -14,7 +14,8 @@
     "Employees may decline any hours not on the originally posted schedule.",
     "No tip credit: since January 1, 2025 small employers may no longer count tips toward minimum compensation (Seattle OLS minimum wage page); state law also forbids it (RCW 49.46.020(3)). No tipped_minimum_wage rule.",
     "applies_to='both': retail and food-service establishments (full-service restaurants need 40+ locations).",
-    "excludes_same_day_split=true: OLS Q&A (Right to Rest Q2 Example 4, Q3): two shifts within a single day 'do not qualify for Right to Rest protections'; split shifts are excluded."
+    "excludes_same_day_split=true: OLS Q&A (Right to Rest Q2 Example 4, Q3): two shifts within a single day 'do not qualify for Right to Rest protections'; split shifts are excluded.",
+    "exemption_applies_to: the mass-communication exception covers any 'additional hours that are available because another employee cannot work those scheduled hours' (Q&A \u00a7 I.1, I.10) \u2014 a new shift or extra hours on an existing shift; the in-person group communication exception covers only hours consecutive to the current shift (extensions) for unanticipated customer needs, not absences (Q&A \u00a7 I.19, I.22)."
   ],
   "rules": [
     {
@@ -51,7 +52,11 @@
           "accepting does not earn additional compensation for schedule changes"
         ],
         "exemption_note": "Mass communication: written (email, text, app) to 2+ employees, for hours a scheduled employee cannot work; must say it is \"a mass communication\", accepting is voluntary with right to decline, and no additional compensation is owed.",
-        "food_full_service_min_locations": 40
+        "food_full_service_min_locations": 40,
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ]
       },
       "summary": "Inside 14 days, Seattle pays 1 hour at the scheduled rate for added hours (pro-rated under 1 h; changes under 15 min exempt) or a moved shift, and half the hours not worked for cuts. Hours accepted from a written 'mass communication' covering an absent coworker are exempt.",
       "citation": {

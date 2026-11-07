@@ -39,7 +39,8 @@
         "consent_must_be_written": false,
         "coworker_coverage_exempt": false,
         "exemption_requires_group_message": false,
-        "exemption_note": "Exemptions not verified: the city site blocked automated access on 2026-11-07, so no exemption is encoded and every employer change inside 14 days is charged."
+        "exemption_note": "Exemptions not verified: the city site blocked automated access on 2026-11-07, so no exemption is encoded and every employer change inside 14 days is charged.",
+        "exemption_applies_to": []
       },
       "summary": "Emeryville retail (56+ employees globally): inside 14 days, 1 hour at the regular rate per change with 24 h+ notice and for other changes with less; a cut or cancelled shift with <24 h notice pays 4 hours or the scheduled shift length, whichever is less.",
       "citation": {

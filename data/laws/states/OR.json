@@ -18,7 +18,8 @@
     "ORS 653.412-.485 do not define 'in writing'; BOLI lists text message as a notice method but the consent standard was not confirmed (OAR 839-026 not fetched), so text_message_counts_as_written=false (conservative).",
     "Coverage (ORS 653.422): retail, hospitality or food-services establishments with 500+ employees worldwide (chains and integrated enterprises aggregated). ORS 653.490 preempts local scheduling laws.",
     "applies_to='both': retail, food services and hospitality (hotels/motels) establishments (ORS 653.412); hospitality not representable in applies_to yet.",
-    "excludes_same_day_split=true: ORS 653.442(1): rest period is the first 10 hours after the end of 'the previous calendar day's work shift' or a shift spanning two calendar days."
+    "excludes_same_day_split=true: ORS 653.442(1): rest period is the first 10 hours after the end of 'the previous calendar day's work shift' or a shift spanning two calendar days.",
+    "exemption_applies_to: ORS 653.455(3)(k) covers any request to 'work additional hours' for unexpected absence or customer needs; an employee working a shift (extension) may be asked individually, one not on shift (call-in) only through a group communication."
   ],
   "rules": [
     {
@@ -143,7 +144,11 @@
         "exemption_recipients": "all_eligible",
         "exemption_only_for_absent_coworker_hours": false,
         "standby_list_first": true,
-        "exemption_note": "Exempt if the employer requests extra hours \"to address unanticipated customer needs or unexpected employee absence\", \"the employee consents in writing\", and, if the employee is not on shift, the request is \"through a group communication\"."
+        "exemption_note": "Exempt if the employer requests extra hours \"to address unanticipated customer needs or unexpected employee absence\", \"the employee consents in writing\", and, if the employee is not on shift, the request is \"through a group communication\".",
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ]
       },
       "summary": "Oregon (500+ employees worldwide, retail/hospitality/food): without 14 days' notice, 1 hour at the regular rate for adding 30+ min, moving a shift or adding a shift; half pay for hours lost. Extra hours for an unexpected absence are exempt with written consent (group request if off shift).",
       "citation": {

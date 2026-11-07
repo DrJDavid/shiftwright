@@ -13,7 +13,8 @@
     "'Written Communication' = print or electronic means incl. email, text messages, scheduling applications (FAQ Q5).",
     "Coverage: retail, food or hospitality establishments with 250+ employees worldwide and 30+ locations worldwide (\u00a7 9-4601), counting full-time, part-time and temporary employees.",
     "applies_to='both': retail, food service and hospitality establishments (\u00a7 9-4601); hospitality is not representable in applies_to yet.",
-    "excludes_same_day_split=true: FAQ: 'not be scheduled less than nine hours after the end of the previous day's shift'."
+    "excludes_same_day_split=true: FAQ: 'not be scheduled less than nine hours after the end of the previous day's shift'.",
+    "exemption_applies_to: FAQ Q12: asking an employee 'to cover a shift or stay late' needs consent and predictability pay unless the hours were accepted via a Written Mass Communication, which covers 'additional hours' from another employee being unable to work (either kind)."
   ],
   "rules": [
     {
@@ -51,7 +52,11 @@
           "accepting the hours is voluntary",
           "the employee has the right to decline the hours"
         ],
-        "exemption_note": "Exempt if the employee \"volunteers to work additional hours in response to Mass Written Communication\" used only for hours another employee cannot work, making clear \"accepting such hours is voluntary and employee has the right to decline\"."
+        "exemption_note": "Exempt if the employee \"volunteers to work additional hours in response to Mass Written Communication\" used only for hours another employee cannot work, making clear \"accepting such hours is voluntary and employee has the right to decline\".",
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ]
       },
       "summary": "Philadelphia (250+ employees and 30+ locations worldwide): after the 14-day posting, 1 hour of pay for added time and for each change of date, time or location; half pay for hours cut or cancelled. Covering an absent coworker via a written mass communication is exempt.",
       "citation": {

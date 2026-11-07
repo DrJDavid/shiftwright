@@ -9,9 +9,12 @@
     "On-call employees not called in are owed 2 to 4 hours of pay.",
     "No SF rest-between-shifts rule recorded; California state meal/rest/OT rules apply.",
     "Predictability pay (L.E.C. \u00a7 42.4(c), OLSE FAQ \u00a7 d): owed for each scheduled shift the employer moves or cancels, or each unscheduled shift the employer requires, with less than 7 days' notice: 1 h (notice >= 24 h, any length); under 24 h: 2 h if the hours added or subtracted are 4 or less, 4 h if more (under_24h_tiers). For a moved shift the FAQ does not say which hours count; engine should use the moved shift's hours (conservative). Schedules are posted 2 weeks ahead.",
-    "Exceptions (\u00a7 42.4(e)): emergencies/utilities/Act of God closing operations; another scheduled employee unable to work due to illness, vacation or employer-provided time off (no 7 days' notice); another employee failed to report, was sent home or disciplined; mandatory overtime; employee shift trades or employee-requested changes. So covering an absent coworker owes no predictability pay regardless of consent; voluntariness alone is NOT an exemption: encoded voluntary_additional_hours_exempt=true with exemption_only_for_absent_coworker_hours=true (no consent form needed; open shifts or demand-driven call-ins still owe pay).",
     "Coverage: formula retail establishments with 40+ establishments worldwide and 20+ employees in San Francisco (plus their janitorial/security contractors).",
-    "applies_to='both': SF 'Formula Retail Use' includes Restaurant, Limited-Restaurant, Bar, Take-out Food and Eating and Drinking Use as well as retail sales (OLSE FRERO FAQ \u00a7 I), if the chain has 40+ establishments worldwide."
+    "applies_to='both': SF 'Formula Retail Use' includes Restaurant, Limited-Restaurant, Bar, Take-out Food and Eating and Drinking Use as well as retail sales (OLSE FRERO FAQ \u00a7 I), if the chain has 40+ establishments worldwide.",
+    "SF voluntary exemption (OLSE FRERO Rules, Jan. 29, 2016, Rule 6.1-6.2, https://media.api.sf.gov/documents/30._FRERO_Rules_Final.pdf): predictability pay is owed when the employer 'requires' an employee to work a previously unscheduled shift \u2014 a unilateral change 'not requested by or consented to by the Employee', a condition of employment, or pressure/coercion judged on the totality of circumstances. Example 1: volunteers from a posted sign-up sheet owe no pay; Example 2: a private 'team player' request is coercive and owes pay. Rule 6.2 applies the same standard to moved, cancelled and extended shifts (example: manager 'tells' the employee the shift is extended by four hours two days ahead = 1 h owed). Consent need not be written; a one-on-one ask must not pressure. Encoded voluntary_additional_hours_exempt=true, exemption_only_for_absent_coworker_hours=false, voluntary_requires_no_coercion=true.",
+    "SF coworker-absence exception (L.E.C. \u00a7 42.4(e)(4)-(5), FAQ): 'Another Employee previously scheduled to work is unable to work due to illness, vacation, or employer-provided paid or unpaid time off' (without 7 days' notice) or 'has not reported to work on time' \u2014 the text exempts the resulting schedule change without distinguishing a new shift from an extension, so coworker_absence_exempt_applies_to=['call_in','extension'] (no consent required for this exception).",
+    "SF <24 h tiers (Rule 5.1-5.3): changed hours = hours added or subtracted; for a moved shift, hours moved; for a moved and resized shift, hours added/subtracted plus hours moved; <4 -> 2 h, >=4 (or >4 added/subtracted) -> 4 h. Rule 5.1 Example 2: a 6 h shift extended by 1 h with <24 h notice owes 2 h. Encoded under_24h_changed_hours='added_or_subtracted_plus_moved'.",
+    "Exceptions (\u00a7 42.4(e)): emergencies/utilities/Act of God closing operations; another scheduled employee unable to work (illness, vacation, employer-provided time off, no 7 days' notice) or failed to report/sent home/disciplined; mandatory overtime; employee shift trades or employee-requested changes. Separately, changes the employee voluntarily accepts without pressure are not 'required' and owe nothing (Rule 6.1)."
   ],
   "rules": [
     {
@@ -52,11 +55,21 @@
         "coworker_absence_exempt": true,
         "mandatory_overtime_exempt": true,
         "exemption_requires_group_message": false,
-        "exemption_note": "No pay owed when \"Another Employee previously scheduled to work is unable to work due to illness, vacation, or employer-provided paid or unpaid time off\" or failed to report; also for shift trades and employee-requested changes.",
-        "exemption_only_for_absent_coworker_hours": true,
-        "text_message_counts_as_written": null
+        "exemption_note": "Pay is owed only if the employer \"requires\" the change; a change \"not requested by or consented to by the Employee\" or a pressured one counts as required. Uncoerced volunteers (e.g. a sign-up sheet) owe nothing (OLSE Rule 6.1).",
+        "exemption_only_for_absent_coworker_hours": false,
+        "text_message_counts_as_written": null,
+        "voluntary_requires_no_coercion": true,
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ],
+        "coworker_absence_exempt_applies_to": [
+          "call_in",
+          "extension"
+        ],
+        "under_24h_changed_hours": "added_or_subtracted_plus_moved"
       },
-      "summary": "SF formula retail: for changes with less than 7 days' notice, 1 hour of pay (24 h+ notice) or 2/4 hours (under 24 h, change of up to/over 4 hours) at the regular rate. Covering for an absent or no-show coworker is exempt.",
+      "summary": "SF formula retail: for employer-required changes with less than 7 days' notice, 1 hour of pay (24 h+ notice) or 2/4 hours (under 24 h) at the regular rate. Uncoerced volunteers and cover for an absent or no-show coworker owe nothing.",
       "citation": {
         "url": "https://media.api.sf.gov/documents/FRERO_FAQs_8.8.25_9iS2npC.pdf",
         "title": "SF OLSE \u2014 Formula Retail Employee Rights Ordinances FAQs (8/8/2025), L.E.C. \u00a7 42.4(c)-(e)",

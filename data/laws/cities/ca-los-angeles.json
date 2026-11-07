@@ -12,7 +12,8 @@
     "'In Writing' includes emails, text messages, scheduling or messaging apps (Rules, definitions). Changes made with <14 days' notice need the employee's written consent.",
     "Coverage: 300+ employees globally, principal NAICS retail trade (44-45); employees working 2+ hours a week in the City of LA.",
     "applies_to='retail': covered employers are NAICS retail trade (44-45) only.",
-    "excludes_same_day_split=true: LA Rules (rest between shifts): 'A split shift, which refers to certain shifts that occur on the same workday is not qualified for the rest break premium under the FWWO.'"
+    "excludes_same_day_split=true: LA Rules (rest between shifts): 'A split shift, which refers to certain shifts that occur on the same workday is not qualified for the rest break premium under the FWWO.'",
+    "exemption_applies_to: Reg. 5.1(2) exempts 'a schedule change initiated by an Employer due to an absence of another scheduled Employee' without limiting it to new shifts; FAQ 46 example is picking up the absent employee's shift."
   ],
   "rules": [
     {
@@ -46,7 +47,11 @@
           "accepting the hours is voluntary and the employee has a right to decline",
           "the employee will not receive Predictability Pay for these hours"
         ],
-        "exemption_note": "Exempt when \"An Employee accepts a schedule change initiated by an Employer due to an absence of another scheduled Employee\"; employer must say acceptance is voluntary, the employee may decline, and no Predictability Pay is owed."
+        "exemption_note": "Exempt when \"An Employee accepts a schedule change initiated by an Employer due to an absence of another scheduled Employee\"; employer must say acceptance is voluntary, the employee may decline, and no Predictability Pay is owed.",
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ]
       },
       "summary": "LA retail (300+ employees globally): inside 14 days, 1 hour at the regular rate for added hours (>15 min) and 1 hour per change of date, time or location; reductions of 15+ min pay half the hours not worked. Voluntarily covering an absent coworker is exempt.",
       "citation": {
