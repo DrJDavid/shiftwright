@@ -11,7 +11,7 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | POST | `/api/stores` | `{template?: "bigbox_small"\|"bigbox_mid"\|"empty", name, jurisdiction}` → `StoreConfig` | Creates a store from a template (defaults have `source: default`). v1.2: templates `demo` (Store #0417 Austin, 60 staff) and `tiny` load the WS4 fixtures as-is under a new id; `name`/`jurisdiction` optional for those two. |
 | GET | `/api/stores/{id}/config` | → `StoreConfig` | |
 | PUT | `/api/stores/{id}/config` | `StoreConfig` → `StoreConfig` | Full replace; bumps `config_version`. Used by cards that edit grids. |
-| POST | `/api/stores/{id}/import/{kind}` | multipart CSV → `ImportPreview` | `kind` ∈ roster, training, availability, forecast, history. Returns a proposed column mapping + parsed rows; nothing is saved yet. |
+| POST | `/api/stores/{id}/import/{kind}` | multipart CSV → `ImportPreview` | `kind` ∈ roster, training, availability, forecast, history; v1.4 adds labor_model, labor_hours, labor_standards, sales_forecast, workload (corporate demand styles; conversions specified in packages/scenarios/import_packs/demand/README.md). Returns a proposed column mapping + parsed rows; nothing is saved yet. |
 | POST | `/api/stores/{id}/import/{kind}/commit` | `{mapping, rows}` → `StoreConfig` | |
 | GET | `/api/stores/{id}/readiness` | → `Readiness` | |
 | POST | `/api/stores/{id}/solve` | `{time_limit_s?: number}` → `{schedule: Schedule, validation: ValidationReport}` | Always run the validator on engine output too. |
