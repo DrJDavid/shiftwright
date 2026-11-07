@@ -10,8 +10,8 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (A.R.S. \u00a7 23-233): Arizona's night limits (9:30 p.m. before a school day, 11 p.m. otherwise, from 6 a.m.) are looser than federal 7 a.m.-7 p.m. (9 p.m. summer); federal.json still applies to FLSA-covered employers. No Arizona hour limits for 16-17."
   ],
   "rules": [
     {
@@ -34,6 +34,64 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "AZ.minor_limits.1",
+      "jurisdiction": {
+        "state": "AZ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 360,
+        "latest_end": 1290,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "latest_end_before_non_school_day": 1380
+      },
+      "summary": "Minors under 16 enrolled in school may work at most 3 hours on a school day, 8 on a non-school day and 18 hours in a school week, not between 9:30 p.m. and 6 a.m. before a school day (11 p.m. before a non-school day).",
+      "citation": {
+        "url": "https://www.azleg.gov/ars/23/00233.htm",
+        "title": "A.R.S. \u00a7 23-233 \u2014 Permissible hours of labor for persons under sixteen",
+        "excerpt": "Not more than eighteen hours in any one week when the person is enrolled in any session of school when school is in session ... Not more than three hours in any one day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "AZ.minor_limits.2",
+      "jurisdiction": {
+        "state": "AZ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 360,
+        "latest_end": 1380,
+        "latest_end_summer": null
+      },
+      "summary": "When school is not in session, minors under 16 may work at most 8 hours a day and 40 hours a week, not between 11 p.m. and 6 a.m. before a non-school day.",
+      "citation": {
+        "url": "https://www.azleg.gov/ars/23/00233.htm",
+        "title": "A.R.S. \u00a7 23-233 \u2014 Permissible hours of labor for persons under sixteen",
+        "excerpt": "Not more than forty hours in any one week when ... school is not in session ... Not more than eight hours in any one day when ... school is not in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
