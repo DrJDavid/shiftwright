@@ -31,6 +31,7 @@ from shiftwright_contracts.models import (
 )
 
 from .. import equipment, integrations, priorities, readiness
+from ..imports import AUTO_PRIORITY
 from ..db import ConfigInvalid, Database
 
 
@@ -199,7 +200,9 @@ def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
     levels = priorities.load(ctx.db, ctx.store_id)
     raw = cfg.model_dump(mode="json")
     props = {"departments": [d.model_dump(mode="json") for d in cfg.departments],
-             "roles": [{**r.model_dump(mode="json"), "priority": levels.get(r.id)} for r in cfg.roles]}
+             "roles": [{**r.model_dump(mode="json"),
+                        "priority": levels.get(r.id) or ("important" if AUTO_PRIORITY in r.description else None)}
+                       for r in cfg.roles]}
     for key in ("departments", "roles"):
         for item in args.get(key) or []:
             if key == "roles":
@@ -220,6 +223,9 @@ def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
             lvl = r.pop("priority", None)
             if lvl in priorities.LEVELS:
                 new_levels[r["id"]] = lvl
+                # the leader chose: stop treating it as an automatically priced import
+                r["description"] = (r.get("description") or "").replace(f"({AUTO_PRIORITY}); ", "").replace(
+                    f"({AUTO_PRIORITY})", "")
             else:
                 new_levels.pop(r.get("id"), None)  # custom $ priority from the card
             roles_out.append(r)

@@ -89,9 +89,9 @@ def test_clean_readiness_and_solve(clean):
     assert out["coverage_pct"] >= 90, out
 
 
-def test_bug_readiness_flags_zero_priority_roles():
-    """Imported roles get $0/h gap penalty. Without the leader's priorities step readiness is still green,
-    and /solve returns an empty schedule (0 shifts, 0% coverage) that the validator passes."""
+def test_imported_roles_get_a_default_priority_without_the_priorities_step():
+    """Imported roles used to get a $0/h gap penalty, so skipping the priorities step produced an empty week
+    that the validator passed. Now they default to Important (priced from pay): a real schedule comes back."""
     setup = dict(h.load_setup("clean_small_tx"), gap_penalty_per_hour={})
     s = h.Session()
     s.create(setup)
@@ -99,7 +99,9 @@ def test_bug_readiness_flags_zero_priority_roles():
     for kind in h.KINDS:
         s.import_file(kind, HERE / "clean_small_tx" / f"{kind}.csv")
     s.priorities_and_budget(setup)
-    assert not s.readiness()["ready"]
+    roles = s.config()["roles"]
+    assert all(r["gap_penalty_per_hour"] > 0 for r in roles), [(r["id"], r["gap_penalty_per_hour"]) for r in roles]
+    assert s.solve()["schedule"]["shifts"]
 
 
 def test_clean_on_bigbox_small_template_resolves_role_names():
