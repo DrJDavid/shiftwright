@@ -19,6 +19,8 @@ apps/web/dist/
 # Local data
 *.sqlite
 *.db
+*.db-wal
+*.db-shm
 evals-out/
 packages/evals/runs/
 
@@ -26,3 +28,6 @@ packages/evals/runs/
 .DS_Store
 .idea/
 .vscode/
+
+# Agent worktrees (Claude Desktop / OpenCode)
+.claude/worktrees/
