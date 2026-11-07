@@ -22,7 +22,7 @@ Other targets: `make types` (contracts → `apps/web/src/contracts.ts`), `make e
 | `contracts/` | David only (change requests go in `contracts/requests/`) | `shiftwright_contracts` |
 | `packages/engine/` | WS1 | `shiftwright_engine` |
 | `packages/validator/` | WS2 | `shiftwright_validator` |
-| `data/laws/` | WS3 | (data) |
+| `data/laws/` | WS3 | `shiftwright_laws` (resolver) + JSON data |
 | `packages/scenarios/` | WS4 | `shiftwright_scenarios` |
 | `packages/evals/` | WS5 | `shiftwright_evals` |
 | `apps/api/` | WS6 | `shiftwright_api` |

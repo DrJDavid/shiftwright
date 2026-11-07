@@ -16,6 +16,7 @@ dependencies = [
   "shiftwright-evals",
   "shiftwright-insights",
   "shiftwright-api",
+  "shiftwright-laws",
 ]
 
 [dependency-groups]
@@ -25,7 +26,7 @@ dev = ["pytest"]
 package = false
 
 [tool.uv.workspace]
-members = ["contracts", "packages/*", "apps/api"]
+members = ["contracts", "packages/*", "apps/api", "data/laws"]
 
 [tool.uv.sources]
 shiftwright-contracts = { workspace = true }
@@ -35,7 +36,8 @@ shiftwright-scenarios = { workspace = true }
 shiftwright-evals = { workspace = true }
 shiftwright-insights = { workspace = true }
 shiftwright-api = { workspace = true }
+shiftwright-laws = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "packages", "apps/api"]
+testpaths = ["tests", "packages", "apps/api", "data/laws"]
 addopts = "--import-mode=importlib"

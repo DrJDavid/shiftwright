@@ -18,6 +18,7 @@ members = [
     "shiftwright-engine",
     "shiftwright-evals",
     "shiftwright-insights",
+    "shiftwright-laws",
     "shiftwright-scenarios",
     "shiftwright-validator",
 ]
@@ -700,6 +701,7 @@ dependencies = [
     { name = "shiftwright-engine" },
     { name = "shiftwright-evals" },
     { name = "shiftwright-insights" },
+    { name = "shiftwright-laws" },
     { name = "shiftwright-scenarios" },
     { name = "shiftwright-validator" },
     { name = "uvicorn", extra = ["standard"] },
@@ -721,6 +723,7 @@ requires-dist = [
     { name = "shiftwright-engine", editable = "packages/engine" },
     { name = "shiftwright-evals", editable = "packages/evals" },
     { name = "shiftwright-insights", editable = "packages/insights" },
+    { name = "shiftwright-laws", editable = "data/laws" },
     { name = "shiftwright-scenarios", editable = "packages/scenarios" },
     { name = "shiftwright-validator", editable = "packages/validator" },
     { name = "uvicorn", extras = ["standard"] },
@@ -777,6 +780,17 @@ requires-dist = [{ name = "shiftwright-contracts", editable = "contracts" }]
 name = "shiftwright-insights"
 version = "0.1.0"
 source = { editable = "packages/insights" }
+dependencies = [
+    { name = "shiftwright-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shiftwright-contracts", editable = "contracts" }]
+
+[[package]]
+name = "shiftwright-laws"
+version = "0.1.0"
+source = { editable = "data/laws" }
 dependencies = [
     { name = "shiftwright-contracts" },
 ]

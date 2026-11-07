@@ -11,6 +11,7 @@ PACKAGES = [
     "shiftwright_evals",
     "shiftwright_insights",
     "shiftwright_api",
+    "shiftwright_laws",
 ]
 
 
