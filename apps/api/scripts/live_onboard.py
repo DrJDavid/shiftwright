@@ -20,14 +20,14 @@ from pathlib import Path
 from shiftwright_api.agent.llm import OpenRouterClient
 from shiftwright_api.agent.loop import run_turn
 from shiftwright_api.db import Database
-from shiftwright_api import readiness, templates
+from shiftwright_api import equipment, readiness, templates
 from shiftwright_api.settings import Settings
 from shiftwright_contracts.models import Jurisdiction, StoreConfig
 
 REPO = Path(__file__).resolve().parents[3]
 SCENARIO = REPO / "packages/scenarios/fixtures/demo_scenario.json"
 FOLLOW_UPS = [
-    "Yes. I have our roster export as a CSV if that helps.",
+    "Yes. I have our roster export as a CSV if that helps. No corporate forecast though.",
     "Go ahead, keep going with whatever is still missing.",
     "Sounds right. What's next?",
     "Keep going.",
@@ -43,6 +43,44 @@ class Counting(OpenRouterClient):
         Counting.prompt_chars += len(json.dumps(messages)) + len(json.dumps(tools))
         async for p in super().stream(messages, tools):
             yield p
+
+
+def staffing_from_target(t: dict, role_id: str, groups: list[dict]) -> dict:
+    """The simulated leader describes the fixture's demand as base + peaks + open crew (approximately)."""
+    slot = t["store"]["slot_minutes"]
+    hours = {h["day"]: h for h in t["store"]["hours"]}
+
+    def profile(day: int) -> dict[int, int]:
+        prof: dict[int, int] = {}
+        for dm in t["demand"]:
+            if dm["role_id"] == role_id and dm["day"] == day:
+                for m in range(dm["start"], dm["end"], slot):
+                    prof[m] = prof.get(m, 0) + dm["headcount"]
+        return prof
+    ref = groups[0]["days"][0] if groups else 0
+    h = hours.get(ref, {"open": 480, "close": 1320})
+    prof = profile(ref)
+    inside = [prof.get(m, 0) for m in range(h["open"], h["close"], slot)]
+    base = max(set(inside), key=inside.count) if inside else 0
+    peaks = []
+    for g in groups:
+        d = g["days"][0]
+        hd = hours.get(d, h)
+        p = profile(d)
+        m = hd["open"]
+        while m < hd["close"]:
+            n = p.get(m, 0)
+            if n != base:
+                s = m
+                while m < hd["close"] and p.get(m, 0) == n:
+                    m += slot
+                peaks.append({"day_group": g["id"], "start": s, "end": m, "headcount": n})
+            else:
+                m += slot
+    before = [p for m, p in prof.items() if m < h["open"]]
+    op = {"headcount": max(before), "minutes_before_open": h["open"] - min(m for m in prof if m < h["open"])} \
+        if before else None
+    return {"base": base, "peaks": peaks, "open": op, "close": None}
 
 
 def leader_cards(db: Database, store_id: str, target: StoreConfig, log: list):
@@ -66,7 +104,9 @@ def leader_cards(db: Database, store_id: str, target: StoreConfig, log: list):
                     for e in t["employees"]]
             if props.get("kind", "roster") in ("roster", "training", "availability"):
                 db.mutate(store_id, lambda d: d.update(employees=emps), "import:roster", {"rows": len(emps)}, "leader")
-            ans = {"committed": True, "kind": props.get("kind", "roster"), "rows": len(emps)}
+                ans = {"committed": True, "kind": props.get("kind", "roster"), "rows": len(emps)}
+            else:
+                ans = {"committed": False, "rows": 0, "note": "No such file."}
         elif card_type == "training_matrix":
             ans = {e["id"]: e["trained_role_ids"] for e in t["employees"] if e["id"] in {x.id for x in cur.employees}}
         elif card_type == "coverage_grid":
@@ -79,6 +119,9 @@ def leader_cards(db: Database, store_id: str, target: StoreConfig, log: list):
                         if dm["start"] <= start + i * slot < dm["end"]:
                             grid[dm["role_id"]][i] += dm["headcount"]
             ans = {"grid": grid}
+        elif card_type == "department_staffing":
+            ans = {"staffing": {r["id"]: staffing_from_target(t, r["id"], props["day_groups"])
+                                for r in props["roles"]}}
         elif card_type == "events":
             ans = {"events": t["events"]}
         elif card_type == "propose_rule":
@@ -132,7 +175,7 @@ async def main(turns: int, out: str | None) -> int:
         print("  tools:", ", ".join(tools))
         print("  agent:", "".join(texts).strip()[:1500])
         log.append({"turn": n, "tools": tools, "text": "".join(texts)})
-        rd = readiness.compute(db.get_config(sid))
+        rd = readiness.compute(db.get_config(sid), equipment.state(db, sid))
         failing = [c.id for c in rd.checks if not c.ok]
         print("  readiness:", "READY" if rd.ready else f"failing {failing}")
         if rd.ready:

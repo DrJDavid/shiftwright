@@ -29,7 +29,7 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import integrations, readiness
+from .. import equipment, integrations, readiness
 from ..db import ConfigInvalid, Database
 
 
@@ -46,6 +46,7 @@ class CardRequest:
     card_type: str
     props: dict
     apply: Callable[[dict], Union[ToolResult, Awaitable[ToolResult]]]
+    blocking: bool = True  # False: shown read-only, the turn does not wait for a result
 
 
 @dataclass
@@ -59,6 +60,17 @@ class ToolContext:
 
     def mutate(self, tool: str, args: dict, fn: Callable[[dict], Any], summary: list[str],
                actor: Optional[str] = None) -> ToolResult:
+        tagged: list = []
+        if tool in ("upsert_role", "card:roles"):
+            review = equipment.state(self.db, self.store_id)
+            inner = fn
+
+            def fn(d):  # noqa: F811 - same mutation, plus powered-equipment tagging
+                out = inner(d)
+                if out is not None:
+                    d = out
+                tagged.extend(equipment.tag_in_dict(d, review))
+                return out
         try:
             cfg = self.db.mutate(self.store_id, fn, tool, args, actor or self.actor)
         except ConfigInvalid as e:
@@ -66,8 +78,14 @@ class ToolContext:
                                "details": _short_errors(e.errors)})
         except ToolError as e:
             return ToolResult({"error": str(e)})
-        return ToolResult({"ok": True, "config_version": cfg.config_version, "changed": summary},
-                          patch_summary=summary, config_version=cfg.config_version)
+        content: dict = {"ok": True, "config_version": cfg.config_version, "changed": summary}
+        if tagged:
+            equipment.record_auto(self.db, self.store_id, tagged)
+            summary = summary + [f"tagged as powered equipment: {', '.join(n for _, n in tagged)}"]
+            content.update(changed=summary, equipment_tagged=[rid for rid, _ in tagged],
+                           note="These look like powered industrial trucks, so minor-labor rules now apply. "
+                                "Tell the leader and ask them to confirm or reject (review_equipment_role).")
+        return ToolResult(content, patch_summary=summary, config_version=cfg.config_version)
 
 
 class ToolError(ValueError):
@@ -280,6 +298,116 @@ def ask_coverage_grid(ctx: ToolContext, args: dict) -> CardRequest:
         return ctx.mutate("card:coverage_grid", {"day_type": day_type, "days": days}, fn,
                           [f"demand for {day_type} (days {days})"], actor="leader")
     return CardRequest("coverage_grid", props, apply)
+
+
+# --------------------------------------------------------------------------- #
+# department_staffing (API.md v1.3): plain staffing per role -> DemandRequirements
+# --------------------------------------------------------------------------- #
+SUGGESTION_NOTE = ("Suggested starting point from your store hours and how many people are trained for each role. "
+                   "Not a forecast, a corporate standard or a legal requirement. Edit freely.")
+
+
+def day_groups(cfg: StoreConfig) -> list[dict]:
+    open_days = sorted({h.day for h in cfg.store.hours if h.close > h.open})
+    groups = [("weekday", [d for d in open_days if d < 5]), ("saturday", [d for d in open_days if d == 5]),
+              ("sunday", [d for d in open_days if d == 6])]
+    return [{"id": g, "days": days} for g, days in groups if days]
+
+
+def suggest_staffing(cfg: StoreConfig, role_ids: list[str]) -> tuple[dict, dict]:
+    trained = {rid: sum(1 for e in cfg.employees if rid in e.trained_role_ids) for rid in role_ids}
+    suggested = {rid: {"base": 0 if n < 2 else (2 if n >= 10 else 1), "peaks": [], "open": None, "close": None}
+                 for rid, n in trained.items()}
+    basis = {rid: f"{n} trained" for rid, n in trained.items()}
+    return suggested, basis
+
+
+def staffing_to_demand(cfg: StoreConfig, staffing: dict[str, dict]) -> list[dict]:
+    """API.md: base across open hours per day; peaks replace base inside their windows; open/close crews in
+    the pre-open/post-close windows. Times snap outward to the store's slots."""
+    slot = cfg.store.slot_minutes
+    group_of = {d: g["id"] for g in day_groups(cfg) for d in g["days"]}
+    out: list[dict] = []
+    for rid, st in staffing.items():
+        for h in cfg.store.hours:
+            if h.close <= h.open:
+                continue
+            hc: dict[int, int] = {}
+
+            def paint(a: int, b: int, n: int, mode: str = "set") -> None:
+                t = a - a % slot
+                while t < b:
+                    hc[t] = n if mode == "set" else max(hc.get(t, 0), n)
+                    t += slot
+            base = int(st.get("base") or 0)
+            if base > 0:
+                paint(h.open, h.close, base)
+            for pk in st.get("peaks") or []:
+                if pk.get("day_group") == group_of.get(h.day):
+                    paint(int(pk["start"]), int(pk["end"]), int(pk["headcount"]))
+            op, cl = st.get("open"), st.get("close")
+            if op and int(op.get("headcount") or 0) > 0:
+                paint(h.open - int(op.get("minutes_before_open") or 0), h.open, int(op["headcount"]), "max")
+            if cl and int(cl.get("headcount") or 0) > 0:
+                paint(h.close, h.close + int(cl.get("minutes_after_close") or 0), int(cl["headcount"]), "max")
+            ts = sorted(t for t, n in hc.items() if n > 0)
+            i = 0
+            while i < len(ts):
+                j = i
+                while j + 1 < len(ts) and ts[j + 1] == ts[j] + slot and hc[ts[j + 1]] == hc[ts[i]]:
+                    j += 1
+                out.append({"id": _uid("dm"), "role_id": rid, "day": h.day, "start": max(0, ts[i]),
+                            "end": ts[j] + slot, "headcount": hc[ts[i]], "source": "leader",
+                            "note": "department staffing"})
+                i = j + 1
+    return out
+
+
+def ask_department_staffing(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]:
+    cfg = ctx.config()
+    dept = next((d for d in cfg.departments if d.id == args.get("department_id")), None)
+    if dept is None:
+        return ToolResult({"error": f"Unknown department_id {args.get('department_id')!r}",
+                           "departments": [d.id for d in cfg.departments]})
+    roles = [r for r in cfg.roles if r.department_id == dept.id]
+    if not roles:
+        return ToolResult({"error": f"Department {dept.id!r} has no roles yet; add roles first."})
+    suggested, basis = suggest_staffing(cfg, [r.id for r in roles])
+    stated = [rid for rid in (args.get("prefill") or {}) if rid in suggested]
+    for rid in stated:  # what the leader already said in chat wins over the suggestion
+        suggested[rid] = {**suggested[rid], **args["prefill"][rid]}
+    props = {"department": dept.model_dump(mode="json"), "roles": [r.model_dump(mode="json") for r in roles],
+             "day_groups": day_groups(cfg), "hours": [h.model_dump(mode="json") for h in cfg.store.hours],
+             "pre_open_minutes": cfg.store.pre_open_minutes, "post_close_minutes": cfg.store.post_close_minutes,
+             "suggested": suggested, "suggestion_note": SUGGESTION_NOTE, "suggestion_basis": basis,
+             "from_chat": stated}
+    role_ids = {r.id for r in roles}
+
+    def apply(result: dict) -> ToolResult:
+        if _cancelled(result):
+            return CANCELLED
+        staffing = {k: v for k, v in (result.get("staffing") or {}).items() if k in role_ids and isinstance(v, dict)}
+        if not staffing:
+            return ToolResult({"error": "No staffing for this department's roles in the result."})
+        reqs = staffing_to_demand(ctx.config(), staffing)
+
+        def fn(d):
+            d["demand"] = [x for x in d["demand"] if not (x["role_id"] in staffing and x["source"] != "event")] + reqs
+        res = ctx.mutate("card:department_staffing", {"department_id": dept.id, "staffing": staffing}, fn,
+                         [f"demand for {dept.name}: {len(reqs)} blocks"], actor="leader")
+        res.content["demand_blocks"] = len(reqs)
+        return res
+    return CardRequest("department_staffing", props, apply)
+
+
+def show_coverage_preview(ctx: ToolContext, args: dict) -> CardRequest:
+    """Read-only coverage_grid (props.readonly = true); does not wait for the leader."""
+    card = ask_coverage_grid(ctx, args)
+    card.props["readonly"] = True
+    card.blocking = False
+    card.apply = lambda result: ToolResult({"shown": True, "day_type": card.props["day_type"],
+                                            "days": card.props["days"]})
+    return card
 
 
 def ask_events(ctx: ToolContext, args: dict) -> CardRequest:
@@ -573,7 +701,20 @@ def get_config_summary(ctx: ToolContext, args: dict) -> dict:
 
 
 def readiness_check(ctx: ToolContext, args: dict) -> dict:
-    return readiness.compute(ctx.config()).model_dump(mode="json")
+    return readiness.compute(ctx.config(), equipment.state(ctx.db, ctx.store_id)).model_dump(mode="json")
+
+
+def review_equipment_role(ctx: ToolContext, args: dict) -> ToolResult:
+    """Only after the leader said so: confirm keeps the powered_industrial_truck tag, reject removes it."""
+    try:
+        cfg = equipment.decide(ctx.db, ctx.store_id, args.get("role_id", ""), args.get("decision", ""))
+    except KeyError:
+        return ToolResult({"error": f"Unknown role_id {args.get('role_id')!r}"})
+    except ValueError as e:
+        return ToolResult({"error": str(e)})
+    summary = [f"equipment role {args['role_id']} {args['decision']}ed"]
+    return ToolResult({"ok": True, "config_version": cfg.config_version, "changed": summary},
+                      patch_summary=summary, config_version=cfg.config_version)
 
 
 def with_law(cfg: StoreConfig) -> StoreConfig:
@@ -667,13 +808,24 @@ TOOLS: list[Tool] = [
                "roles": {"type": "array", "items": {"type": "object"}}}), ask_roles, "card"),
     Tool("ask_training_matrix", "Show the training matrix card (employee x role). Saved on submit.",
          _obj({}), ask_training_matrix, "card"),
-    Tool("ask_coverage_grid", "Show the coverage grid card for one day type (headcount per role per slot). "
+    Tool("ask_coverage_grid", "ADVANCED editor, only when the leader asks to edit the grid directly. "
+         "Show the coverage grid card for one day type (headcount per role per slot). "
          "One set of numbers applies to every listed day, and submitting replaces leader demand on those days. "
          "The grid widens to cover events on those days (e.g. a 4am truck); ask events first. "
          "Pass `days` to split day types whose needs differ (e.g. a Saturday truck day).",
          _obj({"day_type": {"type": "string", "enum": sorted(DAY_TYPES)},
                "days": {"type": "array", "items": {"type": "integer"}, "description": "Override which days (0=Mon)."}},
               ["day_type"]), ask_coverage_grid, "card"),
+    Tool("ask_department_staffing", "Default way to set demand: one card per department with plain staffing per role "
+         "(base people all day, peaks per day group, open/close crews), prefilled with labeled suggestions. Pass "
+         "`prefill` {role_id: RoleStaffing} with anything the leader already said in chat (e.g. 4 cashiers 5-8 pm "
+         "weekdays -> peaks:[{day_group:'weekday',start:1020,end:1200,headcount:4}]). Saved as demand on submit.",
+         _obj({"department_id": {"type": "string"}, "prefill": {"type": "object"}}, ["department_id"]),
+         ask_department_staffing, "card"),
+    Tool("show_coverage_preview", "Show a read-only coverage grid for a day type so the leader can see the demand "
+         "that was saved (does not wait for input).",
+         _obj({"day_type": {"type": "string", "enum": sorted(DAY_TYPES)},
+               "days": {"type": "array", "items": {"type": "integer"}}}, ["day_type"]), show_coverage_preview, "card"),
     Tool("ask_events", "Show the events card (trucks, floor sets, promos, online surges). Saved on submit.",
          _obj({"events": {"type": "array", "items": {"type": "object"}}}), ask_events, "card"),
     Tool("ask_csv_import", "Show the CSV import card for a kind of export the leader has.",
@@ -735,6 +887,10 @@ TOOLS: list[Tool] = [
                "reason": {"type": "string"}}, ["option_id"]), approve_budget_increase, "mutation"),
     # reads / computes
     Tool("get_config_summary", "Read the current store config.", _obj({}), get_config_summary),
+    Tool("review_equipment_role", "After the LEADER decides: confirm (keep) or reject (remove) the automatic "
+         "powered_industrial_truck tag on a role. Never decide this yourself.",
+         _obj({"role_id": {"type": "string"}, "decision": {"type": "string", "enum": ["confirm", "reject"]}},
+              ["role_id", "decision"]), review_equipment_role, "mutation"),
     Tool("readiness_check", "Check whether the store is ready to schedule; lists what's missing.", _obj({}),
          readiness_check),
     Tool("dry_run_solve", "Run the engine and validator on the current config. Returns metrics, gaps, infeasibility. "

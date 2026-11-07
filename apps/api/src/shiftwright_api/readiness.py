@@ -12,7 +12,8 @@ NON_BLOCKING = {"provisional_rules"}
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
-def compute(config: StoreConfig) -> Readiness:
+def compute(config: StoreConfig, equipment_review: dict[str, str] | None = None) -> Readiness:
+    """`equipment_review`: kv state from equipment.py ({role_id: auto|confirmed|rejected})."""
     checks: list[ReadinessCheck] = []
 
     def add(id_: str, label: str, ok: bool, detail: str) -> None:
@@ -47,6 +48,24 @@ def compute(config: StoreConfig) -> Readiness:
     add("demand", "Demand for every open day", bool(open_days) and not missing,
         "Demand set for all open days." if open_days and not missing else
         ("Store hours not set." if not open_days else f"No demand on {', '.join(DAY_NAMES[d] for d in missing)}"))
+
+    demand_roles = {d.role_id for d in config.demand if d.headcount > 0}
+    unpriced = [r.name for r in config.roles if r.id in demand_roles and r.gap_penalty_per_hour <= 0]
+    add("priorities", "Role priorities set", bool(demand_roles) and not unpriced,
+        ("No demand yet." if not demand_roles else
+         "Every role with demand has a gap cost." if not unpriced else
+         f"Set priorities (what an uncovered hour costs) for: {', '.join(unpriced)}. "
+         "At $0/h the solver would leave them empty."))
+
+    names = {r.id: r.name for r in config.roles}
+    review = equipment_review or {}
+    auto = [names[r] for r, st in review.items() if st == "auto" and r in names]
+    tagged = [names[r] for r, tags in config.role_tags.items() if "powered_industrial_truck" in tags and r in names]
+    # ok: the protective tag is already applied; this lists what the leader should confirm or reject.
+    add("equipment_roles", "Powered-equipment roles", True,
+        (f"Tagged automatically as powered industrial trucks, so minor-labor rules apply: {', '.join(auto)}. "
+         "Please confirm or reject.") if auto else
+        (f"Powered industrial truck roles: {', '.join(tagged)}." if tagged else "No powered-equipment roles."))
 
     b = config.budget
     add("budget", "Payroll budget", b.weekly_hours_cap > 0,

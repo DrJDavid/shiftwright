@@ -9,8 +9,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from .agent.llm import LLMClient
@@ -40,9 +41,11 @@ TARGETS: dict[str, dict[str, tuple[bool, list[str]]]] = {
     },
     "availability": {
         "employee_id": (True, ["id", "employee id", "emp id", "tm id", "tm_id", "team member id"]),
-        **{f"avail_{d}": (False, [f"avail {d}", f"{d}", f"{d} avail", f"{d} availability", f"available {d}", full])
-           for d, full in [("mon", "monday"), ("tue", "tuesday"), ("wed", "wednesday"), ("thu", "thursday"),
-                           ("fri", "friday"), ("sat", "saturday"), ("sun", "sunday")]},
+        **{f"avail_{d}": (False, [f"avail {d}", f"{d}", f"{d} avail", f"{d} availability", f"available {d}", full,
+                                  *alts, *[f"avail {a}" for a in alts], *[f"{a} avail" for a in alts]])
+           for d, full, alts in [("mon", "monday", ["mo"]), ("tue", "tuesday", ["tues", "tu"]),
+                                 ("wed", "wednesday", ["weds", "we"]), ("thu", "thursday", ["thur", "thurs", "th"]),
+                                 ("fri", "friday", ["fr"]), ("sat", "saturday", ["sa"]), ("sun", "sunday", ["su"])]},
         "note": (False, ["note", "notes", "comment", "comments"]),
     },
     "forecast": {
@@ -50,6 +53,7 @@ TARGETS: dict[str, dict[str, tuple[bool, list[str]]]] = {
         "day": (True, ["day", "date", "weekday", "dow", "day of week"]),
         "start": (True, ["start", "start time", "from", "time", "interval", "interval start", "begin"]),
         "end": (False, ["end", "end time", "to", "interval end", "finish"]),
+        "duration": (False, ["duration", "length", "minutes", "mins", "interval length", "duration minutes"]),
         "headcount": (True, ["headcount", "hc", "staff", "required", "need", "needed", "required staff", "fte", "count"]),
     },
     "history": {
@@ -101,7 +105,8 @@ def heuristic_mapping(kind: str, columns: list[str]) -> dict[str, Optional[str]]
             continue
         n = norm(col)
         hit = next((f for f, (_, syn) in targets.items()
-                    if f not in used and any(len(norm(s)) > 2 and norm(s) in n for s in syn)), None)
+                    if f not in used and any(len(norm(s)) > 2 and re.search(rf"\b{re.escape(norm(s))}\b", n)
+                                             for s in syn)), None)
         mapping[col] = hit
         if hit:
             used.add(hit)
@@ -207,6 +212,11 @@ def parse_money(s: str) -> float:
     return float(re.sub(r"[^0-9.\-]", "", s))
 
 
+def phone_ok(s: str) -> bool:
+    digits = re.sub(r"\D", "", s)
+    return len(digits) == 10 or (len(digits) == 11 and digits.startswith("1"))
+
+
 def parse_phone(s: str) -> str:
     digits = re.sub(r"\D", "", s)
     if len(digits) == 10:
@@ -220,18 +230,44 @@ def parse_status(s: str) -> str:
     n = norm(s)
     if n.startswith("f") or "full" in n:
         return "full_time"
-    if "season" in n or n.startswith("temp"):
+    if "season" in n or n.startswith("seas") or n.startswith("temp"):
         return "seasonal"
     return "part_time"
 
 
-def parse_day(s: str, week_start: date) -> int:
+def parse_day(s: str, week_start: date, warnings: list[str] | None = None, row: int | None = None) -> int:
     n = norm(s)
     if n in DAY_NAMES:
         return DAY_NAMES[n]
     if n.isdigit() and int(n) <= 6:
         return int(n)
-    return (parse_date(s) - week_start).days % 7
+    d = parse_date(s)
+    day = (d - week_start).days % 7
+    if warnings is not None and not week_start <= d < week_start + timedelta(days=7):
+        warnings.append(f"Row {row}: date {d.isoformat()} is outside the schedule week starting "
+                        f"{week_start.isoformat()}; used its weekday ({WEEKDAYS[day]}).")
+    return day
+
+
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+OFF_WORDS = {"off", "na", "n a", "none", "unavailable", "unavail", "x", "no", "not available", "not avail",
+             "closed", "-", "n", "no availability"}
+
+
+def birth_date(s: str, on: date) -> tuple[date, bool]:
+    """Parse a DOB. Two-digit years pivot to the century that gives an age of 14-90. Returns (date, pivoted)."""
+    b = parse_date(s)
+    if not re.fullmatch(r"\d{1,2}/\d{1,2}/\d{2}", s.strip()):
+        return b, False
+    for year in (2000 + b.year % 100, 1900 + b.year % 100):
+        cand = b.replace(year=year)
+        if 14 <= age_on(cand, on) <= 90:
+            return cand, cand.year != b.year
+    return (b.replace(year=b.year - 100) if b > on else b), b > on
+
+
+def age_on(b: date, on: date) -> int:
+    return on.year - b.year - ((on.month, on.day) < (b.month, b.day))
 
 
 def split_list(s: str) -> list[str]:
@@ -308,9 +344,11 @@ def apply_rows(kind: str, d: dict, mapping: dict[str, Optional[str]], rows: list
                 val = m[key].strip()
                 if not val or norm(val) in ("any", "all", "all day", "open", "available"):
                     continue
-                if norm(val) in ("off", "na", "n a", "none", "unavailable", "x", "no"):
+                if norm(val) in OFF_WORDS or val.strip() == "-":
                     entries.append({"weekday": wd, "start": 0, "end": 1440, "kind": "unavailable",
                                     "source": "employee", "note": "CSV import"})
+                    if norm(val).startswith("not"):
+                        warnings.append(f"Row {i + 2}: {key}={val!r} read as unavailable all day.")
                     continue
                 try:
                     windows = sorted(parse_window(w) for w in split_list(val.replace(",", ";")))
@@ -329,30 +367,7 @@ def apply_rows(kind: str, d: dict, mapping: dict[str, Optional[str]], rows: list
             e["availability"] = [a for a in e.get("availability", []) if a.get("note") != "CSV import"] + entries
         return None
     if kind == "forecast":
-        slot = d["store"]["slot_minutes"]
-        new = []
-        for i, row in enumerate(rows):
-            m = _mapped(row, mapping)
-            try:
-                day = parse_day(m["day"], week_start)
-                if "end" in m and m["end"]:
-                    start, end = parse_time(m["start"]), parse_time(m["end"])
-                elif re.search(r"-|–| to ", m["start"]):
-                    start, end = parse_window(m["start"])
-                else:
-                    start = parse_time(m["start"])
-                    end = start + slot
-                hc = int(float(m["headcount"] or 0))
-            except (KeyError, ValueError) as e:
-                warnings.append(f"Row {i + 2}: {e}; skipped.")
-                continue
-            if hc <= 0:
-                continue
-            rid = res.role(m["role"])
-            new.append({"id": f"fc_{i}", "role_id": rid, "day": day, "start": start, "end": end,
-                        "headcount": hc, "source": "corporate"})
-        d["demand"] = [x for x in d["demand"] if x.get("source") != "corporate"] + _merge_slots(new)
-        return None
+        return _forecast(d, mapping, rows, res, week_start, warnings)
     if kind == "history":
         out = []
         for i, row in enumerate(rows):
@@ -382,6 +397,7 @@ def _merge_slots(reqs: list[dict]) -> list[dict]:
 
 def _roster(d, mapping, rows, res: Resolver, week_start: date, warnings: list[str]):
     by_id = {e["id"]: e for e in d["employees"]}
+    seen_rows: dict[str, int] = {}
     for i, row in enumerate(rows):
         m = _mapped(row, mapping)
         try:
@@ -392,8 +408,11 @@ def _roster(d, mapping, rows, res: Resolver, week_start: date, warnings: list[st
             if m.get("age"):
                 age = int(float(m["age"]))
             elif m.get("birth_date"):
-                b = parse_date(m["birth_date"])
-                age = week_start.year - b.year - ((week_start.month, week_start.day) < (b.month, b.day))
+                b, pivoted = birth_date(m["birth_date"], week_start)
+                age = age_on(b, week_start)
+                if pivoted:
+                    warnings.append(f"Row {i + 2}: two-digit birth year {m['birth_date']!r} for {eid} read as "
+                                    f"{b.isoformat()} (age {age}). Check it.")
             else:
                 raise ValueError("no age or birth date")
             dep = res.department(m["home_department"])
@@ -405,6 +424,11 @@ def _roster(d, mapping, rows, res: Resolver, week_start: date, warnings: list[st
                 "wage_per_hour": parse_money(m["wage_per_hour"]),
                 "hire_date": parse_date(m["hire_date"]).isoformat() if m.get("hire_date") else emp.get("hire_date", week_start.isoformat()),
             })
+            if not 14 <= age <= 90:
+                warnings.append(f"Row {i + 2}: age {age} for {eid} looks wrong; please check it.")
+            if m.get("phone") and not phone_ok(m["phone"]):
+                warnings.append(f"Row {i + 2}: phone {m['phone']!r} for {eid} isn't a full 10-digit number; "
+                                "kept as-is, outreach won't reach them.")
             if not m.get("phone"):
                 warnings.append(f"Row {i + 2}: no phone for {eid}; placeholder +10000000000 set (outreach won't reach them).")
             if m.get("min_hours_week"):
@@ -420,9 +444,84 @@ def _roster(d, mapping, rows, res: Resolver, week_start: date, warnings: list[st
         except (KeyError, ValueError) as e:
             warnings.append(f"Row {i + 2}: {e}; skipped.")
             continue
+        if eid in seen_rows:
+            warnings.append(f"Row {i + 2}: duplicate employee id {eid} (also row {seen_rows[eid]}); this later row wins.")
+        seen_rows[eid] = i + 2
         if eid in by_id:
             d["employees"] = [emp if x["id"] == eid else x for x in d["employees"]]
         else:
             d["employees"].append(emp)
         by_id[eid] = emp
+    return None
+
+
+def _forecast(d, mapping, rows, res: Resolver, week_start: date, warnings: list[str]):
+    slot = d["store"]["slot_minutes"]
+    parsed = []  # (row_no, role_id, day, start, end|None, headcount)
+    for i, row in enumerate(rows):
+        m = _mapped(row, mapping)
+        try:
+            day = parse_day(m["day"], week_start, warnings, i + 2)
+            end = None
+            if m.get("end"):
+                start, end = parse_time(m["start"]), parse_time(m["end"])
+                if end <= start:  # overnight, e.g. 10:00 PM -> 6:00 AM
+                    end += 1440
+            elif re.search(r"-|–| to ", m["start"]):
+                start, end = parse_window(m["start"])
+            else:
+                start = parse_time(m["start"])
+                if m.get("duration"):
+                    end = start + int(float(m["duration"]))
+            raw = float(m["headcount"] or 0)
+        except (KeyError, ValueError) as e:
+            warnings.append(f"Row {i + 2}: {e}; skipped.")
+            continue
+        hc = math.ceil(raw - 1e-9)
+        if hc != raw and raw > 0:
+            warnings.append(f"Row {i + 2}: headcount {m['headcount']} is not a whole number; rounded up to {hc}.")
+        if hc <= 0:
+            continue
+        parsed.append((i + 2, res.role(m["role"]), day, start, end, hc))
+
+    # start-only rows: each row lasts its group's own spacing (gap between consecutive starts)
+    starts: dict[tuple[str, int], list[int]] = {}
+    for _, rid, day, start, end, _ in parsed:
+        if end is None:
+            starts.setdefault((rid, day), []).append(start)
+
+    def spacing(xs: list[int]) -> int | None:
+        xs = sorted(set(xs))
+        diffs = [b - a for a, b in zip(xs, xs[1:]) if b > a]
+        return min(diffs) if diffs else None
+    group_gap = {k: spacing(v) for k, v in starts.items()}
+    file_gap = min((g for g in group_gap.values() if g), default=None)
+    if starts and file_gap is None:
+        warnings.append(f"Forecast rows have only a start time and no spacing to infer; each row assumed to last "
+                        f"one {slot}-minute slot. Add an End or Duration column if that's wrong.")
+    new = []
+    for row_no, rid, day, start, end, hc in parsed:
+        if end is None:
+            end = start + (group_gap.get((rid, day)) or file_gap or slot)
+        new.append({"id": f"fc_{row_no}", "role_id": rid, "day": day, "start": start, "end": end,
+                    "headcount": hc, "source": "corporate"})
+
+    # off-grid rows: roll up to the store's slots at the peak headcount (never fewer people than asked)
+    roles = {r["id"]: r["name"] for r in d["roles"]}
+    off = {(r["role_id"], r["day"]) for r in new if r["start"] % slot or r["end"] % slot}
+    out = [r for r in new if (r["role_id"], r["day"]) not in off]
+    for rid, day in sorted(off):
+        peak: dict[int, int] = {}
+        for r in new:
+            if (r["role_id"], r["day"]) != (rid, day):
+                continue
+            t = r["start"] - r["start"] % slot
+            while t < r["end"]:
+                peak[t] = max(peak.get(t, 0), r["headcount"])
+                t += slot
+        out += [{"id": f"fc_{rid}_{day}_{t}", "role_id": rid, "day": day, "start": t, "end": t + slot, "headcount": h,
+                 "source": "corporate"} for t, h in sorted(peak.items())]
+        warnings.append(f"{roles.get(rid, rid)} {WEEKDAYS[day]}: times don't fit the store's {slot}-minute slots; "
+                        f"rolled up to the peak headcount per {slot}-minute slot.")
+    d["demand"] = [x for x in d["demand"] if x.get("source") != "corporate"] + _merge_slots(out)
     return None

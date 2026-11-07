@@ -55,11 +55,36 @@ def new_store_id() -> str:
 FIXTURE_TEMPLATES = {"demo": "load_demo_store", "tiny": "load_tiny_store"}
 
 
+class TemplateUnavailable(LookupError):
+    pass
+
+
+def is_fixture(template: str) -> bool:
+    return template in FIXTURE_TEMPLATES or template.startswith("demo_")
+
+
 def from_fixture(template: str, store_id: str | None = None) -> StoreConfig:
-    """WS4 fixture store (demo_store.json / tiny_store.json) as-is, under a new store id."""
+    """WS4 fixture store as-is, under a new store id. `demo_<locality>` (e.g. demo_chicago) asks WS4's
+    `load_demo_store(locality=...)`, or reads fixtures/demo_store_<locality>.json, when present."""
     import shiftwright_scenarios
 
-    cfg = getattr(shiftwright_scenarios, FIXTURE_TEMPLATES[template])()
+    if template in FIXTURE_TEMPLATES:
+        cfg = getattr(shiftwright_scenarios, FIXTURE_TEMPLATES[template])()
+    else:
+        locality = template[len("demo_"):]
+        cfg = None
+        try:
+            cfg = shiftwright_scenarios.load_demo_store(locality=locality)
+        except TypeError:  # loader without locality support yet
+            pass
+        except (FileNotFoundError, KeyError, ValueError) as e:
+            raise TemplateUnavailable(f"No demo store for {locality!r}: {e}") from e
+        if cfg is None:
+            path = getattr(shiftwright_scenarios, "FIXTURES_DIR", None)
+            f = path / f"demo_store_{locality}.json" if path else None
+            if not (f and f.exists()):
+                raise TemplateUnavailable(f"No demo store for {locality!r} yet.")
+            cfg = StoreConfig.model_validate_json(f.read_text())
     cfg.store.id = store_id or new_store_id()
     cfg.config_version = 1
     return cfg

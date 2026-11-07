@@ -25,7 +25,7 @@ from shiftwright_contracts.models import (
     ValidationReport,
 )
 
-from . import imports, integrations, readiness, templates
+from . import equipment, imports, integrations, readiness, templates
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
@@ -117,8 +117,11 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     # ---------------------------------------------------------------- stores
     @app.post("/api/stores", response_model=StoreConfig)
     def create_store(req: CreateStoreRequest) -> StoreConfig:
-        if req.template in templates.FIXTURE_TEMPLATES:
-            cfg = templates.from_fixture(req.template)
+        if templates.is_fixture(req.template):
+            try:
+                cfg = templates.from_fixture(req.template)
+            except templates.TemplateUnavailable as e:
+                raise HTTPException(422, str(e))
         elif not req.name or req.jurisdiction is None:
             raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
         else:
@@ -139,7 +142,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     @app.get("/api/stores/{store_id}/readiness", response_model=Readiness)
     def get_readiness(store_id: str) -> Readiness:
-        return readiness.compute(load(store_id))
+        return readiness.compute(load(store_id), equipment.state(db(), store_id))
 
     # ---------------------------------------------------------------- solve / validate
     @app.post("/api/stores/{store_id}/solve")
@@ -199,7 +202,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         return pv
 
     @app.post("/api/stores/{store_id}/import/{kind}/commit", response_model=StoreConfig)
-    def import_commit(store_id: str, kind: ImportKind, body: dict = Body(...)) -> StoreConfig:
+    def import_commit(store_id: str, kind: ImportKind, response: Response, body: dict = Body(...)) -> StoreConfig:
         load(store_id)
         mapping = body.get("mapping") or {}
         cached = db().get(store_id, "import_rows", kind) or []
@@ -214,16 +217,42 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         warnings: list[str] = []
         extra: dict = {}
 
+        review = equipment.state(db(), store_id)
+
         def fn(d):
             extra["out"] = imports.apply_rows(kind, d, mapping, rows, warnings)
+            extra["tagged"] = equipment.tag_in_dict(d, review)
         try:
             cfg = db().mutate(store_id, fn, f"import:{kind}", {"rows": len(rows), "mapping": mapping}, "leader")
         except ConfigInvalid as e:
             raise HTTPException(422, detail=e.errors)
         if kind == "history" and extra.get("out") is not None:
             db().put(store_id, "history", "rows", extra["out"])
+        tagged = extra.get("tagged") or []
+        equipment.record_auto(db(), store_id, tagged)
+        if tagged:
+            warnings.append(f"Tagged as powered industrial truck (minor-labor rules apply; please confirm or reject): "
+                            f"{', '.join(n for _, n in tagged)}.")
         db().put(store_id, "import_warnings", kind, warnings)
+        response.headers["X-Import-Warning-Count"] = str(len(warnings))
         return cfg
+
+    @app.get("/api/stores/{store_id}/import/{kind}/warnings")
+    def import_warnings(store_id: str, kind: ImportKind) -> dict:
+        """Warnings from the latest commit of this kind (skipped rows, new roles, rounding, ...)."""
+        load(store_id)
+        return {"kind": kind, "warnings": db().get(store_id, "import_warnings", kind) or []}
+
+    @app.post("/api/stores/{store_id}/equipment_roles", response_model=StoreConfig)
+    def equipment_review(store_id: str, body: dict = Body(...)) -> StoreConfig:
+        """{role_id, decision: "confirm"|"reject"} for an automatically tagged powered-equipment role."""
+        load(store_id)
+        try:
+            return equipment.decide(db(), store_id, str(body.get("role_id", "")), str(body.get("decision", "")))
+        except KeyError:
+            raise HTTPException(404, f"No role {body.get('role_id')!r}")
+        except ValueError as e:
+            raise HTTPException(422, str(e))
 
     # ---------------------------------------------------------------- fix + outreach
     @app.post("/api/stores/{store_id}/fix")

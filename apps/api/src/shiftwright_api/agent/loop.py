@@ -137,7 +137,8 @@ async def run_turn(
                         if isinstance(out, CardRequest):
                             card_id = "card_" + uuid.uuid4().hex[:12]
                             yield "card", {"card_id": card_id, "card_type": out.card_type, "props": out.props}
-                            card_result = await await_card(card_id, out.card_type, out.props)
+                            card_result = (await await_card(card_id, out.card_type, out.props) if out.blocking
+                                           else {})
                             out = out.apply(card_result)
                             if inspect.isawaitable(out):
                                 out = await out

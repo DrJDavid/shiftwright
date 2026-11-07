@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~02:30 CT (rebased on main 4f53a85)_
+_Last updated: 2026-11-07 ~05:30 CT (rebased on main eaed15e)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -44,7 +44,7 @@ _Last updated: 2026-11-07 ~02:30 CT (rebased on main 4f53a85)_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 52 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 63 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -138,6 +138,70 @@ _Last updated: 2026-11-07 ~02:30 CT (rebased on main 4f53a85)_
   with the Saturday 06:04 call-outs e034/e052/e053 → start → stream until done; prints timings + thread) and
   `tests/test_demo_outreach.py` — both skip while `engine.fix_day` is stubbed (exit 2 for the script).
   Demo-store solve via the API today: 18 s, 174 shifts, 90.3% coverage, validator passed.
+
+**Done (safety, importer, staffing card, Fair Workweek outreach):**
+- **Powered-equipment roles** (`equipment.py`): roles created by a CSV import or in chat (`upsert_role`,
+  `roles` card) whose name/id looks like a powered industrial truck (forklift, PIT, reach truck, electric/rider
+  pallet jack, order picker lift, hi-lo, scissor/boom lift, ...) get `role_tags[...] = ["powered_industrial_truck"]`
+  in the same mutation, so the law pack's `minor_prohibited_roles` applies at once. Classification only, no law.
+  Plain "Pallet Jack", "Order Picker", "Shelf Stacker" are not tagged. Review state in kv `equipment_review`
+  {role_id: auto|confirmed|rejected}; a rejected role is never re-tagged.
+  - `POST /api/stores/{id}/equipment_roles {role_id, decision: "confirm"|"reject"}` → StoreConfig (new).
+  - Agent tool `review_equipment_role` (only after the leader answers); tool results carry `equipment_tagged`.
+  - Readiness check `equipment_roles` ("Powered-equipment roles"): **ok = true** (protection is already on)
+    with detail "Tagged automatically as powered industrial trucks, so minor-labor rules apply: FORKLIFT. Please
+    confirm or reject." — not blocking, because blocking would break the CSV-pack tests the coordinator asked me
+    not to edit (`test_messy_readiness_blocks`, `test_messy_ready_after_review_fixes`) and the safe default is on.
+- **Readiness `priorities`** ("Role priorities set"): blocks when any role with demand has
+  `gap_penalty_per_hour` ≤ 0: "Set priorities (what an uncovered hour costs) for: Cashier, ...".
+  Check order now: store_basics, jurisdiction, roles, employees, training, demand, **priorities**,
+  **equipment_roles**, budget, minimum_wage, provisional_rules.
+- **Importer** (all 17 import-pack xfails now pass; markers removed): word-boundary header matching ("Manager"
+  no longer → age), two-digit birth years pivot to an age of 14–90 (warned), ages outside 14–90 warned, short
+  phones warned (kept), duplicate ids warned (last row wins), "Seas"→seasonal, "Not Available"/"closed"/"-"
+  = unavailable (warned), more weekday header variants (Tues/Weds/Thurs), forecast: overnight End column (+1440),
+  start-only rows last their group's own spacing (or a new optional `duration` column; one slot only with a
+  warning), off-grid rows rolled up per slot at peak headcount (warned), fractional headcount rounded up (warned),
+  dates outside the schedule week warned. Not done: `Home Org`/`Punch In` synonyms (the CSV agent's non-xfail
+  tests assert they stay unmapped), header-not-on-line-1, non-UTF-8 detection.
+- **Commit warnings (proposal for API.md):** commit body unchanged (StoreConfig); response header
+  `X-Import-Warning-Count: <n>`; new `GET /api/stores/{id}/import/{kind}/warnings` →
+  `{kind, warnings: string[]}` (latest commit of that kind). WS7: after commit, if the header is > 0, GET and show them.
+- **`department_staffing` card** (API.md v1.3): tool `ask_department_staffing(department_id, prefill?)`.
+  Props as API.md plus `suggestion_note` (always: "Suggested starting point ... Not a forecast, a corporate
+  standard or a legal requirement."), `suggestion_basis` {role_id: "N trained"} and `from_chat` (role ids prefilled
+  from what the leader said). Suggestion = base 0 (<2 trained), 1, or 2 (≥10 trained); no peaks/crews.
+  Result → DemandRequirements exactly per API.md (base over open hours, peaks replace base in their
+  day_group window, open/close crews in the pre/post windows, snapped outward to slots), replacing non-event
+  demand for those roles. Readiness `demand` accepts it (it is ordinary leader demand).
+- **Read-only preview:** tool `show_coverage_preview(day_type)` emits a `coverage_grid` card with
+  `props.readonly = true` and does **not** wait (no `/chat/card` needed). WS7: render it without a submit button.
+- **Onboarding prompt v3.1:** forecast CSV first, else one staffing card per department (leadership first,
+  receiving last), chat answers go into `prefill`, events card then event crews via `set_demand` (source event),
+  preview, `coverage_grid` only on request; stated rules proposed once after the roster exists.
+  Live rehearsal (v3, before the v3.1 tweaks): ready in 2 turns, 20 LLM calls, ≈0.84M prompt chars, 7 staffing
+  cards. Issues seen and addressed in v3.1: rules proposed before the roster then re-proposed; truck crew via open crew.
+- **Templates `demo_<locality>`** (demo_chicago, demo_seattle, demo_sf, ...): `load_demo_store(locality=...)`
+  if WS4's loader takes it, else `fixtures/demo_store_<locality>.json`; 422 "No demo store for 'x' yet" otherwise.
+- **After an accept** the schedule is re-validated (with the law pack) and saved with its ValidationReport.
+- **Fair Workweek outreach** (`predictive.py`, params only): applicable `predictive_scheduling` rules
+  (employer count unknown ⇒ applies) decide:
+  - Seattle (`exemption_requires_group_message`): **group** mode — each wave texts the top
+    `exemption_min_recipients` (≥2) at once; each text adds the statements from `exemption_message_must_state`
+    ("This is a mass communication sent to several employees. Accepting these hours is voluntary and you may
+    decline. Accepting does not earn additional compensation for schedule changes."). First YES wins; others in
+    the wave get "Thanks! This shift has been filled, so no action is needed." Fewer candidates than the minimum ⇒
+    sent anyway, premium marked owed. A statement we can't word ⇒ sequential, premium owed.
+  - Chicago (voluntary exempt + text counts as written): sequential, text says "Accepting is voluntary and you
+    may decline." Also added whenever a candidate's `why` says the call-in is voluntary.
+  - Otherwise premium owed (amount comes from the engine's plan, never from us).
+  - **OutreachState additions (proposal for API.md):** `mode: "sequential"|"group"`, `wave: int`,
+    `waiting_employee_ids: string[]`, `premium: {status: "not_applicable"|"exempt"|"owed", law_rule_ids: string[],
+    note: string} | null`.
+  - **Proposal for WS1/contracts:** `FixRequest.outreach_mode: "sequential"|"group"|null` (API fills it from the
+    same params before calling fix_day) so the engine prices group-offer call-ins as exempt and one-to-one
+    Seattle texts with the 1-hour premium.
+- Mock auto-replies work per recipient in group waves (1st texted declines, 2nd asks then accepts).
 
 **Next:** run `scripts/demo_outreach.py` once WS1 exports `fix_day`, and tune delays/timeouts for the demo.
 

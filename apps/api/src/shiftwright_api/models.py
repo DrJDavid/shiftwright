@@ -12,7 +12,7 @@ ImportKind = Literal["roster", "training", "availability", "forecast", "history"
 
 
 class CreateStoreRequest(BaseModel):
-    template: Template = "bigbox_small"
+    template: str = Field("bigbox_small", pattern=r"^(bigbox_small|bigbox_mid|empty|demo|tiny|demo_[a-z0-9_]+)$")
     name: Optional[str] = None  # required except for fixture templates (demo, tiny), which keep their own
     jurisdiction: Optional[Jurisdiction] = None
 
@@ -48,6 +48,11 @@ class OutreachState(BaseModel):
     messages: list[Union[OutboundMessage, InboundMessage]] = []
     accepted_employee_ids: list[str] = []
     schedule: Optional[Schedule] = None
+    # v1.3 proposal (WS6): how offers go out and whether predictive-scheduling pay is owed
+    mode: Literal["sequential", "group"] = "sequential"
+    wave: int = 0                               # how many rounds of offers have gone out
+    waiting_employee_ids: list[str] = []        # offered in the current round, no answer yet
+    premium: Optional[dict] = None              # {status: not_applicable|exempt|owed, law_rule_ids: [], note}
 
 
 class SolveRequest(BaseModel):

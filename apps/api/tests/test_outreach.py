@@ -338,3 +338,75 @@ def test_autoreply_never_applies_to_twilio():
     from shiftwright_api.outreach import OutreachManager
     tw = TwilioMessenger("AC", "tok", "+15125550000")
     assert OutreachManager(db=None, messenger=tw, llm=None, timeout_s=1, autoreply="script").autoreply == "off"
+
+
+# --------------------------------------------------------------------------- predictive scheduling modes
+def _client_in(settings, state, city):
+    settings.outreach_timeout_s = 5
+    c = TestClient(create_app(settings=settings))
+    c.__enter__()
+    sid = c.post("/api/stores", json={"name": "Store", "jurisdiction": {"state": state}}).json()["store"]["id"]
+    cfg = tiny_config().model_copy(deep=True)
+    cfg.store.id = sid
+    cfg.store.jurisdiction = cfg.store.jurisdiction.model_copy(update={"state": state, "city": city})
+    for e in cfg.employees:
+        e.wage_per_hour = max(e.wage_per_hour, 21.0)  # above local minimum wage
+    assert c.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json")).status_code == 200
+    assert c.post(f"/api/stores/{sid}/solve", json={}).status_code == 200
+    return c, sid, cfg
+
+
+def test_validation_stored_after_accept(oclient):
+    c, sid, cfg = oclient
+    _start(c, sid)
+    st = _wait(c, sid, lambda s: s.current_rank == 1)
+    c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "yes"})
+    _wait(c, sid, lambda s: s.status == "filled")
+    body = c.get(f"/api/stores/{sid}/schedule").json()
+    assert body["validation"] is not None and body["validation"]["passed"] is True
+
+
+def test_seattle_group_offer(settings, fake_engine):
+    c, sid, cfg = _client_in(settings, "WA", "seattle")
+    try:
+        rank1, rank2 = _cashiers(cfg)
+        _start(c, sid)
+        st = _wait(c, sid, lambda s: len(s.messages) >= 2)
+        assert st.mode == "group" and st.premium["status"] == "exempt" and st.premium["law_rule_ids"]
+        assert {m.to_employee_id for m in st.messages} == {rank1, rank2}
+        assert all("mass communication" in m.body and "voluntary" in m.body and "compensation" in m.body
+                   and m.body.endswith("Reply YES or NO") for m in st.messages)
+        assert sorted(st.waiting_employee_ids) == sorted([rank1, rank2])
+        to2 = next(m for m in st.messages if m.to_employee_id == rank2)
+        c.post("/api/sms/mock-reply", json={"from_phone": to2.to_phone, "body": "YES"})
+        st = _wait(c, sid, lambda s: s.status == "filled")
+        assert st.accepted_employee_ids == [rank2]
+        filled = [m for m in st.messages if getattr(m, "to_employee_id", None) == rank1][-1]
+        assert "filled" in filled.body
+    finally:
+        c.__exit__(None, None, None)
+
+
+def test_chicago_text_says_voluntary(settings, fake_engine):
+    c, sid, cfg = _client_in(settings, "IL", "chicago")
+    try:
+        _start(c, sid)
+        st = _wait(c, sid, lambda s: s.current_rank == 1)
+        assert st.mode == "sequential" and st.premium["status"] == "exempt"
+        assert len(st.messages) == 1 and "voluntary" in st.messages[0].body
+    finally:
+        c.__exit__(None, None, None)
+
+
+def test_policy_owed_when_no_exemption():
+    from shiftwright_api.predictive import policy
+    from shiftwright_contracts.models import LawPack, LawRule
+    cfg = tiny_config()
+    rule = LawRule.model_validate({"id": "X.ps.1", "jurisdiction": {"state": "XX"}, "level": "city",
+                                   "type": "predictive_scheduling", "params": {"notice_days": 14},
+                                   "summary": "s", "citation": {"url": "u", "title": "t", "excerpt": "e",
+                                                                "last_verified": "2026-11-06"},
+                                   "confidence": "high"})
+    pol = policy(cfg, LawPack(jurisdiction={"state": "XX"}, rules=[rule], coverage="full"))
+    assert pol.mode == "sequential" and pol.premium_status == "owed" and pol.sentences == []
+    assert policy(cfg, None).premium_status == "not_applicable"
