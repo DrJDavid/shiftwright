@@ -8,9 +8,9 @@ from shiftwright_contracts.models import Jurisdiction, LawRuleType as T
 from shiftwright_laws import resolve
 
 STATES_DIR = Path(__file__).resolve().parents[1] / "states"
-MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH"]
+MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC"]
 # (state, age_min) bands whose law only limits school weeks (non-school weeks: federal floor only)
-SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16)}
+SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16), ("NC", 16)}
 
 
 def minor_rules(state):
