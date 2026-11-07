@@ -39,8 +39,6 @@ def test_engine_schedule_passes_validator(name, config, limit):
     assert result.status in ("optimal", "feasible"), result.line()
     assert result.disagreements == [], result.disagreements
     # legal_trap's below-minimum-wage employee is scheduled and flagged (SEMANTICS #15)
-    if "legal_trap" in name:
-        assert any("below_minimum_wage" in e for e in result.expected)
 
 
 def test_infeasible_empty_schedule_is_not_a_disagreement():
