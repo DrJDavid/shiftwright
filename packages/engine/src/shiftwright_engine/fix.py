@@ -37,6 +37,7 @@ from shiftwright_contracts.models import (
 )
 
 from .explain import explain_with_prep
+from .why import DAYS, annotate, span
 from .model import Builder, solve
 from .output import (
     availability_violations,
@@ -273,8 +274,22 @@ class _Fix:
             out.append(sh)
         return out
 
+    def _why_extra(self, shifts: list[Shift]) -> dict[str, list[str]]:
+        out = {}
+        who = ", ".join(sorted(self.callout_ids)) or "nobody"
+        for sh in shifts:
+            o = self.orig.get((sh.employee_id, sh.day))
+            if sh.day != self.d:
+                continue
+            if o is None:
+                out[sh.id] = [f"Call-in for {DAYS[sh.day]} {span(sh.start, sh.end)} after call-outs by {who}"]
+            elif (o.start, o.end) != (sh.start, sh.end):
+                out[sh.id] = [f"Extended from {span(o.start, o.end)} to {span(sh.start, sh.end)} after call-outs by {who}"]
+        return out
+
     def _schedule(self, shifts: list[Shift], b=None, s=None, status: str = "feasible") -> Schedule:
         p = self.p
+        shifts = annotate(p, shifts, self._why_extra(shifts))
         soft = (soft_from_solution(b, s) if b is not None else []) + availability_violations(p, shifts)
         soft = [v for v in soft if not (v.constraint_id and any(
             c.id == v.constraint_id and c.strength == Strength.hard for c in p.constraints))]
@@ -487,8 +502,9 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
                 continue
             c, roles, hours, _net = best
             cost = c.wage_units / SCALE + _premium(fx.p, e)[0]
-            alts.append((-(hours / max(cost, 0.01)) * _prob(e), c, make_shift(fx.p, c, roles).model_copy(
-                update={"id": f"sh-{e.id}-d{fx.d}-callin"}), hours))
+            alt = make_shift(fx.p, c, roles).model_copy(update={"id": f"sh-{e.id}-d{fx.d}-callin"})
+            alt = annotate(fx.p, none_shifts + [alt], fx._why_extra([alt]))[-1]
+            alts.append((-(hours / max(cost, 0.01)) * _prob(e), c, alt, hours))
         alts.sort(key=lambda t: (t[0], t[1].emp))
         queue_items += alts[:MAX_ALTERNATES]
     # One ranking for picked call-ins and alternates (SEMANTICS #16).
