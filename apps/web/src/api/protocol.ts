@@ -2,6 +2,7 @@
 // (helper shapes and the chat/SSE protocol). Everything else comes from ./../contracts.
 import type {
   AvailabilityEntry,
+  CallOut,
   Budget,
   Constraint,
   Department,
@@ -115,7 +116,10 @@ export type OutreachState = {
   current_rank: number | null
   messages: (OutboundMessage | InboundMessage)[]
   accepted_employee_ids: string[]
-  schedule: Schedule
+  /** null before any outreach has run for the store. */
+  schedule: Schedule | null
 }
+
+export type FixRequestBody = { callouts: CallOut[]; day: number; now: number }
 
 export type Health = { ok: boolean; contract_version: string; messenger: string; model: string }

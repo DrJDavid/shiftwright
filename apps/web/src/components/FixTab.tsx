@@ -1,0 +1,581 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Api } from '../api/client'
+import { ApiError } from '../api/client'
+import { apiMode } from '../api'
+import type { OutreachState, SolveResponse } from '../api/protocol'
+import type { FixAction, FixPlan, InboundMessage, OutboundMessage, Schedule, StoreConfig } from '../contracts'
+import { fmtMoney, fmtPct, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
+import { roleColors } from '../lib/roles'
+
+type Props = {
+  api: Api
+  config: StoreConfig
+  result: SolveResponse | null
+  /** Outreach accepted someone: show the updated schedule (not re-validated yet). */
+  onSchedule: (s: Schedule) => void
+}
+
+// The demo scenario's call-outs (packages/scenarios/fixtures/demo_scenario.json): Saturday 06:04.
+const DEMO = { day: 5, now: 364, ids: ['e034', 'e052', 'e053'] }
+
+const LEVER: Record<FixAction['lever'], string> = {
+  call_in: 'Call in',
+  extend: 'Extend shift',
+  reassign: 'Move role',
+  drop_coverage: 'Leave uncovered',
+}
+
+type Msg = OutboundMessage | InboundMessage
+const isOut = (m: Msg): m is OutboundMessage => 'to_employee_id' in m
+
+export function FixTab({ api, config, result, onSchedule }: Props) {
+  const storeId = config.store.id
+  const hasDemo = DEMO.ids.every((id) => config.employees.some((e) => e.id === id))
+  const [day, setDay] = useState(hasDemo ? DEMO.day : 0)
+  const [now, setNow] = useState(hasDemo ? DEMO.now : 360)
+  const [picked, setPicked] = useState<string[]>(hasDemo ? DEMO.ids : [])
+  const [plan, setPlan] = useState<FixPlan | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<{ status?: number; message: string } | null>(null)
+  const [outreach, setOutreach] = useState<OutreachState | null>(null)
+  const emp = useMemo(() => new Map(config.employees.map((e) => [e.id, e])), [config.employees])
+  const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
+  const colors = useMemo(() => roleColors(config.roles), [config.roles])
+  const byPhone = (p: string) => config.employees.find((e) => e.phone.replace(/\D/g, '').slice(-10) === p.replace(/\D/g, '').slice(-10))
+
+  const dayShifts = useMemo(
+    () => (result?.schedule.shifts ?? []).filter((s) => s.day === day).sort((a, b) => a.start - b.start),
+    [result, day],
+  )
+
+  // Only people actually working that day can call out (the demo prefill may not match a mock schedule).
+  const working = new Set(dayShifts.map((s) => s.employee_id))
+  const chosen = picked.filter((id) => working.has(id))
+
+  const [sentCallouts, setSentCallouts] = useState<string[]>([])
+  const findCoverage = async () => {
+    setSentCallouts(chosen)
+    setBusy(true)
+    setError(null)
+    setPlan(null)
+    setOutreach(null)
+    try {
+      const p = await api.fix(storeId, { callouts: chosen.map((id) => ({ employee_id: id, day, reported_at: now })), day, now })
+      setPlan(p)
+    } catch (e) {
+      setError({ status: e instanceof ApiError ? e.status : undefined, message: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Live outreach: SSE snapshots, falling back to polling GET /outreach every 2 s.
+  const abortRef = useRef<AbortController | null>(null)
+  const lastAccepted = useRef(0)
+  const watch = (initial: OutreachState) => {
+    abortRef.current?.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    setOutreach(initial)
+    const apply = (st: OutreachState) => {
+      if (ctrl.signal.aborted) return
+      setOutreach(st)
+      if (st.schedule && st.accepted_employee_ids.length !== lastAccepted.current) {
+        lastAccepted.current = st.accepted_employee_ids.length
+        onSchedule(st.schedule)
+      }
+    }
+    const poll = async () => {
+      while (!ctrl.signal.aborted) {
+        try {
+          const st = await api.outreach(storeId)
+          apply(st)
+          if (st.status !== 'texting') return
+        } catch {
+          /* keep polling */
+        }
+        await new Promise((r) => setTimeout(r, 2000))
+      }
+    }
+    api
+      .outreachStream(storeId, apply, ctrl.signal)
+      .then(async () => {
+        // The stream ends after a non-texting snapshot; one GET makes sure we have the final state.
+        if (!ctrl.signal.aborted) apply(await api.outreach(storeId))
+      })
+      .catch(() => {
+        if (!ctrl.signal.aborted) void poll()
+      })
+  }
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  const startTexting = async () => {
+    if (!plan?.plan_id) return
+    setError(null)
+    lastAccepted.current = 0
+    try {
+      watch(await api.outreachStart(storeId, plan.plan_id))
+    } catch (e) {
+      setError({ status: e instanceof ApiError ? e.status : undefined, message: (e as Error).message })
+    }
+  }
+
+  const stop = async () => {
+    try {
+      setOutreach(await api.outreachCancel(storeId))
+    } catch (e) {
+      setError({ message: (e as Error).message })
+    }
+  }
+
+  if (!result) {
+    return (
+      <div className="p-10">
+        <h2 className="text-xl font-semibold">Build the schedule first</h2>
+        <p className="mt-2 text-ink-2">Call-outs are fixed against this week's schedule. Build it from the Schedule tab.</p>
+      </div>
+    )
+  }
+
+  const callouts = new Set(picked)
+  const status = outreach?.status ?? 'idle'
+  const liveCoverage = outreach?.schedule?.metrics?.coverage_pct
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* 1. Report call-outs (frozen to a summary once there's a plan) */}
+        {plan ? (
+          <section className="flex items-center gap-3 border-b border-rule px-4 py-3">
+            <span className="text-sm">
+              <span className="font-semibold">
+                Called out {WEEKDAY_NAMES[day]} at {fmtTime(now)}:
+              </span>{' '}
+              {sentCallouts.map((id) => emp.get(id)?.name ?? id).join(', ')}
+            </span>
+            <button
+              type="button"
+              disabled={status === 'texting'}
+              onClick={() => {
+                setPlan(null)
+                setOutreach(null)
+                abortRef.current?.abort()
+              }}
+              title={status === 'texting' ? 'Stop texting first' : undefined}
+              className="ml-auto rounded-md border border-rule px-3 py-1 text-sm font-semibold hover:border-ink disabled:opacity-50"
+            >
+              Report different call-outs
+            </button>
+          </section>
+        ) : (
+          <section className="border-b border-rule px-4 py-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <h2 className="mr-2 text-lg font-semibold">Who called out?</h2>
+              <label className="text-sm">
+                <span className="block text-xs text-muted">Day</span>
+                <select
+                  className="rounded-md border border-rule px-2 py-1"
+                  value={day}
+                  onChange={(e) => {
+                    setDay(Number(e.target.value))
+                    setPicked([])
+                  }}
+                >
+                  {WEEKDAY_NAMES.map((w, d) => (
+                    <option key={w} value={d}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="block text-xs text-muted">Time now</span>
+                <input
+                  type="time"
+                  className="rounded-md border border-rule px-2 py-1"
+                  value={`${String(Math.floor(now / 60)).padStart(2, '0')}:${String(now % 60).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const [h, m] = e.target.value.split(':').map(Number)
+                    setNow((h || 0) * 60 + (m || 0))
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={chosen.length === 0 || busy || status === 'texting'}
+                onClick={() => void findCoverage()}
+                className="ml-auto rounded-md bg-pine px-4 py-2 font-semibold text-white hover:bg-pine-dark disabled:opacity-50"
+              >
+                {busy ? 'Finding coverage…' : `Find coverage for ${chosen.length || 'no one'}`}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              {dayShifts.length} people work {WEEKDAY_NAMES[day]}. Tap everyone who called out.
+              {hasDemo && day === DEMO.day ? ' Prefilled with the demo: three call-outs at 6:04a Saturday.' : ''}
+            </p>
+            <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+              {dayShifts.map((s) => {
+                const on = callouts.has(s.employee_id)
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setPicked((p) => (on ? p.filter((x) => x !== s.employee_id) : [...p, s.employee_id]))}
+                    className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-left text-xs ${
+                      on ? 'border-gap bg-gap-wash text-gap' : 'border-rule hover:border-ink'
+                    }`}
+                  >
+                    <span className="inline-block h-3 w-1 rounded-sm" style={{ background: colors.get(s.segments[0]?.role_id ?? '') }} />
+                    <span className="font-semibold">{emp.get(s.employee_id)?.name ?? s.employee_id}</span>
+                    <span className={on ? '' : 'text-muted'}>{fmtRange(s.start, s.end)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {error && (
+          <div className="m-4 rounded-md border border-gap/30 bg-gap-wash px-4 py-3 text-sm">
+            {error.status === 503 ? (
+              <>
+                <p className="font-semibold text-gap">The call-out fixer isn't on this server yet.</p>
+                <p className="mt-1 text-ink-2">
+                  The engine's <code>fix_day</code> hasn't landed, so the API can't plan coverage. ({error.message})
+                </p>
+                {apiMode === 'live' && (
+                  <p className="mt-1 text-ink-2">
+                    To preview the flow, open the app with{' '}
+                    <a className="font-semibold text-pine-dark underline" href="?api=mock">
+                      ?api=mock
+                    </a>{' '}
+                    (built-in mock; numbers come from the mock, not the solver).
+                  </p>
+                )}
+              </>
+            ) : error.status === 409 ? (
+              <p className="text-gap">{error.message}</p>
+            ) : (
+              <p className="text-gap">Couldn't plan coverage: {error.message}</p>
+            )}
+          </div>
+        )}
+
+        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} />}
+      </div>
+
+      {plan && (
+        <Phone
+          plan={plan}
+          outreach={outreach}
+          liveCoverage={liveCoverage}
+          onStart={() => void startTexting()}
+          onStop={() => void stop()}
+          nameOf={(id) => emp.get(id)?.name ?? id}
+          byPhone={byPhone}
+          onReply={async (phone, body) => {
+            try {
+              await api.mockReply(phone, body)
+            } catch (e) {
+              setError({ message: `Reply failed: ${(e as Error).message}` })
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ plan
+
+function PlanView({
+  plan,
+  config,
+  roleName,
+  outreach,
+}: {
+  plan: FixPlan
+  config: StoreConfig
+  roleName: Map<string, string>
+  outreach: OutreachState | null
+}) {
+  const emp = new Map(config.employees.map((e) => [e.id, e]))
+  const texted = new Set((outreach?.messages ?? []).filter(isOut).map((m) => m.to_employee_id))
+  const accepted = new Set(outreach?.accepted_employee_ids ?? [])
+  const declined = new Set(
+    (outreach?.messages ?? [])
+      .filter((m): m is InboundMessage => !isOut(m) && m.interpreted_as === 'decline')
+      .map((m) => config.employees.find((e) => e.phone.replace(/\D/g, '').slice(-10) === m.from_phone.replace(/\D/g, '').slice(-10))?.id)
+      .filter((x): x is string => !!x),
+  )
+  const mock = (plan.schedule_if_none_accept?.produced_by ?? '').startsWith('mock')
+
+  return (
+    <div className="space-y-4 p-4">
+      {mock && (
+        <p className="rounded-md bg-warn-wash px-3 py-1.5 text-xs font-medium text-warn">
+          Mock plan from the in-browser mock, not the engine.
+        </p>
+      )}
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-rule bg-rule">
+        <Big label="Coverage now" value={fmtPct(plan.coverage_before_pct)} tone="text-gap" />
+        <Big label="If the first choices say yes" value={fmtPct(plan.coverage_after_best_pct)} tone="text-pine-dark" />
+        <Big label="If nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
+      </div>
+
+      <section>
+        <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Plan</h3>
+        <ul className="space-y-1.5">
+          {plan.actions.map((a, i) => (
+            <li key={i} className="flex items-start gap-3 rounded-md border border-rule px-3 py-2 text-sm">
+              <span
+                className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${a.lever === 'drop_coverage' ? 'bg-gap-wash text-gap' : 'bg-pine-wash text-pine-dark'}`}
+              >
+                {LEVER[a.lever]}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="font-medium">
+                  {a.employee_id ? `${emp.get(a.employee_id)?.name ?? a.employee_id}, ` : ''}
+                  {a.role_id ? `${roleName.get(a.role_id) ?? a.role_id} ` : ''}
+                  {fmtRange(a.start, a.end)}
+                </span>
+                <span className="block text-ink-2">{a.rationale}</span>
+                {(a.law_rule_ids ?? []).length > 0 && (
+                  <span className="block text-xs text-muted">Law: {(a.law_rule_ids ?? []).join(', ')}</span>
+                )}
+              </span>
+              <span className="shrink-0 text-right tabular-nums">
+                {a.added_cost_dollars ? `+${fmtMoney(a.added_cost_dollars)}` : '—'}
+                {a.premium_pay_dollars ? <span className="block text-xs text-warn">+{fmtMoney(a.premium_pay_dollars)} premium</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Who to text, in order</h3>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-muted">
+              <th className="py-1 pr-2 text-left font-medium">#</th>
+              <th className="py-1 pr-2 text-left font-medium">Person</th>
+              <th className="py-1 pr-2 text-left font-medium">Shift offered</th>
+              <th className="py-1 pr-2 text-right font-medium">Cost</th>
+              <th className="py-1 pr-2 text-right font-medium">Likely yes</th>
+              <th className="py-1 text-left font-medium">Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plan.outreach_queue.map((c) => {
+              const e = emp.get(c.employee_id)
+              const st = accepted.has(c.employee_id)
+                ? { label: 'Said yes', cls: 'bg-pine text-white' }
+                : declined.has(c.employee_id)
+                  ? { label: 'Said no', cls: 'bg-rule text-ink-2' }
+                  : outreach?.current_rank === c.rank && outreach.status === 'texting'
+                    ? { label: 'Texting…', cls: 'bg-warn-wash text-warn' }
+                    : texted.has(c.employee_id)
+                      ? { label: 'Texted', cls: 'bg-rule-soft text-ink-2' }
+                      : null
+              const sh = c.proposed_shift
+              return (
+                <tr key={c.rank} className="border-t border-rule-soft align-top">
+                  <td className="py-1.5 pr-2 font-semibold tabular-nums">{c.rank}</td>
+                  <td className="py-1.5 pr-2 whitespace-nowrap">
+                    <span className="font-medium">{e?.name ?? c.employee_id}</span>
+                    {st && <span className={`ml-1.5 rounded px-1 text-[10px] font-semibold ${st.cls}`}>{st.label}</span>}
+                  </td>
+                  <td className="py-1.5 pr-2 whitespace-nowrap text-ink-2">
+                    {[...new Set(sh.segments.map((g) => roleName.get(g.role_id) ?? g.role_id))].join(', ')} {fmtRange(sh.start, sh.end)}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(c.added_cost_dollars)}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{Math.round(c.est_accept_prob * 100)}%</td>
+                  <td className="py-1.5 text-xs text-ink-2">{c.why}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {plan.outreach_queue.length === 0 && <p className="text-sm text-muted">Nobody to text: the plan covers it without call-ins.</p>}
+      </section>
+    </div>
+  )
+}
+
+function Big({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="bg-panel px-4 py-3">
+      <div className="text-xs text-muted">{label}</div>
+      <div className={`text-2xl font-semibold tabular-nums ${tone}`}>{value}</div>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ phone
+
+function useTween(target: number | undefined) {
+  const [v, setV] = useState(target)
+  const from = useRef(target)
+  useEffect(() => {
+    if (target == null) return
+    const start = from.current ?? target
+    const t0 = performance.now()
+    let raf = 0
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / 900)
+      const val = start + (target - start) * (1 - (1 - k) ** 3)
+      setV(val)
+      from.current = val
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target])
+  return v
+}
+
+function Phone({
+  plan,
+  outreach,
+  liveCoverage,
+  onStart,
+  onStop,
+  onReply,
+  nameOf,
+  byPhone,
+}: {
+  plan: FixPlan
+  outreach: OutreachState | null
+  liveCoverage: number | undefined
+  onStart: () => void
+  onStop: () => void
+  onReply: (phone: string, body: string) => Promise<void>
+  nameOf: (id: string) => string
+  byPhone: (p: string) => { id: string; name: string } | undefined
+}) {
+  const status = outreach?.status ?? 'idle'
+  const msgs = outreach?.messages ?? []
+  const pending = [...msgs].reverse().find(isOut)
+  const waitingOnPending = status === 'texting' && pending && pending.outreach_rank === outreach?.current_rank
+  const shown = useTween(liveCoverage ?? plan.coverage_before_pct)
+  const scroller = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
+  }, [msgs.length])
+  const fmtClock = (iso: string) => {
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? '' : fmtTime(d.getHours() * 60 + d.getMinutes())
+  }
+
+  return (
+    <aside className="flex w-[21rem] shrink-0 flex-col border-l border-rule bg-paper" aria-label="Outreach">
+      <div className="border-b border-rule bg-panel px-4 py-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs text-muted">Coverage</span>
+          <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_CLS[status]}`}>{STATUS_LABEL[status]}</span>
+        </div>
+        <div className="text-3xl font-semibold tabular-nums">{fmtPct(shown ?? 0)}</div>
+        <div className="text-xs text-muted">
+          {(outreach?.accepted_employee_ids ?? []).length > 0
+            ? `${outreach!.accepted_employee_ids.map(nameOf).join(', ')} said yes`
+            : `Best case ${fmtPct(plan.coverage_after_best_pct)} if the first choices say yes`}
+        </div>
+      </div>
+
+      <div ref={scroller} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
+        {status === 'idle' && msgs.length === 0 && (
+          <div className="pt-6 text-center">
+            <p className="text-sm text-ink-2">
+              Texts go out one at a time, in the order on the left. Each person gets a few minutes before the next is asked.
+            </p>
+            <p className="mt-1 text-xs text-muted">Phones are simulated in this demo; no real texts are sent.</p>
+          </div>
+        )}
+        {msgs.map((m) => {
+          if (isOut(m))
+            return (
+              <div key={m.id} className="ml-8">
+                <div className="mb-0.5 text-right text-[10px] text-muted">
+                  To {nameOf(m.to_employee_id)}
+                  {m.outreach_rank ? ` · #${m.outreach_rank}` : ''} · {fmtClock(m.sent_at)}
+                </div>
+                <div className="rounded-2xl rounded-br-sm bg-pine px-3 py-2 text-sm text-white">{m.body}</div>
+              </div>
+            )
+          if (m.from_phone === 'system')
+            return (
+              <p key={m.id} className="text-center text-xs text-muted">
+                {m.body}
+              </p>
+            )
+          const who = byPhone(m.from_phone)
+          return (
+            <div key={m.id} className="mr-8">
+              <div className="mb-0.5 text-[10px] text-muted">
+                {who?.name ?? m.from_phone} · {fmtClock(m.received_at)}
+                {m.interpreted_as && m.interpreted_as !== 'unknown' ? ` · read as ${m.interpreted_as}` : ''}
+              </div>
+              <div className="rounded-2xl rounded-bl-sm bg-panel px-3 py-2 text-sm shadow-sm ring-1 ring-rule">{m.body}</div>
+            </div>
+          )
+        })}
+        {waitingOnPending && <div className="mr-8 h-7 w-12 animate-pulse rounded-2xl bg-rule" aria-label="Waiting for a reply" />}
+      </div>
+
+      <div className="border-t border-rule bg-panel px-3 py-3">
+        {status === 'idle' || status === 'exhausted' || status === 'filled' ? (
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={!plan.plan_id || plan.outreach_queue.length === 0}
+            className="w-full rounded-md bg-pine px-4 py-2.5 font-semibold text-white hover:bg-pine-dark disabled:opacity-50"
+          >
+            {status === 'idle' ? 'Start texting' : 'Start again'}
+          </button>
+        ) : (
+          <>
+            {waitingOnPending && pending && (
+              <div className="mb-2">
+                <div className="mb-1 text-xs text-muted">Simulate {nameOf(pending.to_employee_id)}'s reply:</div>
+                <div className="flex gap-1.5">
+                  {[
+                    ['Yes', 'Yes, I can come in'],
+                    ['No', "No, sorry, can't today"],
+                    ['Question', 'What time would I be done?'],
+                  ].map(([label, body]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => void onReply(pending.to_phone, body)}
+                      className="flex-1 rounded-md border border-rule px-2 py-1.5 text-sm font-semibold hover:border-ink"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button type="button" onClick={onStop} className="w-full rounded-md px-3 py-1.5 text-sm text-ink-2 hover:bg-paper">
+              Stop texting
+            </button>
+          </>
+        )}
+      </div>
+    </aside>
+  )
+}
+
+const STATUS_LABEL: Record<OutreachState['status'], string> = {
+  idle: 'Not started',
+  texting: 'Texting',
+  filled: 'All covered',
+  exhausted: 'Stopped',
+}
+const STATUS_CLS: Record<OutreachState['status'], string> = {
+  idle: 'bg-rule-soft text-ink-2',
+  texting: 'bg-warn-wash text-warn',
+  filled: 'bg-pine text-white',
+  exhausted: 'bg-rule text-ink-2',
+}

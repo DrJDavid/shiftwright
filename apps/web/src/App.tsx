@@ -5,6 +5,7 @@ import type { Readiness, SolveResponse } from './api/protocol'
 import type { Gap, LawPack, StoreConfig } from './contracts'
 import { ChatPane } from './components/ChatPane'
 import { CoverageTab } from './components/CoverageTab'
+import { FixTab } from './components/FixTab'
 import { GapSheet } from './components/GapSheet'
 import { ReadinessRail } from './components/ReadinessRail'
 import { Rulebook } from './components/Rulebook'
@@ -20,7 +21,7 @@ const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'schedule', label: 'Schedule', ready: true },
   { id: 'coverage', label: 'Coverage', ready: true },
   { id: 'store', label: 'Store', ready: true },
-  { id: 'fix', label: 'Fix call-outs', ready: false },
+  { id: 'fix', label: 'Fix call-outs', ready: true },
 ]
 
 const STORE_KEY = `sw.storeId.${apiMode}`
@@ -304,6 +305,16 @@ export default function App() {
             <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
           )}
           {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
+          {/* Kept mounted so a running outreach survives tab switches. */}
+          <div className={tab === 'fix' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+            <FixTab
+              key={config.store.id}
+              api={api}
+              config={config}
+              result={result}
+              onSchedule={(schedule) => setResult({ schedule, validation: null })}
+            />
+          </div>
           {openGap && result && (
             <GapSheet
               api={api}
