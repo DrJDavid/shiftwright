@@ -1,0 +1,67 @@
+{
+  "_what": "What the leader tells the chat. Not in any CSV.",
+  "template": "empty",
+  "name": "Store 2291 Sacramento (messy test)",
+  "jurisdiction": {
+    "state": "CA",
+    "city": null
+  },
+  "timezone": "America/Los_Angeles",
+  "slot_minutes": 30,
+  "hours": {
+    "open": "08:00",
+    "close": "22:00",
+    "days": "every day"
+  },
+  "pre_open_minutes": 180,
+  "post_close_minutes": 60,
+  "weekly_hours_cap": 700,
+  "manual_mappings": {
+    "roster": {
+      "Manager": null
+    }
+  },
+  "gap_penalty_per_hour": {
+    "lod": 200,
+    "gsa": 40,
+    "cashier": 30,
+    "drive_up": 25,
+    "softlines": 20,
+    "hardlines": 20,
+    "truck": 35,
+    "forklift": 35,
+    "beauty": 15,
+    "zz_temp": 0
+  },
+  "fixes_after_review": {
+    "wage": {
+      "2212": 17.0
+    },
+    "age": {
+      "2223": 64
+    },
+    "phone": {
+      "2225": "+19165550185"
+    },
+    "train": {
+      "2211": [
+        "beauty"
+      ],
+      "2213": [
+        "beauty"
+      ],
+      "2215": [
+        "hardlines",
+        "truck"
+      ]
+    },
+    "role_tags": {
+      "forklift": [
+        "powered_industrial_truck"
+      ]
+    },
+    "role_min_age": {
+      "forklift": 18
+    }
+  }
+}

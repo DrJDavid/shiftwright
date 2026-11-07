@@ -1,0 +1,16 @@
+Employee ID,Name,Department,Status,Wage,Birth Date,Hire Date,Phone,Min Hours,Max Hours
+1001,Gale Kettering,Leadership,FT,24.50,1988-09-28,2022-03-29,512-555-0100,32,40
+1002,Blake Quarles,Leadership,FT,23.00,1995-02-23,2026-02-16,512-555-0101,32,40
+1003,Quinn Castellan,Leadership,FT,22.75,1982-07-03,2024-08-04,512-555-0102,32,40
+1004,Nico Elsworth,Front of Store,FT,16.50,1999-10-08,2020-06-22,512-555-0103,32,40
+1005,Vale Fairlow,Front of Store,PT,15.25,2007-02-18,2024-05-10,512-555-0104,12,29
+1006,Frankie Dunmore,Front of Store,PT,15.00,2009-02-15,2020-01-21,512-555-0105,12,29
+1007,Frankie Underhill,Front of Store,PT,15.75,1974-09-09,2023-08-02,512-555-0106,12,29
+1008,Pax Bellweather,Front of Store,FT,17.25,1991-03-12,2023-12-18,512-555-0107,32,40
+1009,Cove Thistle,Front of Store,PT,15.50,2003-10-03,2022-11-18,512-555-0108,12,29
+1010,Greer Eskew,Front of Store,PT,15.25,2006-01-20,2021-09-09,512-555-0109,12,29
+1011,Shay Castellan,General Merchandise,FT,16.75,1985-04-12,2025-08-30,512-555-0110,32,40
+1012,Tobin Ivanko,General Merchandise,PT,15.50,1997-03-16,2025-12-07,512-555-0111,12,29
+1013,Ember Yarrow,General Merchandise,PT,15.25,2008-04-29,2022-07-18,512-555-0112,12,29
+1014,Gale Jessup,General Merchandise,PT,16.00,1966-07-25,2020-06-27,512-555-0113,12,29
+1015,Harper Ashgrove,General Merchandise,PT,15.00,2002-01-20,2024-11-29,512-555-0114,12,29
