@@ -197,6 +197,8 @@ def accept_prefill(card_type: str, props: dict) -> dict:
     if card_type == "events":
         return {"events": props.get("events", [])}
     if card_type == "propose_rule":
+        if props.get("level"):
+            return {"decision": props["level"]}
         c = props.get("constraint") or {}
         if c.get("strength") == "soft":
             return {"decision": "soft", "weight_dollars": c.get("weight_dollars") or 0}

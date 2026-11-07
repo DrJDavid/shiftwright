@@ -435,12 +435,12 @@ class Resolver:
 
 
 def price_imported_roles(d: dict) -> None:
-    """Imported roles still on the automatic priority get the default level, priced from current wages."""
+    """Imported roles still on the automatic priority get the default level's tier value (Important)."""
     from . import priorities
 
     for r in d["roles"]:
         if AUTO_PRIORITY in (r.get("description") or ""):
-            r["gap_penalty_per_hour"] = priorities.penalty(priorities.DEFAULT_LEVEL, priorities.base_wage(d, r["id"]))
+            r["gap_penalty_per_hour"] = priorities.penalty(priorities.DEFAULT_LEVEL)
 
 
 def _mapped(row: dict, mapping: dict[str, Optional[str]]) -> dict[str, str]:

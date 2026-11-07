@@ -1,6 +1,33 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~04:45 CT (branch cursor/A1-auth, PUNCHLIST Lane A)_
+_Last updated: 2026-11-07 ~08:45 CT (branch cursor/C3b-api, briefs/C3-coverage-first.md "API")_
+
+**Done (C3b: API side of coverage-first; SEMANTICS #25):**
+- **Priority tiers** (`priorities.py`): Must cover 300 · Important 200 · Nice to have 100, fixed (no wage
+  multiples; `base_wage`/`FALLBACK_WAGE` removed). Imported roles on `imports.AUTO_PRIORITY` get the Important
+  tier (200). Readiness `priorities` keeps only "no priority" (≤ 0) as blocking; the "priority below pay"
+  sub-check is gone.
+- **Rule strength words** (`rules.STRENGTHS`): Firm rule (hard, weight 0) · Strong preference (soft, 50) ·
+  Preference (soft, 25) · Not a rule. `propose_rule` takes `level` (agent picks it from the wording); card props
+  add `level` and `levels: [{id, label}]`; result `decision` ∈ firm | strong_preference | preference | not_a_rule
+  (older `hard`/`soft` + any `weight_dollars` still accepted and snapped to a tier: ≥ 50 → strong, else 25).
+  `add_constraint` snaps soft weights the same way. `accept_prefill` answers with the card's `level`.
+  For API.md (propose_rule row): props `level`, `levels`; result `decision` adds the three words.
+- **Build tradeoffs** (`tradeoffs.py`): REST `/solve` (response passes `solver_stats.tradeoffs` through
+  unchanged) and the agent's `dry_run_solve` save the build's tradeoffs (kv `build_tradeoffs`, biggest wage
+  difference first; answers reset per build). New tools: `get_tradeoffs` (read; after a build outside chat) and
+  `ask_build_tradeoff(tradeoff_id)` (card type `tradeoff`, props `{question, options, tradeoff}`). The server
+  writes the question/options from the solve's numbers: budget_gap "Covering Cashier Tue 2 pm–4 pm needs 3 hours
+  over your budget ($51). Approve the hours, or leave it open?" (approve → `approve_budget_increase` as the
+  leader, +extra_hours, + the dollar difference only if a dollar cap exists; leave_open → nothing);
+  preference_cost 'Keeping "<rule note>" costs $120 more this week. Keep it?' (keep → nothing; drop → the rule
+  is `rejected`). Each tradeoff is asked once per build. `dry_run_solve` returns `tradeoffs` + a `next` hint.
+- Prompts: core v3.6 (rule 3 strength words, never weights; rule 7/12 mention ask_build_tradeoff; new rule 16:
+  after a build go through the tradeoffs biggest first, don't restate the numbers, then offer to rebuild),
+  onboard v4.6 step 10, review v2.
+- Timeouts: REST `/solve` has no API-side timeout (default limit 20 s; the engine's what-ifs are ≤ 5 × min(5,
+  0.1 × limit) s after it), `fix_day` runs no what-ifs, so nothing API-side needed changing.
+- Tests `test_c3b.py` (13); the old "priced above pay" / "below pay" tests were rewritten for tiers.
 
 **Done (A3: generated sample businesses; `generated.py`, `import_flow.py`):**
 - `POST /api/workplaces/generated` and `GET /api/workplaces/{id}/sample-data.zip` as documented in API.md.
