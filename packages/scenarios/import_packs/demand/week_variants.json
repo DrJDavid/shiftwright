@@ -1,0 +1,181 @@
+{
+  "normal": {
+    "week_start": "2026-11-09",
+    "label": "Normal November week",
+    "hours_by_day": {
+      "Mon": [
+        "08:00",
+        "22:00"
+      ],
+      "Tue": [
+        "08:00",
+        "22:00"
+      ],
+      "Wed": [
+        "08:00",
+        "22:00"
+      ],
+      "Thu": [
+        "08:00",
+        "22:00"
+      ],
+      "Fri": [
+        "08:00",
+        "22:00"
+      ],
+      "Sat": [
+        "08:00",
+        "22:00"
+      ],
+      "Sun": [
+        "08:00",
+        "22:00"
+      ]
+    },
+    "truck_days": {
+      "days": [
+        "Tue",
+        "Thu",
+        "Sat"
+      ],
+      "start": "04:00"
+    },
+    "truth_headcount_hours": 949.0
+  },
+  "holiday": {
+    "week_start": "2026-11-23",
+    "label": "Thanksgiving week (closed Thu, Black Friday 6am-11pm)",
+    "hours_by_day": {
+      "Mon": [
+        "08:00",
+        "22:00"
+      ],
+      "Tue": [
+        "08:00",
+        "22:00"
+      ],
+      "Wed": [
+        "08:00",
+        "22:00"
+      ],
+      "Fri": [
+        "06:00",
+        "23:00"
+      ],
+      "Sat": [
+        "07:00",
+        "23:00"
+      ],
+      "Sun": [
+        "08:00",
+        "22:00"
+      ]
+    },
+    "truck_days": {
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Sat"
+      ],
+      "start": "04:00"
+    },
+    "truth_headcount_hours": 1078.0
+  },
+  "promo": {
+    "week_start": "2026-11-16",
+    "label": "Promo week (weekend deals Fri-Sun, online push)",
+    "hours_by_day": {
+      "Mon": [
+        "08:00",
+        "22:00"
+      ],
+      "Tue": [
+        "08:00",
+        "22:00"
+      ],
+      "Wed": [
+        "08:00",
+        "22:00"
+      ],
+      "Thu": [
+        "08:00",
+        "22:00"
+      ],
+      "Fri": [
+        "08:00",
+        "22:00"
+      ],
+      "Sat": [
+        "08:00",
+        "22:00"
+      ],
+      "Sun": [
+        "08:00",
+        "22:00"
+      ]
+    },
+    "truck_days": {
+      "days": [
+        "Tue",
+        "Thu",
+        "Sat"
+      ],
+      "start": "04:00"
+    },
+    "truth_headcount_hours": 1013.0
+  },
+  "light_january": {
+    "week_start": "2027-01-11",
+    "label": "Light January week (Sun 10am-8pm)",
+    "hours_by_day": {
+      "Mon": [
+        "08:00",
+        "22:00"
+      ],
+      "Tue": [
+        "08:00",
+        "22:00"
+      ],
+      "Wed": [
+        "08:00",
+        "22:00"
+      ],
+      "Thu": [
+        "08:00",
+        "22:00"
+      ],
+      "Fri": [
+        "08:00",
+        "22:00"
+      ],
+      "Sat": [
+        "08:00",
+        "22:00"
+      ],
+      "Sun": [
+        "10:00",
+        "20:00"
+      ]
+    },
+    "truck_days": {
+      "days": [
+        "Wed",
+        "Sat"
+      ],
+      "start": "04:00"
+    },
+    "truth_headcount_hours": 765.0
+  },
+  "_shared": {
+    "_what": "Leader setup per week variant (store_basics: week + hours; pre-open 240 for 4am trucks). Load corporate_mid_tx roster/training/availability first.",
+    "base_pack": "corporate_mid_tx",
+    "slot_minutes": 30,
+    "pre_open_minutes": 240,
+    "timezone": "America/Chicago",
+    "jurisdiction": {
+      "state": "TX",
+      "city": null
+    }
+  }
+}

@@ -1,0 +1,18 @@
+Dept,Role,Days,Start,End,Headcount
+FRONT END,Cashier,Mon-Thu,08:00,10:00,1
+FRONT END,Cashier,Mon-Thu,10:00,16:00,2
+FRONT END,Cashier,Mon-Thu,16:00,20:00,3
+FRONT END,Cashier,Mon-Thu,20:00,22:00,1
+FRONT END,Cashier,Fri-Sun,08:00,10:00,2
+FRONT END,Cashier,Fri-Sun,10:00,20:00,3
+FRONT END,Cashier,Fri-Sun,20:00,22:00,2
+LEADERSHIP,Leader on Duty,Daily,08:00,22:00,1
+GUEST SERVICE,Guest Service,Daily,08:00,22:00,1
+FULFILLMENT,Drive Up,Mon-Sun,09:00,21:00,1
+FULFILLMENT,Order Pick,Daily,07:00,13:00,2
+FULFILLMENT,Order Pick,Daily,13:00,17:00,1
+SOFTLINES,Softlines,Mon-Sun,09:00,13:00,2
+SOFTLINES,Softlines,Mon-Sun,13:00,18:00,1
+HARDLINES,Hardlines,Mon-Sun,09:00,13:00,2
+HARDLINES,Hardlines,Mon-Sun,13:00,18:00,1
+FLOW,Truck Unload,Tue/Thu/Sat,04:00,10:00,4

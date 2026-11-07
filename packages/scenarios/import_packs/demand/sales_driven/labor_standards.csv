@@ -1,0 +1,6 @@
+Role,Driver,Units per Staff Hour,Min HC,Max HC,Max Duration Hrs
+Leader on Duty,fixed,,1,1,
+Cashier,transactions,40,1,8,
+Guest Service,transactions,160,1,3,
+Drive Up,online_orders,12,1,4,
+Order Pick,online_orders,12,0,4,
