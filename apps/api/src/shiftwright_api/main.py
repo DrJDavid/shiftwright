@@ -30,7 +30,7 @@ from . import auth, callout, equipment, generated, import_flow, integrations, pr
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
-from .agent.tools import with_law
+from .agent.tools import decide_build_tradeoff, with_law
 from .db import ConfigInvalid, Database, NotFound
 from .explain import phrase_gap
 from .messenger import MockMessenger, make_messenger, twilio_signature_valid
@@ -509,6 +509,42 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    @app.get("/api/stores/{store_id}/decisions")
+    def decisions(store_id: str) -> dict:
+        """The latest build's tradeoffs as decisions (question + options from the solve's numbers), with
+        the answer for ones already decided. Independent of the chat, so they survive a refresh."""
+        cfg = load(store_id)
+        done = tradeoffs.answered(db(), store_id)
+        items = []
+        for t in tradeoffs.latest(db(), store_id):
+            c = tradeoffs.card(cfg, t)
+            items.append({"id": t["id"], "kind": t["kind"], "question": c["question"], "options": c["options"],
+                          "answered": done.get(t["id"])})
+        return {"decisions": items, "waiting": sum(1 for d in items if not d["answered"])}
+
+    @app.post("/api/stores/{store_id}/decisions/{tradeoff_id}")
+    def decide(store_id: str, tradeoff_id: str, body: dict = Body(...)) -> dict:
+        load(store_id)
+        out = decide_build_tradeoff(db(), store_id, tradeoff_id, str(body.get("option_id") or ""))
+        if "error" in out.content:
+            raise HTTPException(409 if "Already" in out.content["error"] else 422, out.content["error"])
+        return {"ok": True, "decision": out.content.get("decision"),
+                "note": "Applies on the next build. Rebuild to see it."}
+
+    @app.get("/api/stores/{store_id}/chat/history")
+    def chat_history(store_id: str, limit: int = Query(60, ge=1, le=400)) -> dict:
+        """The visible conversation so far (the agent's own transcript: user and assistant text only, no tool
+        traffic), so the chat shows what was said before a reload."""
+        load(store_id)
+        out = []
+        for m in db().get_transcript(store_id):
+            text = m.get("content")
+            if isinstance(text, list):  # multi-part content: keep the text parts
+                text = "\n".join(p.get("text", "") for p in text if isinstance(p, dict) and p.get("type") == "text")
+            if m.get("role") in ("user", "assistant") and isinstance(text, str) and text.strip():
+                out.append({"role": m["role"], "text": text})
+        return {"messages": out[-limit:]}
 
     @app.post("/api/stores/{store_id}/chat/card")
     def chat_card(store_id: str, sub: CardSubmission) -> dict:

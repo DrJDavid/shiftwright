@@ -91,12 +91,20 @@ class ToolContext:
             return ToolResult({"error": str(e)})
         content: dict = {"ok": True, "config_version": cfg.config_version, "changed": summary}
         if tagged:
-            equipment.record_auto(self.db, self.store_id, tagged)
+            status = equipment.record_auto(self.db, self.store_id, tagged)
             summary = summary + [f"tagged: {equipment.describe(tagged)}"]
+            unclear = [t for t in tagged if status.get(t[0]) == "auto"]
+            clear = [t for t in tagged if status.get(t[0]) == "clear"]
+            notes = []
+            if clear:
+                notes.append(f"Clearly hazard/equipment work by name, tags kept: {equipment.describe(clear)}. Mention it "
+                             "in one short clause (minor-labor rules in the law dataset will apply; they can remove a "
+                             "tag on Team & rules). Don't ask about these.")
+            if unclear:
+                notes.append(f"Unsure from the name: {equipment.describe(unclear)}. Ask the owner to keep or remove "
+                             "these on the confirm_tags card (ask_confirm_tags), once, after roles are set up.")
             content.update(changed=summary, equipment_tagged={rid: tags for rid, _, tags in tagged},
-                           note="These roles look like hazard/equipment work (tags from a fixed list), so minor-labor "
-                                "rules in the law pack now apply to them. Tell the leader in one sentence and ask "
-                                "them to keep or remove the tags on the confirm_tags card (ask_confirm_tags).")
+                           equipment_status=status, note=" ".join(notes))
         return ToolResult(content, patch_summary=summary, config_version=cfg.config_version)
 
 
@@ -666,37 +674,50 @@ def ask_build_tradeoff(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolR
     def apply(result: dict) -> ToolResult:
         if _cancelled(result):
             return CANCELLED
-        chosen = next((o for o in props["options"] if o["id"] == result.get("option_id")), None)
-        if chosen is None:
-            return ToolResult({"error": f"option_id {result.get('option_id')!r} is not one of the offered options"})
-        ctx.db.put(ctx.store_id, "tradeoff", chosen["id"], {"question": props["question"], "option": chosen})
-        choice = chosen["id"].rsplit(":", 1)[1]
-        tradeoffs.mark_answered(ctx.db, ctx.store_id, tid, choice)
-        leader = ToolContext(db=ctx.db, store_id=ctx.store_id, actor="leader")
-        out: Optional[ToolResult] = None
-        if choice == "approve":
-            extra = float(t.get("extra_hours") or 0)
-            dollars = math.ceil(chosen["cost_dollars"]) if cfg.budget.weekly_dollar_cap else 0
-            out = approve_budget_increase(leader, {"option_id": chosen["id"], "extra_hours": extra,
-                                                   "extra_dollars": dollars, "reason": props["question"]})
-        elif choice == "drop":
-            rid = t.get("rule_id")
-
-            def fn(d):
-                for c in d["constraints"]:
-                    if c["id"] == rid:
-                        c["status"] = "rejected"
-            out = leader.mutate("card:tradeoff", {"tradeoff_id": tid, "rule_id": rid, "status": "rejected"}, fn,
-                                [f"rule {rid} dropped"])
-        content = {"tradeoff_id": tid, "option_id": chosen["id"], "decision": choice, "option": chosen}
-        if out is None:
-            return ToolResult(content)
-        if "error" in out.content:
-            return ToolResult({**content, **out.content})
-        content["next"] = "Applies from the next build (dry_run_solve, or the leader's Build button)."
-        return ToolResult({**out.content, **content}, patch_summary=out.patch_summary,
-                          config_version=out.config_version)
+        return decide_build_tradeoff(ctx.db, ctx.store_id, tid, str(result.get("option_id") or ""))
     return CardRequest("tradeoff", props, apply)
+
+
+def decide_build_tradeoff(db: Database, store_id: str, tid: str, option_id: str) -> ToolResult:
+    """The leader's answer to one build tradeoff (from the chat card or the Decisions panel): approve →
+    budget approval (+hours); drop → the rule is rejected; leave_open / keep → recorded only."""
+    t = next((x for x in tradeoffs.latest(db, store_id) if x["id"] == tid), None)
+    if t is None:
+        return ToolResult({"error": f"No tradeoff {tid!r} in the latest build."})
+    if tid in tradeoffs.answered(db, store_id):
+        return ToolResult({"error": f"Already decided: {tid!r}."})
+    cfg = db.get_config(store_id)
+    props = tradeoffs.card(cfg, t)
+    chosen = next((o for o in props["options"] if o["id"] == option_id), None)
+    if chosen is None:
+        return ToolResult({"error": f"option_id {option_id!r} is not one of the offered options"})
+    db.put(store_id, "tradeoff", chosen["id"], {"question": props["question"], "option": chosen})
+    choice = chosen["id"].rsplit(":", 1)[1]
+    tradeoffs.mark_answered(db, store_id, tid, choice)
+    leader = ToolContext(db=db, store_id=store_id, actor="leader")
+    out: Optional[ToolResult] = None
+    if choice == "approve":
+        extra = float(t.get("extra_hours") or 0)
+        dollars = math.ceil(chosen["cost_dollars"]) if cfg.budget.weekly_dollar_cap else 0
+        out = approve_budget_increase(leader, {"option_id": chosen["id"], "extra_hours": extra,
+                                               "extra_dollars": dollars, "reason": props["question"]})
+    elif choice == "drop":
+        rid = t.get("rule_id")
+
+        def fn(d):
+            for c in d["constraints"]:
+                if c["id"] == rid:
+                    c["status"] = "rejected"
+        out = leader.mutate("card:tradeoff", {"tradeoff_id": tid, "rule_id": rid, "status": "rejected"}, fn,
+                            [f"rule {rid} dropped"])
+    content = {"tradeoff_id": tid, "option_id": chosen["id"], "decision": choice, "option": chosen}
+    if out is None:
+        return ToolResult(content)
+    if "error" in out.content:
+        return ToolResult({**content, **out.content})
+    content["next"] = "Applies from the next build (dry_run_solve, or the leader's Build button)."
+    return ToolResult({**out.content, **content}, patch_summary=out.patch_summary,
+                      config_version=out.config_version)
 
 
 def show_conflict_menu(ctx: ToolContext, args: dict) -> CardRequest:

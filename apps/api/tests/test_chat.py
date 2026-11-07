@@ -193,3 +193,21 @@ def test_accept_prefill_headless(client, fake_llm):
         "mode": "onboard", "messages": [{"role": "user", "content": "y"}],
         "card_script": {"*": "accept_prefill", "payroll": [{"weekly_hours_cap": 650}]}})
     assert client.get(f"/api/stores/{sid}/config").json()["budget"]["weekly_hours_cap"] == 650
+
+
+def test_chat_history_shows_only_what_was_said(client):
+    from api_helpers import make_store
+    sid = make_store(client, template="tiny")["store"]["id"]
+    client.app.state.db.save_transcript(sid, [
+        {"role": "user", "content": "we open at 6"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "t1", "type": "function",
+                                                               "function": {"name": "x", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "t1", "content": "{\"ok\": true}"},
+        {"role": "assistant", "content": "Saved your hours."},
+        {"role": "user", "content": [{"type": "text", "text": "thanks"}]},
+    ])
+    r = client.get(f"/api/stores/{sid}/chat/history")
+    assert r.status_code == 200
+    assert r.json()["messages"] == [{"role": "user", "text": "we open at 6"},
+                                    {"role": "assistant", "text": "Saved your hours."},
+                                    {"role": "user", "text": "thanks"}]

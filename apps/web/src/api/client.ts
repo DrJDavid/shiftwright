@@ -142,6 +142,12 @@ export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
         body,
         ...(storeId ? { store_id: storeId } : {}),
       }),
+    /** What was said in the chat before (user and assistant text). */
+    chatHistory: (id: string) => json<{ messages: { role: 'user' | 'assistant'; text: string }[] }>(`${s(id)}/chat/history`),
+    /** The latest build's tradeoffs as decisions (independent of the chat). */
+    decisions: (id: string) => json<{ decisions: Decision[]; waiting: number }>(`${s(id)}/decisions`),
+    decide: (id: string, tradeoffId: string, optionId: string) =>
+      post<{ ok: boolean; decision: string; note: string }>(`${s(id)}/decisions/${encodeURIComponent(tradeoffId)}`, { option_id: optionId }),
     /** The latest call-out that arrived as a message (employee page or text), with its fix plan. */
     callout: (id: string) => json<{ callout: Callout | null; plan: FixPlan | null }>(`${s(id)}/callout`),
     /** SSE `state` snapshots until the outreach stops texting. Resolves when the stream closes. */
@@ -186,4 +192,13 @@ export type Callout = {
   note: string
   reply?: string | null
   read_by?: 'llm' | 'keywords'
+}
+
+/** One build tradeoff for the manager to decide (apps/api tradeoffs.card). */
+export type Decision = {
+  id: string
+  kind: 'budget_gap' | 'preference_cost'
+  question: string
+  options: { id: string; label: string; cost_dollars: number; effect: string }[]
+  answered: string | null
 }

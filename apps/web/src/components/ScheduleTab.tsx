@@ -6,6 +6,7 @@ import { ScheduleGrid } from './ScheduleGrid'
 import { ScheduleStats } from './ScheduleStats'
 import { SolveButton, type SolveState } from './SolveButton'
 import { SolveProgress } from './SolveProgress'
+import { DecisionsLink } from './DecisionsPanel'
 
 type Props = {
   config: StoreConfig
@@ -16,13 +17,13 @@ type Props = {
   onDayClick?: (day: number) => void
   callouts?: { employee_id: string; day: number }[]
   lawRules?: LawRule[]
-  /** Opens the chat, where the agent asks about the solver's tradeoffs. */
+  /** Unused since decisions have their own panel; kept so callers needn't change. */
   onOpenChat?: () => void
   /** C4: coverage so far while a build runs, when the server reports it. */
   coveragePct?: number | null
 }
 
-export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules, onOpenChat, coveragePct }: Props) {
+export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules, coveragePct }: Props) {
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const names = useMemo(() => new Map(config.employees.map((e) => [e.id, e.name])), [config.employees])
 
@@ -66,11 +67,8 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
           Gap in a bar is a break
         </span>
         <span className="ml-auto flex items-center gap-3">
-          {tradeoffs > 0 && onOpenChat && (
-            <button type="button" onClick={onOpenChat} className="font-semibold text-pine-dark underline">
-              {tradeoffs} {tradeoffs === 1 ? 'decision' : 'decisions'} waiting
-            </button>
-          )}
+          {/* Shown from the stored decisions, so it survives a refresh and call-out repairs (which carry no tradeoffs). */}
+          <DecisionsLink storeId={config.store.id} buildKey={`${schedule.config_version}:${tradeoffs}:${schedule.shifts?.length ?? 0}`} onRebuild={onSolve} />
           {stale && <span className="font-medium text-warn">Settings changed since this was built</span>}
           <SolveButton state={solve} onSolve={onSolve} compact label="Rebuild" />
         </span>

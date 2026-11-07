@@ -434,7 +434,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
               sector={config.store.sector}
               api={api}
               storeId={config.store.id}
-              mode="onboard"
+              mode={setup ? 'onboard' : 'review'}
               onConfigChanged={() => void onConfigChanged()}
               onScheduleChanged={() => void refreshSchedule(config.store.id)}
               ruleNames={ruleNames}

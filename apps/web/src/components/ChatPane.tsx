@@ -195,6 +195,28 @@ export function ChatPane({
     }
   }
 
+  // Show what was said before (the server keeps the transcript; the page doesn't). Skipped when a kickoff
+  // starts a fresh conversation, and never added after new messages arrive.
+  useEffect(() => {
+    if (kickoff || typeof api.chatHistory !== 'function') return
+    let alive = true
+    api
+      .chatHistory(storeId)
+      .then((h) => {
+        if (!alive || h.messages.length === 0) return
+        setItems((xs) =>
+          xs.length > 0 ? xs : h.messages.map((m) => ({ kind: m.role, text: m.text, id: ++seq.current }) as Item),
+        )
+      })
+      .catch(() => {
+        /* older API or offline: start empty */
+      })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per store
+  }, [storeId])
+
   // A3 kickoff: deferred a tick so StrictMode's mount/unmount/mount sends it once, and the stream isn't aborted.
   const kickedOff = useRef(false)
   useEffect(() => {
@@ -413,7 +435,9 @@ export function ChatPane({
                   ? openAgentCard
                     ? 'Or type an answer instead of using the card'
                     : 'Waiting for the current step…'
-                  : 'Message Shiftwright'
+                  : mode === 'review'
+                    ? 'Ask for a change, e.g. "give Sam Tuesday off" or "why is Thursday short?"'
+                    : 'Message Shiftwright'
               }
               disabled={!canSend}
               aria-label="Message"
