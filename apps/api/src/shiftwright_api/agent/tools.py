@@ -609,9 +609,14 @@ def propose_rule(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]
         constraint = Constraint.model_validate(raw)
     except ValidationError as e:
         return ToolResult({"error": "Invalid constraint", "details": _short_errors(e.errors(include_url=False))})
-    props = {"constraint": constraint.model_dump(mode="json"), "evidence": args.get("evidence") or constraint.evidence or "",
-             "plain_text": args.get("plain_text") or constraint.note,
-             "level": level, "levels": rules.STRENGTH_CHOICES}
+    evidence = args.get("evidence") or constraint.evidence or ""
+    plain = args.get("plain_text") or constraint.note
+    # Preselected on the card (the leader still saves it): the agent's reading of their words, firm when the
+    # wording is absolute ("nobody", "always", "no more than").
+    agent_level = args.get("level") if args.get("level") in rules.STRENGTHS else None
+    props = {"constraint": constraint.model_dump(mode="json"), "evidence": evidence, "plain_text": plain,
+             "level": level, "levels": rules.STRENGTH_CHOICES,
+             "suggested": rules.suggest_level(agent_level, f"{evidence} {plain or ''}")}
 
     def apply(result: dict) -> ToolResult:
         if _cancelled(result):

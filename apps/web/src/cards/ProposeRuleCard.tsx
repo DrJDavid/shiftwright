@@ -16,7 +16,10 @@ const resultLabel = (r: ProposeRuleResult) =>
 export function ProposeRuleCard({ props, status, result, onSubmit, onCancel }: CardProps<ProposeRuleProps, ProposeRuleResult>) {
   const formId = useId()
   const c = props?.constraint
-  const [choice, setChoice] = useState<StrengthChoice | null>(c?.status === 'confirmed' ? strengthChoice(c) : null)
+  const suggested: StrengthChoice | null =
+    props?.suggested === 'firm' ? 'firm' : props?.suggested === 'strong_preference' ? 'strong' : props?.suggested === 'preference' ? 'preference' : null
+  // Preselect what their words said; they still press Save, and can pick anything else.
+  const [choice, setChoice] = useState<StrengthChoice | null>(c?.status === 'confirmed' ? strengthChoice(c) : suggested)
 
   const summary = status === 'submitted' && result ? `${resultLabel(result)}.` : null
 
@@ -46,6 +49,7 @@ export function ProposeRuleCard({ props, status, result, onSubmit, onCancel }: C
               <input type="radio" name={`${formId}-d`} checked={choice === s.id} onChange={() => setChoice(s.id)} className="mt-0.5" />
               <span>
                 <span className="font-semibold">{s.label}</span>
+                {s.id === suggested && <span className="ml-2 rounded bg-pine-wash px-1.5 py-0.5 text-[11px] font-semibold text-pine-dark">Suggested from what you said</span>}
                 <span className="block text-xs text-muted">{s.hint}</span>
               </span>
             </label>
