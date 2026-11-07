@@ -780,11 +780,15 @@ name = "shiftwright-engine"
 version = "0.1.0"
 source = { editable = "packages/engine" }
 dependencies = [
+    { name = "ortools" },
     { name = "shiftwright-contracts" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shiftwright-contracts", editable = "contracts" }]
+requires-dist = [
+    { name = "ortools" },
+    { name = "shiftwright-contracts", editable = "contracts" },
+]
 
 [[package]]
 name = "shiftwright-evals"

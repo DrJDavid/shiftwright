@@ -3,7 +3,7 @@ name = "shiftwright-engine"
 version = "0.1.0"
 description = "CP-SAT schedule solve, fix, explain (WS1)."
 requires-python = ">=3.12"
-dependencies = ["shiftwright-contracts"]
+dependencies = ["shiftwright-contracts", "ortools"]
 
 [tool.uv.sources]
 shiftwright-contracts = { workspace = true }
