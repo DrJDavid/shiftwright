@@ -77,6 +77,8 @@ def owner_cards(log: list):
             ans = {"staffing": props["suggested"]}
         elif card_type == "events":
             ans = {"events": props["events"]}
+        elif card_type == "confirm_tags":
+            ans = {"decisions": {r["role_id"]: "keep" for r in props["roles"]}}
         elif card_type == "propose_rule":
             ans = {"decision": "hard"}
         elif card_type == "employee_availability":

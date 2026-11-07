@@ -124,6 +124,8 @@ def leader_cards(db: Database, store_id: str, target: StoreConfig, log: list):
                                 for r in props["roles"]}}
         elif card_type == "events":
             ans = {"events": t["events"]}
+        elif card_type == "confirm_tags":
+            ans = {"decisions": {r["role_id"]: "keep" for r in props["roles"]}}
         elif card_type == "propose_rule":
             kind = props["constraint"]["kind"]
             match = (rules_by_kind.get(kind) or [None])[0]
