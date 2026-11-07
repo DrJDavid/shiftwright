@@ -52,8 +52,8 @@
       "pre_open_minutes": 240,
       "post_close_minutes": 60,
       "school_week": true,
-      "employer_employee_count": null,
-      "schedule_posted_on": null
+      "employer_employee_count": 400000,
+      "schedule_posted_on": "2026-10-26"
     },
     "departments": [
       {
@@ -39981,7 +39981,8 @@
       ]
     },
     "notes": [
-      "Built by shiftwright_scenarios.demo.build_demo_scenario (seed 417, M, normal) and hand-tuned.",
+      "Built by shiftwright_scenarios.demo.build_demo_scenario('austin') (seed 417, M, normal) and hand-tuned. Same staff and ids in every locality.",
+      "employer_employee_count=400000 is synthetic (a national big-box chain).",
       "Check the call-outs against a real engine schedule with `uv run python -m shiftwright_scenarios.verify_demo`."
     ],
     "school_week": true,
@@ -40089,6 +40090,11 @@
     "narrative_omissions": [],
     "narrative_contradictions": [],
     "callout_day": 5,
+    "locality": "austin",
+    "law_context": [],
+    "budget_break_allowance": 1.0,
+    "gap_penalty_scale": 1.0,
+    "new_hire_ids": [],
     "demo": {
       "jordan_id": "e007",
       "casey_id": "e019",
