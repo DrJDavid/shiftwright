@@ -31,6 +31,7 @@ def _base(config: StoreConfig, status: str, **kw) -> Schedule:
 
 
 SINGLE_STAGE_MAX_CANDS = 8_000  # above this, start CP-SAT from a greedy schedule
+FULL_MODEL_MAX_CANDS = 100_000  # above this, CP-SAT gets the hourly grid plus the greedy shifts only
 
 
 def _hard_always_roles(p) -> set[str]:
@@ -158,7 +159,13 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
                 chosen0, roles0 = greedy(p, seed)
                 stats["stages"].append({"stage": "greedy_seeded", "shifts": len(chosen0),
                                         "s": round(time.perf_counter() - tg, 2)})
-    built = Builder(p).build()
+    cand_ok = None
+    if chosen0 is not None and len(p.cands) > FULL_MODEL_MAX_CANDS:
+        lo = {eid: p.shift_bounds(eid)[0] for eid in p.emps}
+        keep = set(chosen0)
+        cand_ok = lambda c: c.idx in keep or (c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0)  # noqa: E731
+    built = Builder(p, cand_ok=cand_ok).build()
+    stats["model_candidate_shifts"] = len(built.y)
     if chosen0 is not None:
         hint = {v: 0 for v in built.y.values()}
         for idx in chosen0:
