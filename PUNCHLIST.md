@@ -27,7 +27,8 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
 | E2 rescore real-quick-2 (Shiftwright 6/6 clean, S legal_trap CA feasible) | **merged** |
 | C3 revised (rules → coverage tiers → preferences → cost, real what-if tradeoffs) | **merged** 08:20 |
 | claude/import-journey (importer aliases, rule capture/validation) | **merged** 07:29 |
-| C3b API tiers + tradeoff cards (`cursor/C3b-api`), C3 UI words + decisions link (`cursor/C3ui-web`), C3c evals wage-cost rescore (`cursor/C3c-evals`) | running, target 09:30 |
+| C3 UI (rule strengths in words, no $ on rules/priorities, preferences not met, decisions waiting) | **merged** 08:45 |
+| C3b API tiers + tradeoff cards (`cursor/C3b-api`), C3c evals wage-cost rescore (`cursor/C3c-evals`), C3 prod speed/coverage check (`cursor/C3-prodfix`) | running, target 09:30 |
 | E3 real realistic eval | not started (needs David's OK) |
 
 ## How to run these with Cursor
