@@ -1,0 +1,1930 @@
+{
+  "$defs": {
+    "AttendanceStats": {
+      "description": "Factual counts only. Used ONLY to rank call-in outreach. Never shown as a 'score'.",
+      "properties": {
+        "shifts_90d": {
+          "default": 0,
+          "title": "Shifts 90D",
+          "type": "integer"
+        },
+        "callouts_90d": {
+          "default": 0,
+          "title": "Callouts 90D",
+          "type": "integer"
+        },
+        "callins_offered_90d": {
+          "default": 0,
+          "title": "Callins Offered 90D",
+          "type": "integer"
+        },
+        "callins_accepted_90d": {
+          "default": 0,
+          "title": "Callins Accepted 90D",
+          "type": "integer"
+        }
+      },
+      "title": "AttendanceStats",
+      "type": "object"
+    },
+    "AvailabilityEntry": {
+      "description": "Recurring weekly window (weekday set) or one-off (date set). Exactly one must be set.",
+      "properties": {
+        "weekday": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weekday"
+        },
+        "on_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Date"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/AvailabilityKind"
+        },
+        "weight_dollars": {
+          "default": 0.0,
+          "title": "Weight Dollars",
+          "type": "number"
+        },
+        "source": {
+          "$ref": "#/$defs/Source",
+          "default": "employee"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "kind"
+      ],
+      "title": "AvailabilityEntry",
+      "type": "object"
+    },
+    "AvailabilityKind": {
+      "enum": [
+        "unavailable",
+        "preferred_off",
+        "preferred_on"
+      ],
+      "title": "AvailabilityKind",
+      "type": "string"
+    },
+    "Break": {
+      "properties": {
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "meal",
+            "rest"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "paid": {
+          "title": "Paid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "kind",
+        "paid"
+      ],
+      "title": "Break",
+      "type": "object"
+    },
+    "Budget": {
+      "description": "Corporate sends HOURS. Hours cap is HARD unless raised by an approval.",
+      "properties": {
+        "weekly_hours_cap": {
+          "title": "Weekly Hours Cap",
+          "type": "number"
+        },
+        "weekly_dollar_cap": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weekly Dollar Cap"
+        },
+        "overtime_allowed": {
+          "default": false,
+          "title": "Overtime Allowed",
+          "type": "boolean"
+        },
+        "approvals": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BudgetApproval"
+          },
+          "title": "Approvals",
+          "type": "array"
+        }
+      },
+      "required": [
+        "weekly_hours_cap"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "BudgetApproval": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "extra_hours": {
+          "default": 0.0,
+          "title": "Extra Hours",
+          "type": "number"
+        },
+        "extra_dollars": {
+          "default": 0.0,
+          "title": "Extra Dollars",
+          "type": "number"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "approved_by": {
+          "title": "Approved By",
+          "type": "string"
+        },
+        "approved_at": {
+          "format": "date-time",
+          "title": "Approved At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "reason",
+        "approved_by",
+        "approved_at"
+      ],
+      "title": "BudgetApproval",
+      "type": "object"
+    },
+    "CallOut": {
+      "properties": {
+        "employee_id": {
+          "title": "Employee Id",
+          "type": "string"
+        },
+        "day": {
+          "title": "Day",
+          "type": "integer"
+        },
+        "reported_at": {
+          "title": "Reported At",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "employee_id",
+        "day",
+        "reported_at"
+      ],
+      "title": "CallOut",
+      "type": "object"
+    },
+    "Citation": {
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "excerpt": {
+          "description": "<=40 words quoted/paraphrased from source",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "last_verified": {
+          "format": "date",
+          "title": "Last Verified",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "title",
+        "excerpt",
+        "last_verified"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Constraint": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ConstraintKind"
+        },
+        "params": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Params",
+          "type": "object"
+        },
+        "strength": {
+          "$ref": "#/$defs/Strength"
+        },
+        "weight_dollars": {
+          "default": 0.0,
+          "title": "Weight Dollars",
+          "type": "number"
+        },
+        "applies_to_employee_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Applies To Employee Ids"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "status": {
+          "$ref": "#/$defs/RuleStatus"
+        },
+        "citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Citation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "strength",
+        "source",
+        "status"
+      ],
+      "title": "Constraint",
+      "type": "object"
+    },
+    "ConstraintKind": {
+      "description": "The COMPLETE set of rules the engine understands. Anything else a leader says\ngoes to StoreConfig.unmodeled. params schema per kind:\n\nmin_shift_length         {minutes:int}\nmax_shift_length         {minutes:int}\nmin_rest_between_shifts  {minutes:int}                         # anti-\"clopen\"\nmax_days_per_week        {days:int}\nmax_consecutive_days     {days:int}\nmin_hours_week           {}  (uses Employee.min_hours_week; soft; weight = $/hour short)\nnot_together             {employee_ids:[a,b]}                  # no overlapping shifts; soft weight = $/overlapping hour\nfair_spread              {shift_class:\"open\"|\"close\"|\"weekend\", max_per_employee:int}\n                         # open = starts before store open; close = ends after store close\n                         # soft weight = $ per excess occurrence\nalways_staffed           {role_id:str, windows:\"store_hours\"|\"staff_hours\"}\n                         # e.g. leader_on_duty must be covered whenever open\npreferred_role           {employee_id:str, role_id:str}        # soft weight = $/hour NOT in that role\nweek_stability           {}  (soft weight = $/hour changed vs previous_schedule; optional)\n\n`applies_to_employee_ids` = None means everyone.",
+      "enum": [
+        "min_shift_length",
+        "max_shift_length",
+        "min_rest_between_shifts",
+        "max_days_per_week",
+        "max_consecutive_days",
+        "min_hours_week",
+        "not_together",
+        "fair_spread",
+        "always_staffed",
+        "preferred_role",
+        "week_stability"
+      ],
+      "title": "ConstraintKind",
+      "type": "string"
+    },
+    "DayHours": {
+      "properties": {
+        "day": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Day",
+          "type": "integer"
+        },
+        "open": {
+          "title": "Open",
+          "type": "integer"
+        },
+        "close": {
+          "title": "Close",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "open",
+        "close"
+      ],
+      "title": "DayHours",
+      "type": "object"
+    },
+    "DemandRequirement": {
+      "description": "Need `headcount` people in `role_id` for every slot in [start, end) on `day`.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "day": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Day",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "headcount": {
+          "minimum": 0,
+          "title": "Headcount",
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/DemandSource"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Id"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role_id",
+        "day",
+        "start",
+        "end",
+        "headcount",
+        "source"
+      ],
+      "title": "DemandRequirement",
+      "type": "object"
+    },
+    "DemandSource": {
+      "enum": [
+        "corporate",
+        "leader",
+        "event"
+      ],
+      "title": "DemandSource",
+      "type": "string"
+    },
+    "Department": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "Department",
+      "type": "object"
+    },
+    "Employee": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "phone": {
+          "description": "E.164. Demo data uses fake numbers except the demo phones.",
+          "title": "Phone",
+          "type": "string"
+        },
+        "age": {
+          "title": "Age",
+          "type": "integer"
+        },
+        "home_department_id": {
+          "title": "Home Department Id",
+          "type": "string"
+        },
+        "trained_role_ids": {
+          "description": "HARD qualification gate. Untrained => never assigned to that role.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Trained Role Ids",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/EmploymentStatus"
+        },
+        "wage_per_hour": {
+          "title": "Wage Per Hour",
+          "type": "number"
+        },
+        "min_hours_week": {
+          "default": 0.0,
+          "title": "Min Hours Week",
+          "type": "number"
+        },
+        "max_hours_week": {
+          "default": 40.0,
+          "title": "Max Hours Week",
+          "type": "number"
+        },
+        "availability": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AvailabilityEntry"
+          },
+          "title": "Availability",
+          "type": "array"
+        },
+        "hire_date": {
+          "format": "date",
+          "title": "Hire Date",
+          "type": "string"
+        },
+        "attendance": {
+          "$ref": "#/$defs/AttendanceStats",
+          "default": {
+            "shifts_90d": 0,
+            "callouts_90d": 0,
+            "callins_offered_90d": 0,
+            "callins_accepted_90d": 0
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "phone",
+        "age",
+        "home_department_id",
+        "trained_role_ids",
+        "status",
+        "wage_per_hour",
+        "hire_date"
+      ],
+      "title": "Employee",
+      "type": "object"
+    },
+    "EmploymentStatus": {
+      "enum": [
+        "full_time",
+        "part_time",
+        "seasonal"
+      ],
+      "title": "EmploymentStatus",
+      "type": "string"
+    },
+    "Event": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/EventKind"
+        },
+        "day": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Day",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "day",
+        "start",
+        "end"
+      ],
+      "title": "Event",
+      "type": "object"
+    },
+    "EventKind": {
+      "enum": [
+        "truck",
+        "floor_set",
+        "promo",
+        "online_surge",
+        "other"
+      ],
+      "title": "EventKind",
+      "type": "string"
+    },
+    "FixAction": {
+      "properties": {
+        "lever": {
+          "$ref": "#/$defs/Lever"
+        },
+        "employee_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employee Id"
+        },
+        "role_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role Id"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "added_cost_dollars": {
+          "title": "Added Cost Dollars",
+          "type": "number"
+        },
+        "premium_pay_dollars": {
+          "default": 0.0,
+          "title": "Premium Pay Dollars",
+          "type": "number"
+        },
+        "law_rule_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Law Rule Ids",
+          "type": "array"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lever",
+        "start",
+        "end",
+        "added_cost_dollars",
+        "rationale"
+      ],
+      "title": "FixAction",
+      "type": "object"
+    },
+    "FixPlan": {
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/FixAction"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "outreach_queue": {
+          "items": {
+            "$ref": "#/$defs/OutreachCandidate"
+          },
+          "title": "Outreach Queue",
+          "type": "array"
+        },
+        "schedule_if_all_accept": {
+          "$ref": "#/$defs/Schedule"
+        },
+        "schedule_if_none_accept": {
+          "$ref": "#/$defs/Schedule"
+        },
+        "coverage_before_pct": {
+          "title": "Coverage Before Pct",
+          "type": "number"
+        },
+        "coverage_after_best_pct": {
+          "title": "Coverage After Best Pct",
+          "type": "number"
+        },
+        "coverage_after_worst_pct": {
+          "title": "Coverage After Worst Pct",
+          "type": "number"
+        }
+      },
+      "required": [
+        "actions",
+        "outreach_queue",
+        "schedule_if_all_accept",
+        "schedule_if_none_accept",
+        "coverage_before_pct",
+        "coverage_after_best_pct",
+        "coverage_after_worst_pct"
+      ],
+      "title": "FixPlan",
+      "type": "object"
+    },
+    "FixRequest": {
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/StoreConfig"
+        },
+        "schedule": {
+          "$ref": "#/$defs/Schedule"
+        },
+        "callouts": {
+          "items": {
+            "$ref": "#/$defs/CallOut"
+          },
+          "title": "Callouts",
+          "type": "array"
+        },
+        "day": {
+          "title": "Day",
+          "type": "integer"
+        },
+        "now": {
+          "title": "Now",
+          "type": "integer"
+        },
+        "allowed_levers": {
+          "default": [
+            "call_in",
+            "extend",
+            "reassign",
+            "drop_coverage"
+          ],
+          "items": {
+            "$ref": "#/$defs/Lever"
+          },
+          "title": "Allowed Levers",
+          "type": "array"
+        },
+        "declined_employee_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Declined Employee Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "config",
+        "schedule",
+        "callouts",
+        "day",
+        "now"
+      ],
+      "title": "FixRequest",
+      "type": "object"
+    },
+    "Gap": {
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "day": {
+          "title": "Day",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "missing_headcount": {
+          "title": "Missing Headcount",
+          "type": "integer"
+        },
+        "penalty_dollars": {
+          "title": "Penalty Dollars",
+          "type": "number"
+        },
+        "reasons": {
+          "description": "One per employee TRAINED for the role: why they are not covering it.",
+          "items": {
+            "$ref": "#/$defs/GapReason"
+          },
+          "title": "Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role_id",
+        "day",
+        "start",
+        "end",
+        "missing_headcount",
+        "penalty_dollars"
+      ],
+      "title": "Gap",
+      "type": "object"
+    },
+    "GapReason": {
+      "properties": {
+        "employee_id": {
+          "title": "Employee Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/GapReasonCode"
+        },
+        "constraint_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraint Id"
+        },
+        "law_rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Law Rule Id"
+        }
+      },
+      "required": [
+        "employee_id",
+        "code"
+      ],
+      "title": "GapReason",
+      "type": "object"
+    },
+    "GapReasonCode": {
+      "enum": [
+        "not_trained",
+        "unavailable",
+        "at_max_hours",
+        "budget_cap",
+        "law_rule",
+        "minor_rule",
+        "rest_rule",
+        "already_assigned",
+        "cheaper_to_leave_gap"
+      ],
+      "title": "GapReasonCode",
+      "type": "string"
+    },
+    "InboundMessage": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "from_phone": {
+          "title": "From Phone",
+          "type": "string"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "received_at": {
+          "format": "date-time",
+          "title": "Received At",
+          "type": "string"
+        },
+        "interpreted_as": {
+          "anyOf": [
+            {
+              "enum": [
+                "accept",
+                "decline",
+                "question",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interpreted As"
+        }
+      },
+      "required": [
+        "id",
+        "from_phone",
+        "body",
+        "received_at"
+      ],
+      "title": "InboundMessage",
+      "type": "object"
+    },
+    "Infeasibility": {
+      "description": "Only when HARD constraints conflict (gaps never cause infeasibility; they are priced).",
+      "properties": {
+        "conflicting_constraint_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicting Constraint Ids",
+          "type": "array"
+        },
+        "conflicting_law_rule_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicting Law Rule Ids",
+          "type": "array"
+        },
+        "conflicting_other": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicting Other",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "Infeasibility",
+      "type": "object"
+    },
+    "Jurisdiction": {
+      "properties": {
+        "state": {
+          "description": "USPS code, e.g. 'TX'",
+          "title": "State",
+          "type": "string"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lowercase city name, e.g. 'seattle'",
+          "title": "City"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "Jurisdiction",
+      "type": "object"
+    },
+    "LawPack": {
+      "description": "Resolved rules for one store: federal + state + city, most-protective wins.",
+      "properties": {
+        "jurisdiction": {
+          "$ref": "#/$defs/Jurisdiction"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/LawRule"
+          },
+          "title": "Rules",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "full",
+            "state_only",
+            "federal_fallback"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "jurisdiction",
+        "rules",
+        "coverage"
+      ],
+      "title": "LawPack",
+      "type": "object"
+    },
+    "LawRule": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "$ref": "#/$defs/Jurisdiction"
+        },
+        "level": {
+          "enum": [
+            "federal",
+            "state",
+            "city"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/LawRuleType"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "citation": {
+          "$ref": "#/$defs/Citation"
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "jurisdiction",
+        "level",
+        "type",
+        "params",
+        "summary",
+        "citation",
+        "confidence"
+      ],
+      "title": "LawRule",
+      "type": "object"
+    },
+    "LawRuleType": {
+      "description": "params schema per type (all minutes unless noted):\n\nweekly_overtime          {threshold_hours:float, multiplier:float}\ndaily_overtime           {threshold_hours:float, multiplier:float,\n                          double_threshold_hours:float|null}\nmeal_break               {after_minutes:int, duration:int, paid:bool,\n                          latest_start_minute_of_shift:int|null, waivable_under_minutes:int|null}\nrest_break               {per_minutes_worked:int, duration:int, paid:bool}\nminor_limits             {age_min:int, age_max:int, school_week:bool,\n                          max_hours_day:float|null, max_hours_week:float|null,\n                          earliest_start:int|null, latest_end:int|null,\n                          latest_end_summer:int|null}\nminor_prohibited_roles   {age_below:int, role_tags:[str]}   # e.g. 18, [\"powered_industrial_truck\"]\nmin_rest_between_shifts  {minutes:int, premium_multiplier:float|null, waivable:bool}\npredictive_scheduling    {notice_days:int, change_premium_hours:float,\n                          applies_if_employees_over:int|null, applies_to:\"retail\"|\"food\"|\"both\"}\nreporting_time_pay       {min_paid_hours:float|null, fraction_of_scheduled:float|null}\nminimum_wage             {dollars_per_hour:float, effective:date}",
+      "enum": [
+        "weekly_overtime",
+        "daily_overtime",
+        "meal_break",
+        "rest_break",
+        "minor_limits",
+        "minor_prohibited_roles",
+        "min_rest_between_shifts",
+        "predictive_scheduling",
+        "reporting_time_pay",
+        "minimum_wage"
+      ],
+      "title": "LawRuleType",
+      "type": "string"
+    },
+    "Lever": {
+      "enum": [
+        "call_in",
+        "extend",
+        "reassign",
+        "drop_coverage"
+      ],
+      "title": "Lever",
+      "type": "string"
+    },
+    "OutboundMessage": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "to_employee_id": {
+          "title": "To Employee Id",
+          "type": "string"
+        },
+        "to_phone": {
+          "title": "To Phone",
+          "type": "string"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "sent_at": {
+          "format": "date-time",
+          "title": "Sent At",
+          "type": "string"
+        },
+        "outreach_rank": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outreach Rank"
+        }
+      },
+      "required": [
+        "id",
+        "to_employee_id",
+        "to_phone",
+        "body",
+        "sent_at"
+      ],
+      "title": "OutboundMessage",
+      "type": "object"
+    },
+    "OutreachCandidate": {
+      "properties": {
+        "rank": {
+          "title": "Rank",
+          "type": "integer"
+        },
+        "employee_id": {
+          "title": "Employee Id",
+          "type": "string"
+        },
+        "proposed_shift": {
+          "$ref": "#/$defs/Shift"
+        },
+        "added_cost_dollars": {
+          "title": "Added Cost Dollars",
+          "type": "number"
+        },
+        "est_accept_prob": {
+          "title": "Est Accept Prob",
+          "type": "number"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rank",
+        "employee_id",
+        "proposed_shift",
+        "added_cost_dollars",
+        "est_accept_prob",
+        "why"
+      ],
+      "title": "OutreachCandidate",
+      "type": "object"
+    },
+    "Role": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "department_id": {
+          "title": "Department Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "min_age": {
+          "default": 0,
+          "title": "Min Age",
+          "type": "integer"
+        },
+        "gap_penalty_per_hour": {
+          "description": "$ cost per headcount-hour left uncovered; encodes priority",
+          "title": "Gap Penalty Per Hour",
+          "type": "number"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "department_id",
+        "name",
+        "gap_penalty_per_hour"
+      ],
+      "title": "Role",
+      "type": "object"
+    },
+    "RoleSegment": {
+      "properties": {
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "role_id",
+        "start",
+        "end"
+      ],
+      "title": "RoleSegment",
+      "type": "object"
+    },
+    "RuleStatus": {
+      "enum": [
+        "provisional",
+        "confirmed",
+        "rejected"
+      ],
+      "title": "RuleStatus",
+      "type": "string"
+    },
+    "Schedule": {
+      "properties": {
+        "store_id": {
+          "title": "Store Id",
+          "type": "string"
+        },
+        "week_start": {
+          "format": "date",
+          "title": "Week Start",
+          "type": "string"
+        },
+        "config_version": {
+          "title": "Config Version",
+          "type": "integer"
+        },
+        "produced_by": {
+          "title": "Produced By",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "optimal",
+            "feasible",
+            "infeasible",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "shifts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Shift"
+          },
+          "title": "Shifts",
+          "type": "array"
+        },
+        "gaps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Gap"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "soft_violations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SoftViolation"
+          },
+          "title": "Soft Violations",
+          "type": "array"
+        },
+        "metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScheduleMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "infeasibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Infeasibility"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "solver_stats": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Solver Stats",
+          "type": "object"
+        }
+      },
+      "required": [
+        "store_id",
+        "week_start",
+        "config_version",
+        "produced_by",
+        "status"
+      ],
+      "title": "Schedule",
+      "type": "object"
+    },
+    "ScheduleMetrics": {
+      "properties": {
+        "total_hours": {
+          "title": "Total Hours",
+          "type": "number"
+        },
+        "total_wage_cost": {
+          "title": "Total Wage Cost",
+          "type": "number"
+        },
+        "overtime_hours": {
+          "title": "Overtime Hours",
+          "type": "number"
+        },
+        "premium_pay_dollars": {
+          "default": 0.0,
+          "title": "Premium Pay Dollars",
+          "type": "number"
+        },
+        "coverage_pct": {
+          "title": "Coverage Pct",
+          "type": "number"
+        },
+        "gap_penalty_dollars": {
+          "title": "Gap Penalty Dollars",
+          "type": "number"
+        },
+        "soft_penalty_dollars": {
+          "title": "Soft Penalty Dollars",
+          "type": "number"
+        },
+        "objective_dollars": {
+          "title": "Objective Dollars",
+          "type": "number"
+        },
+        "budget_hours_cap": {
+          "title": "Budget Hours Cap",
+          "type": "number"
+        },
+        "budget_hours_used": {
+          "title": "Budget Hours Used",
+          "type": "number"
+        }
+      },
+      "required": [
+        "total_hours",
+        "total_wage_cost",
+        "overtime_hours",
+        "coverage_pct",
+        "gap_penalty_dollars",
+        "soft_penalty_dollars",
+        "objective_dollars",
+        "budget_hours_cap",
+        "budget_hours_used"
+      ],
+      "title": "ScheduleMetrics",
+      "type": "object"
+    },
+    "Shift": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "employee_id": {
+          "title": "Employee Id",
+          "type": "string"
+        },
+        "day": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Day",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "breaks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Break"
+          },
+          "title": "Breaks",
+          "type": "array"
+        },
+        "segments": {
+          "description": "Cover [start,end) minus breaks exactly, no overlaps. Mid-shift role changes allowed.",
+          "items": {
+            "$ref": "#/$defs/RoleSegment"
+          },
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "employee_id",
+        "day",
+        "start",
+        "end",
+        "segments"
+      ],
+      "title": "Shift",
+      "type": "object"
+    },
+    "SoftViolation": {
+      "properties": {
+        "constraint_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraint Id"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "employee_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employee Id"
+        },
+        "amount": {
+          "title": "Amount",
+          "type": "number"
+        },
+        "penalty_dollars": {
+          "title": "Penalty Dollars",
+          "type": "number"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "amount",
+        "penalty_dollars"
+      ],
+      "title": "SoftViolation",
+      "type": "object"
+    },
+    "Source": {
+      "enum": [
+        "law",
+        "corporate",
+        "leader",
+        "inferred",
+        "employee",
+        "default"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "Store": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "$ref": "#/$defs/Jurisdiction"
+        },
+        "timezone": {
+          "default": "America/Chicago",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "slot_minutes": {
+          "default": 30,
+          "enum": [
+            15,
+            30,
+            60
+          ],
+          "title": "Slot Minutes",
+          "type": "integer"
+        },
+        "week_start": {
+          "format": "date",
+          "title": "Week Start",
+          "type": "string"
+        },
+        "hours": {
+          "items": {
+            "$ref": "#/$defs/DayHours"
+          },
+          "title": "Hours",
+          "type": "array"
+        },
+        "pre_open_minutes": {
+          "default": 60,
+          "title": "Pre Open Minutes",
+          "type": "integer"
+        },
+        "post_close_minutes": {
+          "default": 60,
+          "title": "Post Close Minutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "jurisdiction",
+        "week_start",
+        "hours"
+      ],
+      "title": "Store",
+      "type": "object"
+    },
+    "StoreConfig": {
+      "properties": {
+        "contract_version": {
+          "default": "1.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "config_version": {
+          "default": 1,
+          "title": "Config Version",
+          "type": "integer"
+        },
+        "store": {
+          "$ref": "#/$defs/Store"
+        },
+        "departments": {
+          "items": {
+            "$ref": "#/$defs/Department"
+          },
+          "title": "Departments",
+          "type": "array"
+        },
+        "roles": {
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "role_tags": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "role_id -> tags, e.g. pit_operator -> ['powered_industrial_truck']",
+          "title": "Role Tags",
+          "type": "object"
+        },
+        "employees": {
+          "items": {
+            "$ref": "#/$defs/Employee"
+          },
+          "title": "Employees",
+          "type": "array"
+        },
+        "demand": {
+          "items": {
+            "$ref": "#/$defs/DemandRequirement"
+          },
+          "title": "Demand",
+          "type": "array"
+        },
+        "events": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Event"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        },
+        "constraints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "unmodeled": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/UnmodeledNote"
+          },
+          "title": "Unmodeled",
+          "type": "array"
+        },
+        "law_pack": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LawPack"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "store",
+        "departments",
+        "roles",
+        "employees",
+        "demand",
+        "budget"
+      ],
+      "title": "StoreConfig",
+      "type": "object"
+    },
+    "Strength": {
+      "enum": [
+        "hard",
+        "soft"
+      ],
+      "title": "Strength",
+      "type": "string"
+    },
+    "UnmodeledNote": {
+      "description": "Something the leader said that no ConstraintKind can express. Shown in the rulebook.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "reason",
+        "created_at"
+      ],
+      "title": "UnmodeledNote",
+      "type": "object"
+    },
+    "ValidationReport": {
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "hard_count": {
+          "title": "Hard Count",
+          "type": "integer"
+        },
+        "violations": {
+          "items": {
+            "$ref": "#/$defs/Violation"
+          },
+          "title": "Violations",
+          "type": "array"
+        },
+        "recomputed_metrics": {
+          "$ref": "#/$defs/ScheduleMetrics"
+        }
+      },
+      "required": [
+        "passed",
+        "hard_count",
+        "violations",
+        "recomputed_metrics"
+      ],
+      "title": "ValidationReport",
+      "type": "object"
+    },
+    "Violation": {
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ViolationCode"
+        },
+        "severity": {
+          "enum": [
+            "hard",
+            "soft"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "employee_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employee Id"
+        },
+        "role_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role Id"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Day"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "constraint_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraint Id"
+        },
+        "law_rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Law Rule Id"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Violation",
+      "type": "object"
+    },
+    "ViolationCode": {
+      "enum": [
+        "malformed",
+        "unknown_entity",
+        "not_trained",
+        "unavailable",
+        "double_booked",
+        "max_hours_week",
+        "shift_length",
+        "rest_between_shifts",
+        "days_per_week",
+        "consecutive_days",
+        "budget_hours",
+        "budget_dollars",
+        "overtime_not_allowed",
+        "meal_break",
+        "rest_break",
+        "minor_hours",
+        "minor_prohibited_role",
+        "always_staffed",
+        "outside_store_window",
+        "metrics_mismatch",
+        "soft"
+      ],
+      "title": "ViolationCode",
+      "type": "string"
+    }
+  },
+  "title": "ShiftwrightContracts"
+}

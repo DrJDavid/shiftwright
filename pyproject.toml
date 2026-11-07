@@ -1,0 +1,41 @@
+[project]
+name = "shiftwright"
+version = "0.1.0"
+description = "Shiftwright: constraint-solved retail scheduling with an LLM front end."
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2",
+  "fastapi",
+  "uvicorn[standard]",
+  "ortools",
+  "httpx",
+  "shiftwright-contracts",
+  "shiftwright-engine",
+  "shiftwright-validator",
+  "shiftwright-scenarios",
+  "shiftwright-evals",
+  "shiftwright-insights",
+  "shiftwright-api",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["contracts", "packages/*", "apps/api"]
+
+[tool.uv.sources]
+shiftwright-contracts = { workspace = true }
+shiftwright-engine = { workspace = true }
+shiftwright-validator = { workspace = true }
+shiftwright-scenarios = { workspace = true }
+shiftwright-evals = { workspace = true }
+shiftwright-insights = { workspace = true }
+shiftwright-api = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "packages", "apps/api"]
+addopts = "--import-mode=importlib"
