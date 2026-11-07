@@ -95,6 +95,7 @@ and starts the new turn; 409 only if the previous turn is mid model call.
 | `training_matrix` | `{employees:[{id,name}], roles}` | `{employee_id: role_id[]}` |
 | `coverage_grid` | `{day_type: "weekday"\|"saturday"\|"sunday"\|"truck_day"\|"custom", roles, slot_minutes, days: int[], start_minute: int, prefill: headcount[role][slot]}` | same grid |
 | `events` | `{events}` | `{events}` |
+| `confirm_tags` | v1.5. `{roles: [{role_id, name, tags: string[], minors_trained: string[]}], note}` | `{decisions: {role_id: "keep"\|"remove"}}` |
 | `department_staffing` | v1.3. `{department: Department, roles: Role[], day_groups: [{id: string, label: string, days: int[]}], hours: DayHours[], pre_open_minutes, post_close_minutes, suggested: {role_id: RoleStaffing}, rationale?: {role_id: string}}` | `{staffing: {role_id: RoleStaffing}}` |
 | `csv_import` | `{kind, preview?: ImportPreview}` | `{committed: boolean, rows: number}` |
 | `propose_rule` | `{constraint: Constraint, evidence, plain_text}` | `{decision: "hard"\|"soft"\|"not_a_rule", weight_dollars?}` |
@@ -133,7 +134,9 @@ v1.5 (any business):
   truck/floor_set for retail); every kind stays valid everywhere. `Event.label` is the display name.
 - `store_basics` collects `sector` and `business_description` (ask what the business is first).
 - Readiness check order (v1.5): store_basics, jurisdiction, roles, employees, training, demand, priorities,
-  equipment_roles, minors_on_tagged_roles, business_type, staffing_draft, budget, minimum_wage, provisional_rules.
+  equipment_roles, minors_on_tagged_roles, business_type, roles_without_demand, staffing_draft, budget, minimum_wage, provisional_rules.
+- Leader-owned decisions (hazard tags, rule strength, budget) are recorded only from a card the leader submits;
+  the agent cannot confirm them itself. `confirm_tags` lists auto-tagged roles with Keep/Remove.
 - `events` card props gain `kinds: EventKind[]` (ordered by sector). Template `restaurant_small` (sector food).
 - Readiness (warnings, non-blocking): "business type not set" when `sector` is None; "staffing levels are a draft"
   while `estimate` demand exists; tagged roles (any `ROLE_TAGS` tag) that have minors trained in them. `coverage_grid` stays as an advanced editor; with `readonly: true` (v1.4) it is a preview that doesn't pause the turn.
