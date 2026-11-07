@@ -10,8 +10,8 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (Neb. Rev. Stat. \u00a7 48-310): Nebraska's under-16 limits (8 h/48 h, 6 a.m.-10 p.m.) are looser than federal; federal.json still applies. No Nebraska hour limits for 16-17 in \u00a7 48-310."
   ],
   "rules": [
     {
@@ -34,6 +34,62 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "NE.minor_limits.1",
+      "jurisdiction": {
+        "state": "NE",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null
+      },
+      "summary": "Children 14-15 may work at most 8 hours a day and 48 a week, 6 a.m.-10 p.m. (later only before a non-school day with a Department of Labor special permit).",
+      "citation": {
+        "url": "https://nebraskalegislature.gov/laws/statutes.php?statute=48-310",
+        "title": "Neb. Rev. Stat. \u00a7 48-310 \u2014 Children under sixteen; working hours",
+        "excerpt": "No person under sixteen years of age shall be employed ... more than forty-eight hours in any one week, nor more than eight hours in any one day, nor before the hour of 6 in the morning",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NE.minor_limits.2",
+      "jurisdiction": {
+        "state": "NE",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null
+      },
+      "summary": "Children 14-15 may work at most 8 hours a day and 48 a week, 6 a.m.-10 p.m. (later only before a non-school day with a Department of Labor special permit).",
+      "citation": {
+        "url": "https://nebraskalegislature.gov/laws/statutes.php?statute=48-310",
+        "title": "Neb. Rev. Stat. \u00a7 48-310 \u2014 Children under sixteen; working hours",
+        "excerpt": "No person under sixteen years of age shall be employed ... more than forty-eight hours in any one week, nor more than eight hours in any one day, nor before the hour of 6 in the morning",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
