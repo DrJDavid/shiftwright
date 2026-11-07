@@ -79,7 +79,7 @@ class Prep:
     by_emp_day: dict[tuple[str, int], list[Cand]]
     weekly_ot: Optional[LawRule]
     daily_ot: Optional[LawRule]
-    meal_rule: Optional[LawRule]
+    meal_rules: list[LawRule]
     rest_rule: Optional[LawRule]
     notes: list[str]
 
@@ -92,6 +92,19 @@ class Prep:
     def minor_rules(self, e: Employee) -> list[LawRule]:
         return [r for r in self.law_of(LawRuleType.minor_limits)
                 if r.params.get("age_min", 0) <= e.age <= r.params.get("age_max", -1)]
+
+    def minor_day_cap(self, e: Employee, day: int) -> Optional[int]:
+        """Paid-minute cap for a minor on `day`. School-week rules use max_hours_day on Mon-Fri and
+        max_hours_non_school_day (if given) on Sat/Sun; all matching rules apply (most restrictive)."""
+        caps = []
+        for r in self.minor_rules(e):
+            pr = r.params
+            v = pr.get("max_hours_day")
+            if pr.get("school_week") and day >= 5 and pr.get("max_hours_non_school_day") is not None:
+                v = pr["max_hours_non_school_day"]
+            if v is not None:
+                caps.append(int(round(v * 60)))
+        return min(caps) if caps else None
 
     def shift_bounds(self, eid: str) -> tuple[int, int]:
         lo, hi = None, None
@@ -129,7 +142,26 @@ def _round_down(v: int, s: int) -> int:
     return (v // s) * s
 
 
-def place_breaks(p: Prep, start: int, length: int) -> Optional[list[Break]]:
+MEAL_SHIFTS = (0, -60, -120)  # meal-position variants (minutes earlier than the default position)
+
+
+def break_variants(p: Prep, start: int, length: int) -> list[list[Break]]:
+    """Break layouts for a shift: the default plus meals moved earlier, so overlapping shifts
+    can cover each other's meals. Deduplicated; empty list if nothing fits."""
+    out, seen = [], set()
+    needs_meal = any(length > int(m.params["after_minutes"]) for m in p.meal_rules)
+    for sh in (MEAL_SHIFTS if needs_meal else (0,)):
+        b = place_breaks(p, start, length, sh)
+        if b is None:
+            continue
+        key = tuple((x.start, x.end) for x in b)
+        if key not in seen:
+            seen.add(key)
+            out.append(b)
+    return out
+
+
+def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0) -> Optional[list[Break]]:
     """Deterministic breaks for a shift [start, start+length). None if they cannot fit."""
     s = p.slot
     end = start + length
@@ -139,15 +171,21 @@ def place_breaks(p: Prep, start: int, length: int) -> Optional[list[Break]]:
     def free(a: int, b: int) -> bool:
         return a >= start + s and b <= end - s and all(b <= x or a >= y for x, y in taken)
 
-    m = p.meal_rule
-    if m is not None and length > int(m.params["after_minutes"]):
+    # Meals: one per meal rule (tier) whose threshold the shift exceeds. Placed so the break
+    # ENDS by `latest_start_minute_of_shift` (protective under either reading of "latest start"),
+    # or at the midpoint if no latest start is given.
+    for m in sorted(p.meal_rules, key=lambda r: r.params["after_minutes"]):
+        if length <= int(m.params["after_minutes"]):
+            continue
         dur = _round_up(int(m.params["duration"]), s)
         latest = m.params.get("latest_start_minute_of_shift")
         if latest is not None:
-            bs = start + _round_down(int(latest), s)
-            bs = min(bs, end - s - dur)
+            bs = min(start + _round_down(int(latest) - dur, s), end - s - dur)
         else:
             bs = start + _round_down((length - dur) // 2, s)
+        bs += _round_down(meal_shift, s) if meal_shift >= 0 else -_round_up(-meal_shift, s)
+        while bs >= start + s and not free(bs, bs + dur):
+            bs -= s
         if not free(bs, bs + dur):
             return None
         taken.append((bs, bs + dur))
@@ -156,7 +194,11 @@ def place_breaks(p: Prep, start: int, length: int) -> Optional[list[Break]]:
     r = p.rest_rule
     if r is not None:
         per = int(r.params["per_minutes_worked"])
-        n = length // per if per > 0 else 0
+        # "per X minutes worked": round half up (a major fraction earns a break), which is the
+        # more protective reading; none below `not_required_under_minutes` if given.
+        n = (length + per // 2) // per if per > 0 else 0
+        if length < int(r.params.get("not_required_under_minutes") or 0):
+            n = 0
         dur = _round_up(int(r.params["duration"]), s)
         for k in range(1, n + 1):
             target = start + _round_down(k * length // (n + 1), s)
@@ -212,8 +254,7 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                         lambda r: r.params["threshold_hours"]),
         daily_ot=_pick([r for r in laws if r.type == LawRuleType.daily_overtime],
                        lambda r: r.params["threshold_hours"]),
-        meal_rule=_pick([r for r in laws if r.type == LawRuleType.meal_break],
-                        lambda r: r.params["after_minutes"]),
+        meal_rules=[r for r in laws if r.type == LawRuleType.meal_break],
         rest_rule=_pick([r for r in laws if r.type == LawRuleType.rest_break],
                         lambda r: r.params["per_minutes_worked"]),
         notes=notes,
@@ -261,13 +302,12 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                        default=None)
         latest_end = min([r.params["latest_end"] for r in minors if r.params.get("latest_end") is not None],
                          default=None)
-        max_day_min = min([int(r.params["max_hours_day"] * 60) for r in minors
-                           if r.params.get("max_hours_day") is not None], default=None)
         week_cap = min(c for c, _, _ in p.effective_max_minutes(e))
         for day, (w0, w1) in sorted(windows.items()):
             avail = list(_avail_for_day(p, e, day))
             unavail = [(a.start, a.end) for a in avail if a.kind == AvailabilityKind.unavailable]
             o, c = store_open[day]
+            max_day_min = p.minor_day_cap(e, day)
             lst = p.by_emp_day.setdefault((e.id, day), [])
             for start in range(_round_up(w0, slot), w1, start_step or slot):
                 if earliest is not None and start < earliest:
@@ -280,48 +320,46 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                         break
                     if any(a < end and start < b for a, b in unavail):
                         continue
-                    brks = place_breaks(p, start, length)
-                    if brks is None:
-                        continue
-                    unpaid = sum(b.end - b.start for b in brks if not b.paid)
-                    paid = length - unpaid
-                    if paid > week_cap:
-                        continue
-                    if max_day_min is not None and paid > max_day_min:
-                        continue
-                    daily_ot = 0
-                    if p.daily_ot is not None:
-                        thr = int(p.daily_ot.params["threshold_hours"] * 60)
-                        if paid > thr:
-                            if not cfg.budget.overtime_allowed:
-                                continue
-                            daily_ot = paid - thr
-                    wage = paid / 60 * e.wage_per_hour
-                    if daily_ot:
-                        wage += daily_ot / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)
-                        dbl = p.daily_ot.params.get("double_threshold_hours")
-                        if dbl is not None and paid > dbl * 60:
-                            wage += (paid - dbl * 60) / 60 * e.wage_per_hour * (2 - p.daily_ot.params["multiplier"])
-                    pref, detail = 0.0, []
-                    for a in avail:
-                        if a.kind == AvailabilityKind.unavailable:
+                    for brks in break_variants(p, start, length):
+                        unpaid = sum(b.end - b.start for b in brks if not b.paid)
+                        paid = length - unpaid
+                        if paid > week_cap:
                             continue
-                        ov = max(0, min(end, a.end) - max(start, a.start)) / 60
-                        if a.kind == AvailabilityKind.preferred_off and ov > 0:
-                            pref += a.weight_dollars * ov
-                            detail.append(("preferred_off", ov, a.weight_dollars * ov))
-                        elif a.kind == AvailabilityKind.preferred_on:
-                            pref -= a.weight_dollars * ov  # constant added in model
-                    bset = [(b.start, b.end) for b in brks]
-                    on = [day * DAY + t for t in range(start, end, slot)]
-                    work = [day * DAY + t for t in range(start, end, slot)
-                            if not any(x <= t < y for x, y in bset)]
-                    cand = Cand(
-                        idx=len(p.cands), emp=e.id, day=day, start=start, end=end, breaks=brks,
-                        on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
-                        daily_ot_min=daily_ot, pref_units=money(pref), pref_detail=detail,
-                        is_open=start < o, is_close=end > c, weekend=day in (5, 6),
-                    )
-                    p.cands.append(cand)
-                    lst.append(cand)
+                        if max_day_min is not None and paid > max_day_min:
+                            continue
+                        daily_ot = 0
+                        if p.daily_ot is not None:
+                            thr = int(p.daily_ot.params["threshold_hours"] * 60)
+                            if paid > thr:
+                                if not cfg.budget.overtime_allowed:
+                                    continue
+                                daily_ot = paid - thr
+                        wage = paid / 60 * e.wage_per_hour
+                        if daily_ot:
+                            wage += daily_ot / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)
+                            dbl = p.daily_ot.params.get("double_threshold_hours")
+                            if dbl is not None and paid > dbl * 60:
+                                wage += (paid - dbl * 60) / 60 * e.wage_per_hour * (2 - p.daily_ot.params["multiplier"])
+                        pref, detail = 0.0, []
+                        for a in avail:
+                            if a.kind == AvailabilityKind.unavailable:
+                                continue
+                            ov = max(0, min(end, a.end) - max(start, a.start)) / 60
+                            if a.kind == AvailabilityKind.preferred_off and ov > 0:
+                                pref += a.weight_dollars * ov
+                                detail.append(("preferred_off", ov, a.weight_dollars * ov))
+                            elif a.kind == AvailabilityKind.preferred_on:
+                                pref -= a.weight_dollars * ov  # constant added in model
+                        bset = [(b.start, b.end) for b in brks]
+                        on = [day * DAY + t for t in range(start, end, slot)]
+                        work = [day * DAY + t for t in range(start, end, slot)
+                                if not any(x <= t < y for x, y in bset)]
+                        cand = Cand(
+                            idx=len(p.cands), emp=e.id, day=day, start=start, end=end, breaks=brks,
+                            on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
+                            daily_ot_min=daily_ot, pref_units=money(pref), pref_detail=detail,
+                            is_open=start < o, is_close=end > c, weekend=day in (5, 6),
+                        )
+                        p.cands.append(cand)
+                        lst.append(cand)
     return p

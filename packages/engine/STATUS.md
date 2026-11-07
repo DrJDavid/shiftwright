@@ -10,7 +10,7 @@
 - `find_conflicts(config)` — hard-only model with one assumption literal per hard `Constraint`, law
   rule, `employee:<id>.max_hours_week`, `budget.weekly_hours_cap`, `budget.weekly_dollar_cap`; maps
   `sufficient_assumptions_for_infeasibility()` to `Infeasibility`. `solve_week` calls it on INFEASIBLE.
-- Acceptance tests (tiny store, hand-made, fake test law): optimal < 2 s (actual ~0.2 s), no-trained
+- Acceptance tests on WS4's `tiny_store.json` + WS3's resolved TX pack (and the CA pack for breaks/OT): optimal < 2 s (actual ~0.2 s), no-trained
   gaps with full penalty and empty reasons, one reason per trained cashier, minor never on PIT,
   10 h budget cap, approvals raise the cap, contradictory hard set → infeasible with the id,
   provisional rules ignored. `tests/selfcheck.py` is a small independent hard-rule checker used
@@ -22,25 +22,35 @@
 - `fix_day` (M2) — not implemented yet (raises ImportError if called).
 
 **Blocked on:**
-- Nothing. Switch tests to `packages/scenarios/fixtures/tiny_store.json` when WS4 lands it.
+- Nothing. (Rebased onto main afa0323; tests use tiny_store.json + `shiftwright_laws.resolve`.)
 
 **Interpretations / shortcuts (please review — validator WS2 should agree):**
 - Hours = paid hours: shift length minus unpaid breaks. Budget hours and `max_hours_week` use paid hours.
 - Breaks are deterministic per (start, length):
-  - meal: if length > `after_minutes` (strict). Starts at `latest_start_minute_of_shift` (snapped
-    down to the slot grid) or at the midpoint if null. One meal per shift (no second-meal tier).
-    `waivable_under_minutes` is ignored (we never assume a waiver).
-  - rest: `floor(length / per_minutes_worked)` breaks, evenly spaced.
+  - meal: one per meal rule (tier) whose `after_minutes` the shift length exceeds (strict). Placed so
+    it ENDS by `latest_start_minute_of_shift` (midpoint if null); the engine also tries the meal 1 h
+    and 2 h earlier so overlapping shifts can cover each other. `waivable_under_minutes` ignored
+    (we never assume a waiver).
+  - rest: round-half-up(length / `per_minutes_worked`) breaks ("major fraction" — the more
+    protective reading), none if length < `not_required_under_minutes`; evenly spaced.
   - Break durations are rounded UP to the slot size (contract requires slot-aligned times), e.g. a
     10-min rest break becomes 30 min at 30-min slots.
-  - If several meal/rest rules exist, the one with the smallest threshold is used.
+  - If several rest rules exist, the one with the smallest `per_minutes_worked` is used.
+  - Known limit: rest-break positions are fixed, so tiny_store under CA (2 leaders + always_staffed)
+    comes back infeasible, and the infeasibility names only `c_lod_always`, not the break law
+    (break laws are applied when shifts are generated, not as switchable rules). Contract request filed:
+    `contracts/requests/ws1-break-granularity.md`.
 - Law `min_rest_between_shifts` is enforced as a hard ban (the engine never pays the premium).
 - `minor_limits`: all rules whose age range matches apply (school-week and non-school rules both →
-  most restrictive). `latest_end_summer` unused.
+  most restrictive). In school-week rules, Mon–Fri are school days (`max_hours_day`) and Sat/Sun
+  are non-school days (`max_hours_non_school_day` if present). `latest_end_summer` and
+  `latest_end_before_non_school_day` unused (we use `latest_end`, the stricter one).
 - `minor_prohibited_roles` and `Role.min_age` block the role; reason code `minor_rule`.
 - Overtime: if `overtime_allowed=False`, weekly paid hours ≤ weekly OT threshold and shift paid hours
   ≤ daily OT threshold. If allowed, premium = (multiplier−1)×wage per OT hour, daily and weekly
   both counted (may pyramid; conservative).
+- Overlapping `DemandRequirement`s for the same role/slot are SUMMED (WS4 fixtures never overlap,
+  so this matches their per-slot reading there).
 - `coverage_pct` is 0–100 (covered headcount-hours / required, capped per slot at demand).
 - `objective_dollars` = wage (incl. OT premium) + premium pay + gap penalties + soft penalties.
 - Shift-length defaults when the config has no hard min/max constraint: 180 / 600 min (product

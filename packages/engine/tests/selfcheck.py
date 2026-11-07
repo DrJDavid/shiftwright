@@ -77,7 +77,10 @@ def hard_problems(cfg: StoreConfig, s: Schedule) -> list[str]:
             if lr.type == LawRuleType.minor_limits and lr.params["age_min"] <= e.age <= lr.params["age_max"]:
                 if lr.params.get("latest_end") is not None and sh.end > lr.params["latest_end"]:
                     out.append(f"{sh.id} minor latest_end")
-                if lr.params.get("max_hours_day") is not None and _paid_minutes(sh) > lr.params["max_hours_day"] * 60:
+                cap = lr.params.get("max_hours_day")
+                if lr.params.get("school_week") and sh.day >= 5 and lr.params.get("max_hours_non_school_day") is not None:
+                    cap = lr.params["max_hours_non_school_day"]  # Sat/Sun are non-school days
+                if cap is not None and _paid_minutes(sh) > cap * 60:
                     out.append(f"{sh.id} minor hours/day")
         for a in e.availability:
             if a.kind.value == "unavailable" and a.weekday == sh.day and a.start < sh.end and sh.start < a.end:

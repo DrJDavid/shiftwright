@@ -1,144 +1,56 @@
-"""Hand-made test stores for engine tests.
+"""Engine test fixtures.
 
-These are NOT real labor law. Every LawRule here uses clearly fake/test values and a
-placeholder citation, so tests never depend on facts stated from memory.
+`tiny_store()` is WS4's packages/scenarios/fixtures/tiny_store.json with the law pack resolved by
+WS3 (`shiftwright_laws.resolve`). No law values are written here.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
+from pathlib import Path
 
 from shiftwright_contracts.models import (
     Budget,
-    Citation,
     Constraint,
     ConstraintKind,
     DayHours,
     DemandRequirement,
     DemandSource,
-    Department,
     EmploymentStatus,
     Employee,
     Jurisdiction,
-    LawPack,
-    LawRule,
-    LawRuleType,
     Role,
     RuleStatus,
     Source,
-    Store,
     StoreConfig,
     Strength,
 )
+from shiftwright_laws import resolve
 
-TEST_CITATION = Citation(
-    url="https://example.invalid/test-law",
-    title="TEST ONLY - not real law",
-    excerpt="Fabricated value for unit tests.",
-    last_verified=date(2026, 1, 1),
-)
-JUR = Jurisdiction(state="ZZ")
+ROOT = Path(__file__).resolve().parents[3]
+TINY = ROOT / "packages/scenarios/fixtures/tiny_store.json"
 
 
-def law(rule_id: str, type_: LawRuleType, params: dict) -> LawRule:
-    return LawRule(
-        id=rule_id,
-        jurisdiction=JUR,
-        level="state",
-        type=type_,
-        params=params,
-        summary="TEST rule (fake values).",
-        citation=TEST_CITATION,
-        confidence="low",
-    )
+def with_law(cfg: StoreConfig, jurisdiction: Jurisdiction | None = None) -> StoreConfig:
+    j = jurisdiction or cfg.store.jurisdiction
+    store = cfg.store.model_copy(update={"jurisdiction": j})
+    return cfg.model_copy(update={"store": store, "law_pack": resolve(j)})
 
 
-def test_law_pack() -> LawPack:
-    return LawPack(
-        jurisdiction=JUR,
-        coverage="full",
-        rules=[
-            law("TEST.weekly_overtime.1", LawRuleType.weekly_overtime,
-                {"threshold_hours": 40, "multiplier": 1.5}),
-            law("TEST.meal_break.1", LawRuleType.meal_break,
-                {"after_minutes": 360, "duration": 30, "paid": False,
-                 "latest_start_minute_of_shift": None, "waivable_under_minutes": None}),
-            law("TEST.minor_prohibited_roles.1", LawRuleType.minor_prohibited_roles,
-                {"age_below": 18, "role_tags": ["test_hazard_tag"]}),
-            law("TEST.minor_limits.1", LawRuleType.minor_limits,
-                {"age_min": 16, "age_max": 17, "school_week": True,
-                 "max_hours_day": 8, "max_hours_week": 30,
-                 "earliest_start": None, "latest_end": 1320, "latest_end_summer": None}),
-        ],
-    )
+def tiny_store(jurisdiction: Jurisdiction | None = None) -> StoreConfig:
+    return with_law(StoreConfig.model_validate_json(TINY.read_text()), jurisdiction)
+
+
+def without(cfg: StoreConfig, *constraint_ids: str) -> StoreConfig:
+    return cfg.model_copy(update={"constraints": [c for c in cfg.constraints if c.id not in constraint_ids]})
 
 
 def emp(eid: str, roles: list[str], *, age: int = 30, wage: float = 15.0,
-        status: EmploymentStatus = EmploymentStatus.part_time, max_h: float = 40.0,
-        **kw) -> Employee:
-    return Employee(
-        id=eid, name=eid.title(), phone="+15550000000", age=age,
-        home_department_id="fos", trained_role_ids=roles, status=status,
-        wage_per_hour=wage, max_hours_week=max_h, hire_date=date(2024, 1, 1), **kw,
-    )
+        status: EmploymentStatus = EmploymentStatus.part_time, max_h: float = 40.0) -> Employee:
+    from datetime import date
 
-
-def tiny_store(**overrides) -> StoreConfig:
-    """6 employees, 4 roles, 2 open days (Mon, Tue), 30-min slots."""
-    store = Store(
-        id="tiny", name="Tiny Test Store", jurisdiction=JUR, slot_minutes=30,
-        week_start=date(2026, 11, 9),
-        hours=[DayHours(day=0, open=8 * 60, close=18 * 60),
-               DayHours(day=1, open=8 * 60, close=18 * 60)],
-        pre_open_minutes=60, post_close_minutes=60,
-    )
-    roles = [
-        Role(id="cashier", department_id="fos", name="Cashier", gap_penalty_per_hour=30),
-        Role(id="stocker", department_id="fos", name="Stocker", gap_penalty_per_hour=20),
-        Role(id="lod", department_id="fos", name="Leader on duty", gap_penalty_per_hour=60),
-        Role(id="pit_operator", department_id="fos", name="PIT operator", min_age=0,
-             gap_penalty_per_hour=40),
-    ]
-    employees = [
-        emp("alice", ["cashier", "lod"], wage=20, status=EmploymentStatus.full_time),
-        emp("bob", ["cashier", "stocker"], wage=15),
-        emp("carol", ["stocker", "pit_operator"], wage=17),
-        emp("dan", ["cashier"], wage=14),
-        emp("erin", ["lod", "stocker"], wage=22, status=EmploymentStatus.full_time),
-        emp("minnie", ["cashier", "pit_operator"], age=17, wage=12),
-    ]
-    demand = []
-    for d in (0, 1):
-        demand += [
-            DemandRequirement(id=f"d{d}-cash", role_id="cashier", day=d, start=480, end=1080,
-                              headcount=1, source=DemandSource.corporate),
-            DemandRequirement(id=f"d{d}-cash-pm", role_id="cashier", day=d, start=960, end=1080,
-                              headcount=1, source=DemandSource.corporate),
-            DemandRequirement(id=f"d{d}-stock", role_id="stocker", day=d, start=420, end=720,
-                              headcount=1, source=DemandSource.corporate),
-            DemandRequirement(id=f"d{d}-lod", role_id="lod", day=d, start=480, end=1080,
-                              headcount=1, source=DemandSource.corporate),
-            DemandRequirement(id=f"d{d}-pit", role_id="pit_operator", day=d, start=420, end=600,
-                              headcount=1, source=DemandSource.event),
-        ]
-    cfg = StoreConfig(
-        store=store,
-        departments=[Department(id="fos", name="Front of Store")],
-        roles=roles,
-        role_tags={"pit_operator": ["test_hazard_tag"]},
-        employees=employees,
-        demand=demand,
-        budget=Budget(weekly_hours_cap=200),
-        constraints=[
-            Constraint(id="c-minlen", kind=ConstraintKind.min_shift_length,
-                       params={"minutes": 240}, strength=Strength.hard,
-                       source=Source.leader, status=RuleStatus.confirmed),
-            Constraint(id="c-maxlen", kind=ConstraintKind.max_shift_length,
-                       params={"minutes": 540}, strength=Strength.hard,
-                       source=Source.leader, status=RuleStatus.confirmed),
-        ],
-        law_pack=test_law_pack(),
-    )
-    return cfg.model_copy(update=overrides)
+    return Employee(id=eid, name=eid.title(), phone="+15550000000", age=age,
+                    home_department_id="front_of_store", trained_role_ids=roles, status=status,
+                    wage_per_hour=wage, max_hours_week=max_h, hire_date=date(2024, 1, 1))
 
 
 def approved_at() -> datetime:
@@ -151,14 +63,15 @@ def demo_like_store(n_staff: int = 60, seed: int = 7) -> StoreConfig:
     import random
 
     rng = random.Random(seed)
-    base = tiny_store()
+    base = without(tiny_store(), "c_jordan_casey", "c_lod_always", "c_min_rest")
     store = base.store.model_copy(update={
-        "id": "demo-like",
+        "id": "demo-like", "pre_open_minutes": 60,
         "hours": [DayHours(day=d, open=8 * 60, close=22 * 60) for d in range(7)],
     })
     roles = base.roles + [
-        Role(id="fulfillment", department_id="fos", name="Fulfillment", gap_penalty_per_hour=25),
-        Role(id="ap", department_id="fos", name="Asset protection", gap_penalty_per_hour=35),
+        Role(id="stocker", department_id="front_of_store", name="Stocker", gap_penalty_per_hour=20),
+        Role(id="fulfillment", department_id="front_of_store", name="Fulfillment", gap_penalty_per_hour=25),
+        Role(id="ap", department_id="front_of_store", name="Asset protection", gap_penalty_per_hour=35),
     ]
     role_ids = [r.id for r in roles]
     emps = []
@@ -179,7 +92,7 @@ def demo_like_store(n_staff: int = 60, seed: int = 7) -> StoreConfig:
                               source=DemandSource.corporate),
             DemandRequirement(id=f"{d}-s", role_id="stocker", day=d, start=420, end=960, headcount=3,
                               source=DemandSource.corporate),
-            DemandRequirement(id=f"{d}-l", role_id="lod", day=d, start=480, end=1320, headcount=1,
+            DemandRequirement(id=f"{d}-l", role_id="leader_on_duty", day=d, start=480, end=1320, headcount=1,
                               source=DemandSource.corporate),
             DemandRequirement(id=f"{d}-f", role_id="fulfillment", day=d, start=540, end=1140, headcount=2,
                               source=DemandSource.corporate),

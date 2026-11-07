@@ -82,8 +82,8 @@ def explain_with_prep(p: Prep, schedule: Schedule, gap: Gap) -> list[GapReason]:
             working = any(d * DAY + seg.start < g1 and g0 < d * DAY + seg.end for seg in s.segments)
             if not working:
                 brk = next(b for b in s.breaks if d * DAY + b.start < g1 and g0 < d * DAY + b.end)
-                rule = p.meal_rule if brk.kind == "meal" else p.rest_rule
-                out.append(R(GapReasonCode.law_rule, lid=rule.id if rule else None))
+                rules = p.meal_rules if brk.kind == "meal" else ([p.rest_rule] if p.rest_rule else [])
+                out.append(R(GapReasonCode.law_rule, lid=rules[0].id if rules else None))
             else:
                 out.append(R(GapReasonCode.already_assigned))
             continue
