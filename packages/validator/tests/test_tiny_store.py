@@ -35,9 +35,12 @@ def shift(sid, eid, day, *pieces, breaks=()):
                  segments=segments, breaks=list(breaks))
 
 
-def load(state: str = "TX") -> StoreConfig:
+def load(state: str | None = None) -> StoreConfig:
+    """Real law pack for the store's own jurisdiction (TX), or another state to test against."""
     config = StoreConfig.model_validate(json.loads(FIXTURE.read_text()))
-    config.law_pack = laws.resolve(state, None)
+    if state is not None:
+        config.store.jurisdiction.state = state
+    config.law_pack = laws.resolve(config.store.jurisdiction)
     return config
 
 
@@ -63,7 +66,7 @@ def ws4_hand_schedule(config: StoreConfig) -> Schedule:
 
 
 def test_ws4_hand_schedule_passes_in_texas():
-    config = load("TX")
+    config = load()
     report = validate(config, ws4_hand_schedule(config))
     assert report.violations == [], [v.message for v in report.violations]
     m = report.recomputed_metrics
@@ -76,7 +79,7 @@ def test_ws4_hand_schedule_passes_in_texas():
 
 
 def test_pit_trap_minor_on_forklift():
-    config = load("TX")
+    config = load()
     sched = ws4_hand_schedule(config)
     j2 = next(s for s in sched.shifts if s.id == "j2")
     j2.segments = [RoleSegment(role_id="pit_operator", start=h("08:00"), end=h("14:00"))]
@@ -87,7 +90,7 @@ def test_pit_trap_minor_on_forklift():
 
 
 def test_jordan_unavailable_friday_morning():
-    config = load("TX")
+    config = load()
     sched = ws4_hand_schedule(config)
     j1 = next(s for s in sched.shifts if s.id == "j1")
     j1.start = h("14:00")
@@ -97,7 +100,7 @@ def test_jordan_unavailable_friday_morning():
 
 
 def test_not_together_is_priced():
-    config = load("TX")
+    config = load()
     sched = ws4_hand_schedule(config)
     j1 = next(s for s in sched.shifts if s.id == "j1")
     j1.start = h("15:00")
