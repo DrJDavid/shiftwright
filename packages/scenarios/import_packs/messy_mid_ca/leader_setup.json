@@ -62,6 +62,9 @@
     },
     "role_min_age": {
       "forklift": 18
+    },
+    "gap_penalty": {
+      "beauty": 25
     }
   }
 }
