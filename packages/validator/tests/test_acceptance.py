@@ -176,6 +176,15 @@ def golden_minor_role(config, sched):
     shift(sched, "s4").segments[0].role_id = "pit_operator"
 
 
+def golden_below_minimum_wage(config, sched):
+    from shiftwright_contracts.models import LawRuleType
+
+    # TEST-ONLY value: Mia ($14) is below a made-up $14.50 minimum
+    config.law_pack.rules.append(config.law_pack.rules[0].model_copy(update=dict(
+        id="TEST.minimum_wage", type=LawRuleType.minimum_wage,
+        params={"dollars_per_hour": 14.5, "effective": "2026-01-01"})))
+
+
 def golden_always_staffed(config, sched):
     config.constraints.append(Constraint(
         id="c_lod", kind=ConstraintKind.always_staffed,
@@ -221,6 +230,7 @@ GOLDEN = [
     (golden_rest_break, V.rest_break),
     (golden_minor_hours, V.minor_hours),
     (golden_minor_role, V.minor_prohibited_role),
+    (golden_below_minimum_wage, V.below_minimum_wage),
     (golden_always_staffed, V.always_staffed),
     (golden_outside_window, V.outside_store_window),
     (golden_metrics_mismatch, V.metrics_mismatch),

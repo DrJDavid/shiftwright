@@ -1,6 +1,6 @@
 """Recompute a schedule's true metrics from scratch.
 
-Definitions used (see STATUS.md and contracts/requests/ws2-validator-semantics.md):
+Definitions used (contracts/SEMANTICS.md v1.1):
   * Paid hours of a shift = clock span minus UNPAID breaks (paid breaks count as hours and cost).
   * total_hours = budget_hours_used = sum of paid hours.
   * total_wage_cost = paid hours x wage + overtime premium (the extra part above straight time).
@@ -10,10 +10,9 @@ Definitions used (see STATUS.md and contracts/requests/ws2-validator-semantics.m
   * premium_pay_dollars: law premiums. Today only min_rest_between_shifts with a
     premium_multiplier (hours of the later shift that fall inside the rest window x wage x
     (multiplier - 1)). Predictive-scheduling and reporting-time pay need data validate() isn't given.
-  * coverage_pct is 0..100: covered headcount-hours / required headcount-hours. A slot is covered
-    by a segment only if the segment spans the whole slot. Extra people don't over-cover other slots.
-    No demand at all => 100.
-  * gap_penalty_dollars = sum over slots of missing headcount x slot hours x role.gap_penalty_per_hour.
+  * coverage_pct is 0..100: covered headcount-minutes / required headcount-minutes, per minute
+    (contracts/SEMANTICS.md #1). Extra people don't over-cover other minutes. No demand => 100.
+  * gap_penalty_dollars = missing headcount-minutes / 60 x role.gap_penalty_per_hour.
   * objective = total_wage_cost + premium_pay + gap_penalty + soft_penalty.
 """
 from __future__ import annotations
@@ -119,35 +118,46 @@ def rest_premium_dollars(ctx: Context) -> float:
 
 
 def coverage(ctx: Context) -> tuple[float, float, float]:
-    """(required headcount-hours, covered headcount-hours, gap penalty dollars)."""
-    slot = ctx.slot
-    required: dict[tuple[str, int], int] = {}
+    """(required headcount-hours, covered headcount-hours, gap penalty dollars), measured per
+    minute (SEMANTICS #1, #13): at each minute covered = min(demand, people on that role)."""
+    # per role: week minute -> change in demand / in people working that role
+    need_delta: dict[str, dict[int, int]] = {}
+    have_delta: dict[str, dict[int, int]] = {}
+
+    def add(table, role_id, start, end, amount):
+        if end <= start or amount == 0:
+            return
+        deltas = table.setdefault(role_id, {})
+        deltas[start] = deltas.get(start, 0) + amount
+        deltas[end] = deltas.get(end, 0) - amount
+
     for d in ctx.config.demand:
-        t = d.start
-        while t < d.end:
-            key = (d.role_id, week_minute(d.day, t))
-            required[key] = required.get(key, 0) + d.headcount
-            t += slot
-    staffed: dict[tuple[str, int], int] = {}
+        add(need_delta, d.role_id, week_minute(d.day, d.start), week_minute(d.day, d.end), d.headcount)
     for shift in ctx.usable:
         for seg in shift.segments:
             start = max(seg.start, shift.start)
             end = min(seg.end, shift.end)
-            t = start + (-start) % slot
-            while t + slot <= end:
-                key = (seg.role_id, week_minute(shift.day, t))
-                staffed[key] = staffed.get(key, 0) + 1
-                t += slot
-    slot_hours = slot / 60
-    req_hours = cov_hours = gap_dollars = 0.0
-    for key, need in required.items():
-        have = min(need, staffed.get(key, 0))
-        req_hours += need * slot_hours
-        cov_hours += have * slot_hours
-        role = ctx.roles.get(key[0])
+            add(have_delta, seg.role_id, week_minute(shift.day, start), week_minute(shift.day, end), 1)
+
+    req_minutes = cov_minutes = 0
+    gap_dollars = 0.0
+    for role_id, needs in need_delta.items():
+        haves = have_delta.get(role_id, {})
+        points = sorted(set(needs) | set(haves))
+        need = have = 0
+        role = ctx.roles.get(role_id)
         penalty = role.gap_penalty_per_hour if role else 0.0
-        gap_dollars += (need - have) * slot_hours * penalty
-    return req_hours, cov_hours, gap_dollars
+        for t, t_next in zip(points, points[1:]):
+            need += needs.get(t, 0)
+            have += haves.get(t, 0)
+            if need <= 0:
+                continue
+            length = t_next - t
+            covered = min(need, max(have, 0))
+            req_minutes += need * length
+            cov_minutes += covered * length
+            gap_dollars += (need - covered) * length / 60 * penalty
+    return req_minutes / 60, cov_minutes / 60, gap_dollars
 
 
 def compute(ctx: Context) -> Computed:

@@ -2,7 +2,10 @@
 returns a list of Violations. Plain loops; clarity over speed."""
 from __future__ import annotations
 
+from datetime import date
+
 from shiftwright_contracts.models import (
+    BREAK_GRANULARITY_MINUTES,
     ConstraintKind,
     LawRuleType,
     RuleStatus,
@@ -101,14 +104,21 @@ def check_malformed(ctx: Context, computed: Computed) -> list[Violation]:
                 continue
             if brk.start < shift.start or brk.end > shift.end:
                 bad(f"{brk.kind} break {fmt_time(brk.start)}-{fmt_time(brk.end)} is outside the shift.")
-            if brk.start % slot or brk.end % slot:
-                bad(f"{brk.kind} break {fmt_time(brk.start)}-{fmt_time(brk.end)} is off the grid.")
+            if brk.start % BREAK_GRANULARITY_MINUTES or brk.end % BREAK_GRANULARITY_MINUTES:
+                bad(f"{brk.kind} break {fmt_time(brk.start)}-{fmt_time(brk.end)} is not on the "
+                    f"{BREAK_GRANULARITY_MINUTES}-minute break grid.")
             minutes = set(range(max(brk.start, shift.start), min(brk.end, shift.end)))
             if minutes & break_minutes:
                 bad("breaks overlap each other.")
             break_minutes |= minutes
 
         # segments must tile [start, end) minus breaks exactly, without overlaps
+        # a segment edge may sit on the 5-minute break grid only where it touches a break
+        break_edges = {b.start for b in shift.breaks} | {b.end for b in shift.breaks}
+
+        def edge_ok(t: int) -> bool:
+            return t % slot == 0 or (t % BREAK_GRANULARITY_MINUTES == 0 and t in break_edges)
+
         covered: set[int] = set()
         tiling_ok = True
         for seg in shift.segments:
@@ -116,8 +126,9 @@ def check_malformed(ctx: Context, computed: Computed) -> list[Violation]:
                 bad(f"segment {seg.role_id} {fmt_time(seg.start)}-{fmt_time(seg.end)} has no length.")
                 tiling_ok = False
                 continue
-            if seg.start % slot or seg.end % slot:
-                bad(f"segment {seg.role_id} {fmt_time(seg.start)}-{fmt_time(seg.end)} is off the grid.")
+            if not edge_ok(seg.start) or not edge_ok(seg.end):
+                bad(f"segment {seg.role_id} {fmt_time(seg.start)}-{fmt_time(seg.end)} is off the grid "
+                    f"(only edges touching a break may use the {BREAK_GRANULARITY_MINUTES}-minute grid).")
             if seg.start < shift.start or seg.end > shift.end:
                 bad(f"segment {seg.role_id} {fmt_time(seg.start)}-{fmt_time(seg.end)} is outside the shift.")
                 tiling_ok = False
@@ -383,14 +394,25 @@ def latest_end(params: dict, day: int) -> int | None:
     return as_int(params.get("latest_end"))
 
 
+def minor_rule_applies(params: dict, school_week) -> bool:
+    """SEMANTICS #8: Store.school_week None = every rule, True = school-week rules only,
+    False = non-school rules only. A rule without a school_week key applies either way."""
+    rule_flag = params.get("school_week")
+    if school_week is None or rule_flag is None:
+        return True
+    return bool(rule_flag) == school_week
+
+
 def check_minor_hours(ctx: Context, computed: Computed) -> list[Violation]:
-    """Applies every minor_limits rule matching the employee's age (school-week and not), i.e. the
-    most protective reading, because the config doesn't say whether this is a school week.
-    Within a school week, Mon-Fri are school days and Sat/Sun are not (our convention, not law);
-    WS3's extra keys `max_hours_non_school_day` and `latest_end_before_non_school_day` use that."""
+    """Applies the minor_limits rules matching the employee's age, filtered by Store.school_week
+    (SEMANTICS #8). Within a school week, Mon-Fri are school days and Sat/Sun are not; WS3's extra
+    keys `max_hours_non_school_day` and `latest_end_before_non_school_day` use that."""
     out = []
+    school_week = ctx.config.store.school_week
     for rule in law_rules(ctx.config, LawRuleType.minor_limits):
         p = rule.params
+        if not minor_rule_applies(p, school_week):
+            continue
         age_min, age_max = as_int(p.get("age_min"), 0), as_int(p.get("age_max"), -1)
         max_week = as_float(p.get("max_hours_week"))
         earliest = p.get("earliest_start")
@@ -451,6 +473,56 @@ def check_minor_prohibited_role(ctx: Context, computed: Computed) -> list[Violat
                 out.append(hard(C.minor_prohibited_role,
                                 f"{where(shift)}: {seg.role_id} requires age {role.min_age}; "
                                 f"employee is {employee.age}.", role_id=seg.role_id, **at(shift)))
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Minimum wage
+# --------------------------------------------------------------------------- #
+def _as_date(value) -> date | None:
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def minimum_wage_rule(ctx: Context):
+    """The minimum_wage rule in effect on week_start (SEMANTICS #15): per jurisdiction the latest
+    one already effective, then the highest of those. A rule without a readable date counts as
+    in effect. Returns (dollars, rule) or None."""
+    week_start = ctx.config.store.week_start
+    latest: dict[tuple, tuple] = {}  # jurisdiction key -> (effective, dollars, rule)
+    for rule in law_rules(ctx.config, LawRuleType.minimum_wage):
+        dollars = as_float(rule.params.get("dollars_per_hour"))
+        if dollars is None:
+            continue
+        effective = _as_date(rule.params.get("effective")) or date.min
+        if effective > week_start:
+            continue
+        key = (rule.level, rule.jurisdiction.state, rule.jurisdiction.city)
+        if key not in latest or effective > latest[key][0]:
+            latest[key] = (effective, dollars, rule)
+    if not latest:
+        return None
+    _, dollars, rule = max(latest.values(), key=lambda x: x[1])
+    return dollars, rule
+
+
+def check_below_minimum_wage(ctx: Context, computed: Computed) -> list[Violation]:
+    found = minimum_wage_rule(ctx)
+    if found is None:
+        return []
+    minimum, rule = found
+    out = []
+    scheduled = sorted({s.employee_id for s in ctx.usable})
+    for employee_id in scheduled:
+        wage = ctx.employees[employee_id].wage_per_hour
+        if wage < minimum - EPS:
+            out.append(hard(C.below_minimum_wage,
+                            f"{employee_id} is paid ${wage:,.2f}/h; minimum wage is ${minimum:,.2f}/h. "
+                            f"{rule.summary}", employee_id=employee_id, law_rule_id=rule.id))
     return out
 
 
@@ -540,6 +612,7 @@ ALL_CHECKS = [
     check_rest_break,
     check_minor_hours,
     check_minor_prohibited_role,
+    check_below_minimum_wage,
     check_always_staffed,
     check_metrics_mismatch,
     check_soft,
