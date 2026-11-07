@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, slice 7 (final pass before freeze). Rebased on main 3720fea._day)._day not yet)._
+_Updated Sat Nov 7, slice 8 (demo moments). Rebased on main 087b6fd._day)._day not yet)._
 
 ## How David runs it locally
 
@@ -21,6 +21,18 @@ In the app: **Store ▾** (top right) lists the demo stores the server has (`GET
   remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
+
+**Slice 8 (demo moments)**
+- Minor protection made visible (`src/lib/minors.ts`, tested): for every employee inside a law pack
+  `minor_prohibited_roles` rule's age band (`age_min ≤ age < age_below`, sector per #19) who is trained on a role
+  carrying one of its `role_tags`, the receipt's **Minors kept off hazardous roles** section says e.g. "Blake Allen,
+  15 — trained: Line Cook (Cooking, Fryer) — scheduled only as Server; barred by US.minor_prohibited_roles.7 (29 CFR
+  § 570.33(e)-(h) …)" with the citation link; if they were scheduled in a barred role it says so in red. The
+  Schedule grid shows a shield on those minors' rows with the same line on hover.
+- Fix tab leads with **day-level coverage** (`src/lib/dayCoverage.ts`, tested; SEMANTICS #1 restricted to the
+  day, per 5-minute step from demand and role segments): before the call-outs → after → plan if the first choices
+  say yes / if nobody does; the outreach panel's headline is the live day figure; weekly numbers are secondary text.
+  Austin Saturday: 91.7% → 80.6% → 89.3% best / 87.4% worst, filled to 90.9%.
 
 **Slice 7 (final pass)**
 - Blank store: hours start open every day (9a–9p, labelled a starting guess) with "Same hours every day … Apply to
@@ -196,7 +208,7 @@ Final pass (slice 7):
 2. The Harbor Grill receipt says the Chicago tipped minimum, fryer/cooking and alcohol rules have no violations, but
    with no 14–15-year-olds scheduled the fryer rule is listed under "Also checked" (true, but the demo story wants a
    15-year-old trained on the fryer — WS4's fixture doesn't schedule one this week).
-3. Plan coverage numbers are week-level, so a Saturday rescue moves 90.0% → 90.2%.
+3. (Fixed in slice 8: the Fix tab now shows the day's coverage.)
 
 Earlier notes:
 
