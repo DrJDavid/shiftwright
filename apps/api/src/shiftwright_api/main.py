@@ -65,6 +65,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     app.state.llm = llm or OpenRouterClient(settings.openrouter_api_key, settings.agent_model)
     app.state.cards = CardBroker()
     app.state.turn_locks = {}
+    app.state.turn_abort = {}
     if helper_llm is None and settings.openrouter_api_key:
         helper_llm = OpenRouterClient(settings.openrouter_api_key, settings.agent_model)
     app.state.helper_llm = helper_llm
@@ -320,17 +321,31 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         load(store_id)
         lock = app.state.turn_locks.setdefault(store_id, asyncio.Lock())
         if lock.locked():
-            raise HTTPException(409, "A chat turn is already running for this store.")
+            # A turn parked on a card (e.g. the browser closed mid-card) is superseded by the new message;
+            # a turn still talking to the model is not interrupted.
+            if not app.state.cards.pending(store_id):
+                raise HTTPException(409, "A chat turn is already running for this store.")
+            app.state.turn_abort.get(store_id, asyncio.Event()).set()
+            app.state.cards.cancel_all(store_id, "superseded by a new message")
         waiter = (scripted_waiter(req.card_script) if auto_cards == "scripted"
                   else broker_waiter(app.state.cards, store_id, settings.card_timeout_s))
 
         async def stream():
-            async with lock:
+            try:
+                await asyncio.wait_for(lock.acquire(), timeout=10)
+            except asyncio.TimeoutError:
+                yield sse("error", {"message": "The previous turn did not stop in time; try again."})
+                return
+            try:
+                abort = app.state.turn_abort[store_id] = asyncio.Event()
                 async for event, data in run_turn(
                     db=db(), llm=app.state.llm, store_id=store_id, mode=req.mode,
                     user_messages=[m.model_dump() for m in req.messages], await_card=waiter,
+                    aborted=abort.is_set,
                 ):
                     yield sse(event, data)
+            finally:
+                lock.release()
 
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
