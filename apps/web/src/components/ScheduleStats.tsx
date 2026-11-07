@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Schedule, ValidationReport } from '../contracts'
 import { fmtHours, fmtMoney, fmtPct, fmtRange, WEEKDAY_NAMES } from '../lib/format'
 
-type Props = { schedule: Schedule; validation: ValidationReport; employeeName: (id: string) => string }
+type Props = { schedule: Schedule; validation: ValidationReport | null; employeeName: (id: string) => string }
 
 export function ScheduleStats({ schedule, validation, employeeName }: Props) {
   const m = schedule.metrics
@@ -14,6 +14,7 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
   const over = used > cap
   // The in-browser mock never runs the real validator; don't let the badge claim it did.
   const mock = schedule.produced_by.startsWith('mock')
+  const unchecked = mock || !validation
 
   return (
     <div className="relative flex items-stretch gap-px border-b border-rule bg-rule">
@@ -43,14 +44,14 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-            mock
+            unchecked
               ? 'border-warn/40 bg-warn-wash text-warn hover:border-warn'
               : validation.passed
               ? 'border-pine/30 bg-pine-wash text-pine-dark hover:border-pine'
               : 'border-gap/30 bg-gap-wash text-gap hover:border-gap'
           }`}
         >
-          {mock ? 'Not validated' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violations`}
+          {unchecked ? 'Not validated' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violation${validation.hard_count === 1 ? '' : 's'}`}
         </button>
       </div>
       {open && (
@@ -61,16 +62,20 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
               Close
             </button>
           </div>
-          {mock && (
+          {unchecked && (
             <p className="mb-2 text-sm font-medium text-warn">
-              This schedule came from the in-browser mock, not the solver. The validator has not checked it.
+              {mock
+                ? 'This schedule came from the in-browser mock, not the solver. The validator has not checked it.'
+                : 'The validator has not checked this schedule. Rebuild to check it.'}
             </p>
           )}
-          <p className="text-sm text-ink-2">
-            The validator re-checks every shift independently of the solver.{' '}
-            {validation.passed ? 'This schedule passed.' : 'This schedule did not pass.'}
-          </p>
-          {mock ? null : validation.violations.length === 0 ? (
+          {validation && !mock && (
+            <p className="text-sm text-ink-2">
+              The validator re-checks every shift independently of the solver.{' '}
+              {validation.passed ? 'This schedule passed.' : 'This schedule did not pass.'}
+            </p>
+          )}
+          {unchecked ? null : validation.violations.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No violations, hard or soft.</p>
           ) : (
             <ul className="mt-2 max-h-64 space-y-1.5 overflow-auto text-sm">

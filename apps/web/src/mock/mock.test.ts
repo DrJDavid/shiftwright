@@ -19,7 +19,7 @@ describe('mock API follows contracts/API.md', () => {
     }, 0)
     expect(schedule.metrics?.total_hours).toBeCloseTo(paidHours, 5)
     expect(schedule.metrics!.budget_hours_used).toBeLessThanOrEqual(schedule.metrics!.budget_hours_cap)
-    expect(validation.hard_count).toBe(0)
+    expect(validation?.hard_count).toBe(0)
   })
 
   it('seeds from the WS4 fixture and respects its min_age and min shift length', async () => {

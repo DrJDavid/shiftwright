@@ -31,6 +31,8 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
   const seq = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // The live API sends one `text` event per LLM step; a tool call between them starts a new bubble.
+  const newBubble = useRef(true)
 
   useEffect(() => () => abortRef.current?.abort(), [])
   useEffect(() => {
@@ -41,13 +43,16 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
 
   const handle = (ev: ChatEvent) => {
     switch (ev.event) {
-      case 'text':
+      case 'text': {
+        const fresh = newBubble.current
+        newBubble.current = false
         setItems((xs) => {
           const last = xs.at(-1)
-          if (last?.kind === 'assistant') return [...xs.slice(0, -1), { ...last, text: last.text + ev.data.delta }]
+          if (!fresh && last?.kind === 'assistant') return [...xs.slice(0, -1), { ...last, text: last.text + ev.data.delta }]
           return [...xs, { kind: 'assistant', id: ++seq.current, text: ev.data.delta }]
         })
         break
+      }
       case 'card':
         push({ kind: 'card', cardId: ev.data.card_id, cardType: ev.data.card_type, props: ev.data.props, status: 'open' })
         break
@@ -55,6 +60,7 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
         onConfigChanged()
         break
       case 'tool':
+        newBubble.current = true
         setActivity(ev.data.status === 'start' ? `${ev.data.summary}…` : ev.data.summary)
         if (ev.data.status === 'done' && /solve|fix/.test(ev.data.name)) onScheduleChanged()
         break
@@ -71,6 +77,7 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
     if (!content || busy) return
     setDraft('')
     push({ kind: 'user', text: content })
+    newBubble.current = true
     setBusy(true)
     setActivity(null)
     const ctrl = new AbortController()

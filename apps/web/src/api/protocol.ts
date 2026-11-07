@@ -55,7 +55,8 @@ export type CreateStoreRequest = {
   jurisdiction: Jurisdiction
 }
 
-export type SolveResponse = { schedule: Schedule; validation: ValidationReport }
+/** `validation` is null when GET /schedule has a stored schedule that was never validated. */
+export type SolveResponse = { schedule: Schedule; validation: ValidationReport | null }
 
 export type Readiness = {
   ready: boolean

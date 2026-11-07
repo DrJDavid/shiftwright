@@ -1,4 +1,4 @@
-import type { Schedule, StoreConfig, ValidationReport } from '../contracts'
+import type { StoreConfig } from '../contracts'
 import type {
   CardSubmission,
   ChatEvent,
@@ -30,11 +30,12 @@ async function errorText(res: Response): Promise<string> {
   }
 }
 
-export function createApi(fetchImpl: FetchLike) {
+export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null } = {}) {
+  const keyHeader: Record<string, string> = opts.demoKey ? { 'X-Demo-Key': opts.demoKey } : {}
   async function json<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetchImpl(`/api${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      headers: { 'Content-Type': 'application/json', ...keyHeader, ...(init?.headers ?? {}) },
     })
     if (!res.ok) throw new ApiError(res.status, await errorText(res))
     return (await res.json()) as T
@@ -51,14 +52,14 @@ export function createApi(fetchImpl: FetchLike) {
     readiness: (id: string) => json<Readiness>(`${s(id)}/readiness`),
     solve: (id: string, timeLimitS?: number) =>
       post<SolveResponse>(`${s(id)}/solve`, timeLimitS ? { time_limit_s: timeLimitS } : {}),
-    latestSchedule: (id: string) => json<{ schedule: Schedule; validation: ValidationReport }>(`${s(id)}/schedule`),
+    latestSchedule: (id: string) => json<SolveResponse>(`${s(id)}/schedule`),
     submitCard: (id: string, sub: CardSubmission) => post<unknown>(`${s(id)}/chat/card`, sub),
 
     /** Streams one chat turn. Resolves when the stream closes. */
     async chat(id: string, req: ChatRequest, onEvent: (e: ChatEvent) => void, signal?: AbortSignal) {
       const res = await fetchImpl(`/api${s(id)}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...keyHeader },
         body: JSON.stringify(req),
         signal,
       })
