@@ -78,16 +78,29 @@ async def run_turn(
 
     try:
         for _ in range(MAX_STEPS):
+            resp: Optional[LLMResponse] = None
+            streamed = False
             try:
-                resp: LLMResponse = await llm.complete([system, *transcript], tools)
+                if hasattr(llm, "stream"):
+                    async for piece in llm.stream([system, *transcript], tools):
+                        if isinstance(piece, LLMResponse):
+                            resp = piece
+                        elif piece:
+                            streamed = True
+                            yield "text", {"delta": piece}
+                else:
+                    resp = await llm.complete([system, *transcript], tools)
             except Exception as e:  # noqa: BLE001 - surfaced to the client
                 yield "error", {"message": str(e)}
+                return
+            if resp is None:
+                yield "error", {"message": "The model stream ended without a response."}
                 return
             assistant: dict[str, Any] = {"role": "assistant", "content": resp.content or ""}
             if resp.tool_calls:
                 assistant["tool_calls"] = [tc.to_openai() for tc in resp.tool_calls]
             transcript.append(assistant)
-            if resp.content:
+            if resp.content and not streamed:
                 yield "text", {"delta": resp.content}
             if not resp.tool_calls:
                 break
