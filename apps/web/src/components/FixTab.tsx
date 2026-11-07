@@ -998,8 +998,9 @@ function TextAsEmployee({ config, schedule, onOpen }: { config: StoreConfig; sch
     }
   }, [config.store.timezone])
   const people = useMemo(() => {
-    const working = new Set(schedule.shifts.filter((s) => s.day === today).map((s) => s.employee_id))
-    const scheduled = new Set(schedule.shifts.map((s) => s.employee_id))
+    const shifts = schedule.shifts ?? []
+    const working = new Set(shifts.filter((s) => s.day === today).map((s) => s.employee_id))
+    const scheduled = new Set(shifts.map((s) => s.employee_id))
     return config.employees
       .filter((e) => e.phone && scheduled.has(e.id))
       .map((e) => ({ e, today: working.has(e.id) }))
