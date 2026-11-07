@@ -7,6 +7,7 @@ import type {
   CsvImportKind,
   FixRequestBody,
   OutreachState,
+  TemplateInfo,
   Health,
   ImportPreview,
   Readiness,
@@ -71,8 +72,28 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
       if (!res.ok) throw new ApiError(res.status, await errorText(res))
       return (await res.json()) as ImportPreview
     },
-    importCommit: (id: string, kind: CsvImportKind, mapping: Record<string, string | null>, rows: object[]) =>
-      post<StoreConfig>(`${s(id)}/import/${kind}/commit`, { mapping, rows }),
+    /** Commits an import; v1.4 also returns the commit's warnings (header X-Import-Warning-Count, then GET). */
+    async importCommit(id: string, kind: CsvImportKind, mapping: Record<string, string | null>, rows: object[]) {
+      const res = await fetchImpl(`/api${s(id)}/import/${kind}/commit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...keyHeader },
+        body: JSON.stringify({ mapping, rows }),
+      })
+      if (!res.ok) throw new ApiError(res.status, await errorText(res))
+      const config = (await res.json()) as StoreConfig
+      let warnings: string[] = []
+      if (Number(res.headers.get('X-Import-Warning-Count') ?? 0) > 0) {
+        try {
+          warnings = (await json<{ warnings: string[] }>(`${s(id)}/import/${kind}/warnings`)).warnings
+        } catch {
+          /* older server */
+        }
+      }
+      return { config, warnings }
+    },
+    templates: () => json<{ templates: TemplateInfo[] }>('/templates'),
+    equipmentRole: (id: string, roleId: string, decision: 'confirm' | 'reject') =>
+      post<StoreConfig>(`${s(id)}/equipment_roles`, { role_id: roleId, decision }),
     validate: (id: string, schedule: Schedule) => post<ValidationReport>(`${s(id)}/validate`, schedule),
     fix: (id: string, body: FixRequestBody) => post<FixPlan>(`${s(id)}/fix`, body),
     outreachStart: (id: string, planId: string) => post<OutreachState>(`${s(id)}/outreach/start`, { plan_id: planId }),

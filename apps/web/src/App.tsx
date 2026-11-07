@@ -324,6 +324,15 @@ export default function App() {
           onSolve={() => void runSolve()}
           open={railOpen}
           onToggle={() => setRailOpen((o) => !o)}
+          roles={config.roles}
+          onEquipment={async (roleId, decision) => {
+            try {
+              setConfig(await api.equipmentRole(config.store.id, roleId, decision))
+              void refreshReadiness(config.store.id)
+            } catch (e) {
+              setReadinessError(`Couldn't save: ${(e as Error).message}`)
+            }
+          }}
         >
           <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
         </ReadinessRail>

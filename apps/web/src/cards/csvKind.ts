@@ -11,12 +11,15 @@ export function guessKind(fileName: string): CsvImportKind {
 }
 
 /**
- * Required fields still unmapped under the current (edited) mapping. Mirrors apps/api imports.unmapped_required,
+ * Required fields still unmapped (v1.4: from `required_any_of`; older servers: the fallback below) under the current (edited) mapping. Mirrors apps/api imports.unmapped_required,
  * including its alternatives: roster `name` is satisfied by first_name + last_name, roster age by `age` or
  * `birth_date`, and availability needs at least one avail_* column.
  */
 export function missingFields(kind: CsvImportKind, preview: ImportPreview, mapping: Record<string, string | null>): string[] {
   const mapped = new Set(Object.values(mapping).filter((v): v is string => !!v))
+  // v1.4: the server states the alternatives itself.
+  if (preview.required_any_of?.length)
+    return preview.required_any_of.filter((r) => !r.any_of.some((alt) => alt.every((f) => mapped.has(f)))).map((r) => r.need)
   const required = preview.required_fields?.length ? preview.required_fields : preview.unmapped_required
   const missing = required.filter((f) => !mapped.has(f) && f !== 'age' && f !== 'avail_mon..avail_sun')
   if (kind === 'roster') {

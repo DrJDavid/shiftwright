@@ -11,10 +11,24 @@ type Props = {
   onToggle: () => void
   /** The rule list (Rulebook), shown under the checklist. */
   children?: ReactNode
+  /** v1.4: roles tagged as powered equipment automatically, for the leader to confirm or reject. */
+  roles?: { id: string; name: string }[]
+  onEquipment?: (roleId: string, decision: 'confirm' | 'reject') => Promise<void>
+}
+
+/** Role names the server tagged automatically, read from the equipment_roles check's detail. */
+function autoTagged(detail: string, roles: { id: string; name: string }[]) {
+  const m = detail.match(/:\s*(.+?)\.\s*Please confirm/)
+  if (!m) return []
+  return m[1]
+    .split(', ')
+    .map((n) => roles.find((r) => r.name === n.trim()))
+    .filter((r): r is { id: string; name: string } => !!r)
 }
 
 /** Rulebook pane: readiness meter + checklist, the rule list, and Build schedule. */
-export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle, children }: Props) {
+export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle, children, roles = [], onEquipment }: Props) {
+  const [deciding, setDeciding] = useState<string | null>(null)
   // null = automatic: checklist open until everything is ready.
   const [listOpen, setListOpen] = useState<boolean | null>(null)
   const showList = listOpen ?? !readiness?.ready
@@ -89,6 +103,38 @@ export function ReadinessRail({ readiness, error, solve, onSolve, open, onToggle
               <span>
                 <span className={c.ok ? 'text-ink' : 'font-medium text-ink'}>{c.label}</span>
                 {c.detail && <span className="block text-xs text-muted">{c.detail}</span>}
+                {c.id === 'equipment_roles' && onEquipment && autoTagged(c.detail, roles).length > 0 && (
+                  <span className="mt-1 block space-y-1">
+                    {autoTagged(c.detail, roles).map((r) => (
+                      <span key={r.id} className="flex items-center gap-1.5 text-xs">
+                        <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
+                        <button
+                          type="button"
+                          disabled={!!deciding}
+                          onClick={() => {
+                            setDeciding(r.id)
+                            void onEquipment(r.id, 'confirm').finally(() => setDeciding(null))
+                          }}
+                          className="rounded bg-pine px-1.5 py-0.5 font-semibold text-white disabled:opacity-50"
+                          title="Yes, this is powered equipment: under-18s can't work it"
+                        >
+                          Is equipment
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!!deciding}
+                          onClick={() => {
+                            setDeciding(r.id)
+                            void onEquipment(r.id, 'reject').finally(() => setDeciding(null))
+                          }}
+                          className="rounded border border-rule px-1.5 py-0.5 font-semibold text-ink-2 hover:border-ink disabled:opacity-50"
+                        >
+                          Not equipment
+                        </button>
+                      </span>
+                    ))}
+                  </span>
+                )}
               </span>
             </li>
           ))}
