@@ -750,6 +750,7 @@ dependencies = [
     { name = "httpx" },
     { name = "python-multipart" },
     { name = "shiftwright-contracts" },
+    { name = "shiftwright-laws" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -759,6 +760,7 @@ requires-dist = [
     { name = "httpx" },
     { name = "python-multipart" },
     { name = "shiftwright-contracts", editable = "contracts" },
+    { name = "shiftwright-laws", editable = "data/laws" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 

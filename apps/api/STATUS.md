@@ -58,7 +58,7 @@ re-run outreach tests against the real engine once WS1 merges; live-agent tests 
   `solver_stats.stub=true`. Coverage/penalty computed from demand, not invented.
 - `engine.fix_day` → 503 "not landed". `engine.explain_gap` → returns the gap's own reasons. `find_conflicts` → None.
 - `validator.validate` → certifies only schedules with zero shifts; otherwise 503 (won't fake a pass).
-- ~~`laws.resolve`~~ — real WS3 resolver in use since rebase onto main (TX/austin → state_only, 7 rules).
+- Labor law: stub removed; `shiftwright_laws.resolve` is called directly for `/api/laws/resolve`, `lookup_law`, readiness and solve.
 - `insights.mine_patterns` → `[]`.
 
 **Blocked on:** nothing. `OPENROUTER_API_KEY` needed for the live-agent tests (`test_live_agent.py`, skipped without it).

@@ -7,13 +7,15 @@ the API picks them up with no change here. `active_stubs()` reports which are st
 Stubs never invent facts:
   * engine stub: no shifts; every demand slot is reported as a priced gap (coverage computed).
   * validator stub: only certifies schedules with no shifts; otherwise refuses (StubUnavailable).
-  * law stub: federal_fallback LawPack with NO rules and a loud warning.
+  * labor law: no stub — the real WS3 resolver (`shiftwright_laws.resolve`) is always used.
   * mine_patterns stub: [] (as the brief says).
 """
 from __future__ import annotations
 
 import importlib
 from typing import Any, Callable, Optional
+
+from shiftwright_laws import resolve as _laws_resolve
 
 from shiftwright_contracts.models import (
     FixPlan,
@@ -28,8 +30,6 @@ from shiftwright_contracts.models import (
     StoreConfig,
     ValidationReport,
 )
-
-STUB_LAW_WARNING = "Law dataset not available yet (API stub): no labor-law rules are applied."
 
 
 class StubUnavailable(RuntimeError):
@@ -53,7 +53,6 @@ _FIX = [(_ENGINE, "fix_day"), (f"{_ENGINE}.fix", "fix_day")]
 _EXPLAIN = [(_ENGINE, "explain_gap"), (f"{_ENGINE}.explain", "explain_gap")]
 _CONFLICTS = [(_ENGINE, "find_conflicts"), (f"{_ENGINE}.conflicts", "find_conflicts")]
 _VALIDATE = [("shiftwright_validator", "validate"), ("shiftwright_validator.validate", "validate")]
-_RESOLVE = [("shiftwright_laws", "resolve"), ("shiftwright_laws.resolver", "resolve")]
 _MINE = [("shiftwright_insights", "mine_patterns"), ("shiftwright_insights.mine", "mine_patterns")]
 
 _ALL = {
@@ -62,7 +61,6 @@ _ALL = {
     "engine.explain_gap": _EXPLAIN,
     "engine.find_conflicts": _CONFLICTS,
     "validator.validate": _VALIDATE,
-    "laws.resolve": _RESOLVE,
     "insights.mine_patterns": _MINE,
 }
 
@@ -111,10 +109,7 @@ def validate(config: StoreConfig, schedule: Schedule) -> ValidationReport:
 
 
 def resolve_law(jurisdiction: Jurisdiction) -> LawPack:
-    fn = _lookup(_RESOLVE)
-    if fn:
-        return fn(jurisdiction)
-    return LawPack(jurisdiction=jurisdiction, rules=[], coverage="federal_fallback", warnings=[STUB_LAW_WARNING])
+    return _laws_resolve(jurisdiction)
 
 
 def mine_patterns(config: StoreConfig, history: list[Schedule]) -> list:
