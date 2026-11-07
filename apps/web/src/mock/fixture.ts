@@ -21,12 +21,14 @@ export function mockStoreConfig(
   name: string,
   state: string,
   city: string | null,
+  /** Keep the fixture's own name and jurisdiction (templates demo / tiny). */
+  asIs = false,
 ): StoreConfig {
   const base = (template === 'bigbox_mid' && fixture('demo_store')) || fixture('tiny_store')
   if (!base) throw new Error('No scenario fixtures found in packages/scenarios/fixtures/')
   const cfg: StoreConfig = structuredClone(base)
   cfg.config_version = 1
-  cfg.store = { ...cfg.store, id, name, jurisdiction: { state, city } }
+  cfg.store = asIs ? { ...cfg.store, id } : { ...cfg.store, id, name, jurisdiction: { state, city } }
   if (template === 'empty') {
     cfg.employees = []
     cfg.demand = []

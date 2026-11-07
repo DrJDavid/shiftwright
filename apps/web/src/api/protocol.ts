@@ -86,10 +86,11 @@ export type ChatEvent =
   | { event: 'done'; data: Record<string, never> }
   | { event: 'error'; data: { message: string } }
 
+/** v1.2: `demo` / `tiny` (and per-locality `demo_<city>` as WS6 adds them) load WS4 fixtures; name/jurisdiction optional then. */
 export type CreateStoreRequest = {
-  template?: 'bigbox_small' | 'bigbox_mid' | 'empty'
-  name: string
-  jurisdiction: Jurisdiction
+  template?: 'bigbox_small' | 'bigbox_mid' | 'empty' | 'demo' | 'tiny' | `demo_${string}`
+  name?: string
+  jurisdiction?: Jurisdiction
 }
 
 /** `validation` is null when GET /schedule has a stored schedule that was never validated. */

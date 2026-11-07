@@ -123,8 +123,15 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     if (path === '/stores' && method === 'POST') {
       const req = body as CreateStoreRequest
       const id = `mock-${stores.size + 1}`
+      // The mock only has the Austin demo fixture.
+      if (req.template?.startsWith('demo_')) return ok({ detail: `Template ${req.template} not available in the mock` }, 422)
+      const fromFixture = req.template === 'demo' || req.template === 'tiny'
+      const name = req.name ?? 'Store #0417'
+      const jur = req.jurisdiction ?? { state: 'TX', city: 'austin' }
       const st: StoreState = {
-        config: mockStoreConfig(id, req.template ?? 'bigbox_mid', req.name, req.jurisdiction.state, req.jurisdiction.city ?? null),
+        config: fromFixture
+          ? mockStoreConfig(id, req.template === 'demo' ? 'bigbox_mid' : 'bigbox_small', name, jur.state, jur.city ?? null, true)
+          : mockStoreConfig(id, (req.template as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid', name, jur.state, jur.city ?? null),
         latest: null,
         basicsDone: false,
         payrollDone: false,
