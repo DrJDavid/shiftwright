@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.4.0",
+  "contract_version": "1.5.0",
   "config_version": 1,
   "store": {
     "id": "store-3305",
@@ -52,7 +52,10 @@
     "post_close_minutes": 60,
     "school_week": true,
     "employer_employee_count": 400000,
-    "schedule_posted_on": "2026-10-26"
+    "schedule_posted_on": "2026-10-26",
+    "sector": null,
+    "business_description": "",
+    "max_shifts_per_day": 1
   },
   "departments": [
     {
@@ -91,7 +94,8 @@
       "name": "Leader on Duty",
       "min_age": 0,
       "gap_penalty_per_hour": 125.0,
-      "description": "Leader responsible for the building while open."
+      "description": "Leader responsible for the building while open.",
+      "tipped": false
     },
     {
       "id": "guest_service_desk",
@@ -99,7 +103,8 @@
       "name": "Guest Service Desk",
       "min_age": 0,
       "gap_penalty_per_hour": 100.0,
-      "description": "Returns, questions, pickups."
+      "description": "Returns, questions, pickups.",
+      "tipped": false
     },
     {
       "id": "cashier",
@@ -107,7 +112,8 @@
       "name": "Cashier",
       "min_age": 0,
       "gap_penalty_per_hour": 75.0,
-      "description": "Front lanes and self-checkout."
+      "description": "Front lanes and self-checkout.",
+      "tipped": false
     },
     {
       "id": "cart_attendant",
@@ -115,7 +121,8 @@
       "name": "Cart Attendant",
       "min_age": 0,
       "gap_penalty_per_hour": 30.0,
-      "description": "Carts and lot."
+      "description": "Carts and lot.",
+      "tipped": false
     },
     {
       "id": "drive_up",
@@ -123,7 +130,8 @@
       "name": "Drive Up",
       "min_age": 0,
       "gap_penalty_per_hour": 65.0,
-      "description": "Brings online orders to cars."
+      "description": "Brings online orders to cars.",
+      "tipped": false
     },
     {
       "id": "softlines",
@@ -131,7 +139,8 @@
       "name": "Softlines",
       "min_age": 0,
       "gap_penalty_per_hour": 30.0,
-      "description": "Apparel and home textiles floor."
+      "description": "Apparel and home textiles floor.",
+      "tipped": false
     },
     {
       "id": "hardlines",
@@ -139,7 +148,8 @@
       "name": "Hardlines",
       "min_age": 0,
       "gap_penalty_per_hour": 30.0,
-      "description": "Electronics, toys, sporting goods floor."
+      "description": "Electronics, toys, sporting goods floor.",
+      "tipped": false
     },
     {
       "id": "fitting_room",
@@ -147,7 +157,8 @@
       "name": "Fitting Room",
       "min_age": 0,
       "gap_penalty_per_hour": 20.0,
-      "description": "Fitting room and go-backs."
+      "description": "Fitting room and go-backs.",
+      "tipped": false
     },
     {
       "id": "grocery_stock",
@@ -155,7 +166,8 @@
       "name": "Grocery Stock",
       "min_age": 0,
       "gap_penalty_per_hour": 40.0,
-      "description": "Stocks and fronts grocery."
+      "description": "Stocks and fronts grocery.",
+      "tipped": false
     },
     {
       "id": "order_picker",
@@ -163,7 +175,8 @@
       "name": "Order Picker",
       "min_age": 0,
       "gap_penalty_per_hour": 55.0,
-      "description": "Picks online orders."
+      "description": "Picks online orders.",
+      "tipped": false
     },
     {
       "id": "ap_specialist",
@@ -171,7 +184,8 @@
       "name": "AP Specialist",
       "min_age": 0,
       "gap_penalty_per_hour": 50.0,
-      "description": "Asset protection on the floor."
+      "description": "Asset protection on the floor.",
+      "tipped": false
     },
     {
       "id": "truck_unload",
@@ -179,7 +193,8 @@
       "name": "Truck Unload",
       "min_age": 0,
       "gap_penalty_per_hour": 90.0,
-      "description": "Unloads the trailer and sorts freight."
+      "description": "Unloads the trailer and sorts freight.",
+      "tipped": false
     },
     {
       "id": "backroom",
@@ -187,7 +202,8 @@
       "name": "Backroom",
       "min_age": 0,
       "gap_penalty_per_hour": 40.0,
-      "description": "Backstock and pulls."
+      "description": "Backstock and pulls.",
+      "tipped": false
     },
     {
       "id": "pit_operator",
@@ -195,7 +211,8 @@
       "name": "PIT Operator",
       "min_age": 18,
       "gap_penalty_per_hour": 90.0,
-      "description": "Operates powered industrial trucks."
+      "description": "Operates powered industrial trucks.",
+      "tipped": false
     }
   ],
   "role_tags": {
@@ -224,7 +241,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 8
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e002",
@@ -246,7 +264,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 5,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e003",
@@ -269,7 +288,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 5,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e004",
@@ -291,7 +311,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 7,
         "callins_accepted_90d": 7
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e005",
@@ -313,7 +334,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 5,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e006",
@@ -347,7 +369,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 7,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e007",
@@ -382,7 +405,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 7,
         "callins_accepted_90d": 5
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e008",
@@ -469,7 +493,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e009",
@@ -542,7 +567,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 6,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e010",
@@ -578,7 +604,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 0,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e011",
@@ -651,7 +678,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 5,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e012",
@@ -686,7 +714,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e013",
@@ -760,7 +789,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 0,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e014",
@@ -784,7 +814,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 8
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e015",
@@ -819,7 +850,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e016",
@@ -841,7 +873,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 6,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e017",
@@ -863,7 +896,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e018",
@@ -886,7 +920,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 8
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e019",
@@ -909,7 +944,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e020",
@@ -931,7 +967,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e021",
@@ -954,7 +991,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e022",
@@ -976,7 +1014,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e023",
@@ -1000,7 +1039,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e024",
@@ -1022,7 +1062,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 0,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e025",
@@ -1046,7 +1087,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e026",
@@ -1080,7 +1122,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e027",
@@ -1104,7 +1147,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 6,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e028",
@@ -1127,7 +1171,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 7,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e029",
@@ -1149,7 +1194,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e030",
@@ -1183,7 +1229,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 6,
         "callins_accepted_90d": 6
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e031",
@@ -1206,7 +1253,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e032",
@@ -1229,7 +1277,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e033",
@@ -1251,7 +1300,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 0,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e034",
@@ -1285,7 +1335,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e035",
@@ -1308,7 +1359,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e036",
@@ -1332,7 +1384,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e037",
@@ -1354,7 +1407,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e038",
@@ -1378,7 +1432,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 5
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e039",
@@ -1400,7 +1455,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 3
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e040",
@@ -1424,7 +1480,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e041",
@@ -1447,7 +1504,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 3
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e042",
@@ -1470,7 +1528,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 5,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e043",
@@ -1492,7 +1551,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 6
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e044",
@@ -1515,7 +1575,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e045",
@@ -1538,7 +1599,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e046",
@@ -1560,7 +1622,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e047",
@@ -1634,7 +1697,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 7
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e048",
@@ -1657,7 +1721,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e049",
@@ -1731,7 +1796,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 6,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e050",
@@ -1753,7 +1819,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e051",
@@ -1787,7 +1854,8 @@
         "callouts_90d": 2,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e052",
@@ -1822,7 +1890,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e053",
@@ -1857,7 +1926,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 0,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e054",
@@ -1879,7 +1949,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e055",
@@ -1903,7 +1974,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 6
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e056",
@@ -1986,7 +2058,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e057",
@@ -2059,7 +2132,8 @@
         "callouts_90d": 3,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 3
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e058",
@@ -2133,7 +2207,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e059",
@@ -2155,7 +2230,8 @@
         "callouts_90d": 5,
         "callins_offered_90d": 8,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e060",
@@ -2177,7 +2253,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e061",
@@ -2200,7 +2277,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e062",
@@ -2222,7 +2300,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e063",
@@ -2245,7 +2324,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 1,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e064",
@@ -2269,7 +2349,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 3,
         "callins_accepted_90d": 3
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e065",
@@ -2293,7 +2374,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e066",
@@ -2315,7 +2397,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e067",
@@ -2337,7 +2420,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 2,
         "callins_accepted_90d": 2
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e068",
@@ -2360,7 +2444,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 0,
         "callins_accepted_90d": 0
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e069",
@@ -2385,7 +2470,8 @@
         "callouts_90d": 1,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 4
-      }
+      },
+      "tipped_wage_per_hour": null
     },
     {
       "id": "e070",
@@ -2408,7 +2494,8 @@
         "callouts_90d": 0,
         "callins_offered_90d": 4,
         "callins_accepted_90d": 1
-      }
+      },
+      "tipped_wage_per_hour": null
     }
   ],
   "demand": [
@@ -4246,7 +4333,8 @@
       "day": 1,
       "start": 240,
       "end": 600,
-      "note": "Tuesday truck, 04:00-10:00."
+      "note": "Tuesday truck, 04:00-10:00.",
+      "label": ""
     },
     {
       "id": "ev_truck_3",
@@ -4254,7 +4342,8 @@
       "day": 3,
       "start": 240,
       "end": 600,
-      "note": "Thursday truck, 04:00-10:00."
+      "note": "Thursday truck, 04:00-10:00.",
+      "label": ""
     },
     {
       "id": "ev_truck_5",
@@ -4262,7 +4351,8 @@
       "day": 5,
       "start": 240,
       "end": 600,
-      "note": "Saturday truck, 04:00-10:00."
+      "note": "Saturday truck, 04:00-10:00.",
+      "label": ""
     }
   ],
   "budget": {

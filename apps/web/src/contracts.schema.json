@@ -456,7 +456,8 @@
       "enum": [
         "corporate",
         "leader",
-        "event"
+        "event",
+        "estimate"
       ],
       "title": "DemandSource",
       "type": "string"
@@ -548,6 +549,18 @@
             "callins_offered_90d": 0,
             "callins_accepted_90d": 0
           }
+        },
+        "tipped_wage_per_hour": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tipped Wage Per Hour"
         }
       },
       "required": [
@@ -600,6 +613,11 @@
           "default": "",
           "title": "Note",
           "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
         }
       },
       "required": [
@@ -618,6 +636,9 @@
         "floor_set",
         "promo",
         "online_surge",
+        "delivery",
+        "private_event",
+        "catering",
         "other"
       ],
       "title": "EventKind",
@@ -1146,7 +1167,7 @@
       "type": "object"
     },
     "LawRuleType": {
-      "description": "params schema per type (all minutes unless noted):\n\nweekly_overtime          {threshold_hours:float, multiplier:float}\ndaily_overtime           {threshold_hours:float, multiplier:float,\n                          double_threshold_hours:float|null}\nmeal_break               {after_minutes:int, duration:int, paid:bool,\n                          latest_start_minute_of_shift:int|null, waivable_under_minutes:int|null}\nrest_break               {per_minutes_worked:int, duration:int, paid:bool}\nminor_limits             {age_min:int, age_max:int, school_week:bool,\n                          max_hours_day:float|null, max_hours_week:float|null,\n                          earliest_start:int|null, latest_end:int|null,\n                          latest_end_summer:int|null}\nminor_prohibited_roles   {age_below:int, role_tags:[str]}   # e.g. 18, [\"powered_industrial_truck\"]\nmin_rest_between_shifts  {minutes:int, premium_multiplier:float|null, waivable:bool}\npredictive_scheduling    {notice_days:int, change_premium_hours:float,\n                          applies_if_employees_over:int|null, applies_to:\"retail\"|\"food\"|\"both\"}\nreporting_time_pay       {min_paid_hours:float|null, fraction_of_scheduled:float|null}\nminimum_wage             {dollars_per_hour:float, effective:date}",
+      "description": "params schema per type (all minutes unless noted):\n\nweekly_overtime          {threshold_hours:float, multiplier:float}\ndaily_overtime           {threshold_hours:float, multiplier:float,\n                          double_threshold_hours:float|null}\nmeal_break               {after_minutes:int, duration:int, paid:bool,\n                          latest_start_minute_of_shift:int|null, waivable_under_minutes:int|null}\nrest_break               {per_minutes_worked:int, duration:int, paid:bool}\nminor_limits             {age_min:int, age_max:int, school_week:bool,\n                          max_hours_day:float|null, max_hours_week:float|null,\n                          earliest_start:int|null, latest_end:int|null,\n                          latest_end_summer:int|null}\nminor_prohibited_roles   {age_below:int, age_min:int|null, role_tags:[str]}\n                         # applies to employees with age_min <= age < age_below (age_min null = no lower\n                         # bound; v1.5). role_tags from ROLE_TAGS, e.g. [\"powered_industrial_truck\"]\nmin_rest_between_shifts  {minutes:int, premium_multiplier:float|null, waivable:bool}\npredictive_scheduling    {notice_days:int, change_premium_hours:float,\n                          applies_if_employees_over:int|null, applies_to:\"retail\"|\"food\"|\"both\"}\nreporting_time_pay       {min_paid_hours:float|null, fraction_of_scheduled:float|null}\nminimum_wage             {dollars_per_hour:float, effective:date}\ntipped_minimum_wage      {cash_wage_per_hour:float, max_tip_credit_per_hour:float|null, effective:date}   # v1.5",
       "enum": [
         "weekly_overtime",
         "daily_overtime",
@@ -1157,7 +1178,8 @@
         "min_rest_between_shifts",
         "predictive_scheduling",
         "reporting_time_pay",
-        "minimum_wage"
+        "minimum_wage",
+        "tipped_minimum_wage"
       ],
       "title": "LawRuleType",
       "type": "string"
@@ -1301,6 +1323,11 @@
           "default": "",
           "title": "Description",
           "type": "string"
+        },
+        "tipped": {
+          "default": false,
+          "title": "Tipped",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1493,6 +1520,17 @@
       ],
       "title": "ScheduleMetrics",
       "type": "object"
+    },
+    "Sector": {
+      "description": "v1.5. Kind of business, used ONLY to decide which law rules apply (SEMANTICS.md #19).",
+      "enum": [
+        "retail",
+        "food",
+        "hospitality",
+        "other"
+      ],
+      "title": "Sector",
+      "type": "string"
     },
     "Shift": {
       "properties": {
@@ -1707,6 +1745,32 @@
           "default": null,
           "description": "v1.3. When this week's schedule was posted to employees. None = assume it was posted on time (notice_days before week_start), so changes are measured from the posted schedule. See SEMANTICS.md #17.",
           "title": "Schedule Posted On"
+        },
+        "sector": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Sector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "v1.5. For law applicability only (SEMANTICS.md #19). None = unknown: rules apply."
+        },
+        "business_description": {
+          "default": "",
+          "description": "v1.5. Free text from intake, e.g. \"family taqueria, 2 locations\".",
+          "title": "Business Description",
+          "type": "string"
+        },
+        "max_shifts_per_day": {
+          "default": 1,
+          "description": "v1.5. Store policy: shifts one employee may work on one day. 2 = split shifts allowed (common in food service). See SEMANTICS.md #23.",
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Max Shifts Per Day",
+          "type": "integer"
         }
       },
       "required": [
@@ -1722,7 +1786,7 @@
     "StoreConfig": {
       "properties": {
         "contract_version": {
-          "default": "1.4.0",
+          "default": "1.5.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -1755,7 +1819,7 @@
             },
             "type": "array"
           },
-          "description": "role_id -> tags, e.g. pit_operator -> ['powered_industrial_truck']",
+          "description": "role_id -> tags from ROLE_TAGS (v1.5), e.g. pit_operator -> ['powered_industrial_truck']",
           "title": "Role Tags",
           "type": "object"
         },
@@ -2008,6 +2072,7 @@
         "not_trained",
         "unavailable",
         "double_booked",
+        "shifts_per_day",
         "max_hours_week",
         "shift_length",
         "rest_between_shifts",

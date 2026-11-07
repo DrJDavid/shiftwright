@@ -1,4 +1,4 @@
-# Shiftwright contract semantics — v1.4
+# Shiftwright contract semantics — v1.5
 
 Owner: David. These rules are part of the contract. The engine (WS1) and the validator (WS2)
 must both follow them, so that a disagreement means a bug, not a different reading.
@@ -7,6 +7,13 @@ with the v1.1 changes below folded in.
 
 ## Changelog
 
+- **1.5.0** (Sat Nov 7, ~01:00; brief: `briefs/CONTRACT-v1.5.md`): any business, any manager. Additive only.
+  `Sector` + `Store.sector`, `Store.business_description` (#19); `EventKind.delivery/private_event/catering`,
+  `Event.label`; `DemandSource.estimate`; tipped pay: `Role.tipped`, `Employee.tipped_wage_per_hour`,
+  `LawRuleType.tipped_minimum_wage` (#20, #15 extended); `minor_prohibited_roles.age_min`; `ROLE_TAGS`
+  controlled vocabulary for `StoreConfig.role_tags` (#21). API.md: per-day staffing, napkin mode, events by sector.
+  Split shifts (#23; David moved them in from Tier 2 after the first eval): `Store.max_shifts_per_day`,
+  `ViolationCode.shifts_per_day`. Split-shift / spread-of-hours *premiums* stay out of scope.
 - **1.4.0** (Sat Nov 7, ~02:30): outreach modes for predictive-scheduling exemptions (#17, proposal from WS1):
   `FixRequest.outreach_mode`, `FixPlan.outreach_mode`, `OutreachCandidate.premium_pay_dollars`,
   `law_rule_ids`, `premium_note`. Decision (David): `always_staffed` is NOT satisfied by an employee on a
@@ -127,10 +134,50 @@ with the v1.1 changes below folded in.
     covering any role, including an `always_staffed` one; another employee must cover the break.
     (Retail practice: the leader on duty hands off LOD before a break.)
 
+## Any business (*v1.5*)
+
+19. **Sector and law applicability.** A law rule whose params carry `applies_to` applies when
+    `applies_to == "both"` or equals `Store.sector` (`food` ↔ `food`, `retail` ↔ `retail`).
+    `Store.sector` None or `other` ⇒ the rule **applies** (protective default); readiness warns
+    "business type not set". `hospitality` matches only an `applies_to` value that names it (none yet).
+    Rules without `applies_to` apply to every sector.
+20. **Tipped pay** (conservative):
+    - A shift is *tipped* iff every `RoleSegment` is in a role with `tipped = True` **and** the employee
+      has `tipped_wage_per_hour`. Tipped shifts pay `tipped_wage_per_hour` for all paid hours (paid
+      breaks included); every other shift, including mixed tipped/untipped shifts, pays `wage_per_hour`.
+    - Overtime premium on any hour = `(multiplier − 1) × wage_per_hour` (may overstate cost on tipped
+      hours; never understates pay).
+    - Resolver: `tipped_minimum_wage` is exclusive like `minimum_wage` (keep the single highest cash wage;
+      ties → more local).
+    - Engine and validator compute cost from these same rules. Tips themselves are never modeled or estimated.
+21. **Role tags.** `StoreConfig.role_tags` values must come from `ROLE_TAGS`; the validator reports any
+    other tag as `malformed`. `minor_prohibited_roles` applies to employees with
+    `age_min ≤ age < age_below` (`age_min` absent/null = no lower bound). Which tags a rule bans comes
+    from WS3's law data only.
+22. **Estimated demand.** `DemandSource.estimate` marks demand the agent drafted from the leader's
+    description without confirmation. A submitted `department_staffing` card saves `source: leader`.
+    Readiness warns while any `estimate` demand exists ("staffing levels are a draft"). The agent never
+    presents an invented number as a forecast or fact; every estimate is labeled as a guess.
+
+23. **Split shifts** (*v1.5*). An employee may work up to `Store.max_shifts_per_day` shifts on one day
+    (default 1; more is a hard `shifts_per_day` violation). Shifts of one employee never overlap
+    (`double_booked`). Each shift is measured on its own for shift length (#5), meal and rest breaks (#6,
+    #7) and segment tiling. Per-day quantities sum all of that day's shifts: daily overtime (#4, by start
+    day), minor daily caps, earliest-start/latest-end limits; `max_days_per_week` /
+    `max_consecutive_days` count a day once. The store constraint `min_rest_between_shifts` applies only
+    between shifts on different days. A law `min_rest_between_shifts` rule applies between every pair of
+    consecutive shifts unless its params say `excludes_same_day_split: true` (WS3 sets this only from a
+    primary source). Split-shift and spread-of-hours premiums are not modeled yet. An infeasibility
+    proof must hold for the store's `max_shifts_per_day`.
+
 ## Minimum wage (*v1.1*)
 
 15. **`below_minimum_wage`** (hard): for every employee with at least one shift, if
     `wage_per_hour` < the law pack's `minimum_wage.dollars_per_hour` (the rule in effect on
     `Store.week_start`), the validator reports one violation per employee with that `law_rule_id`.
+    *v1.5:* for an employee with ≥1 tipped shift (#20), `tipped_wage_per_hour` is also checked against
+    the in-effect `tipped_minimum_wage.cash_wage_per_hour`; **if the law pack has no
+    `tipped_minimum_wage` rule, the full `minimum_wage` applies to tipped hours too** (jurisdictions
+    without a tip credit simply have no such rule).
     The engine never changes wages: it schedules as normal, and the API's readiness report shows a
     failing "wages ≥ minimum wage" check naming the employees.

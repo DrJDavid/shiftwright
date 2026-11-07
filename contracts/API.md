@@ -1,4 +1,4 @@
-# Shiftwright API & chat protocol — v1.4
+# Shiftwright API & chat protocol — v1.5
 
 Owner: David. Backend (WS6) implements; web (WS7) and evals (WS5) consume.
 All bodies are JSON shaped by `contracts/models.py`. TypeScript types are generated
@@ -91,9 +91,9 @@ and starts the new turn; 409 only if the previous turn is mid model call.
 | `payroll` | prefill `Budget` | `Budget` |
 | `roles` | `{departments, roles}` | `{departments, roles}` |
 | `training_matrix` | `{employees:[{id,name}], roles}` | `{employee_id: role_id[]}` |
-| `coverage_grid` | `{day_type: "weekday"\|"saturday"\|"sunday"\|"truck_day", roles, slot_minutes, days: int[], start_minute: int, prefill: headcount[role][slot]}` | same grid |
+| `coverage_grid` | `{day_type: "weekday"\|"saturday"\|"sunday"\|"truck_day"\|"custom", roles, slot_minutes, days: int[], start_minute: int, prefill: headcount[role][slot]}` | same grid |
 | `events` | `{events}` | `{events}` |
-| `department_staffing` | v1.3. `{department: Department, roles: Role[], day_groups: [{id: "weekday"\|"saturday"\|"sunday", days: int[]}], hours: DayHours[], pre_open_minutes, post_close_minutes, suggested: {role_id: RoleStaffing}}` | `{staffing: {role_id: RoleStaffing}}` |
+| `department_staffing` | v1.3. `{department: Department, roles: Role[], day_groups: [{id: string, label: string, days: int[]}], hours: DayHours[], pre_open_minutes, post_close_minutes, suggested: {role_id: RoleStaffing}, rationale?: {role_id: string}}` | `{staffing: {role_id: RoleStaffing}}` |
 | `csv_import` | `{kind, preview?: ImportPreview}` | `{committed: boolean, rows: number}` |
 | `propose_rule` | `{constraint: Constraint, evidence, plain_text}` | `{decision: "hard"\|"soft"\|"not_a_rule", weight_dollars?}` |
 | `tradeoff` | `{question, options:[{id,label,cost_dollars,effect}]}` | `{option_id}` |
@@ -115,7 +115,23 @@ RoleStaffing = { base: number,                                   // people most 
 The server converts the result into `DemandRequirement`s (`source: leader`; base across open hours per day,
 peaks replace base inside their windows, open/close crews in the pre-open/post-close windows), replacing
 existing non-event demand for those roles, then the client shows a read-only `coverage_grid`-style preview.
-Truck and other event crews come from the `events` card. `coverage_grid` stays as an advanced editor; with `readonly: true` (v1.4) it is a preview that doesn't pause the turn.
+Truck and other event crews come from the `events` card.
+
+v1.5 (any business):
+- `RoleStaffing.peaks[].day_group` accepts `"all"`, `"weekday"`, `"weekend"`, `"saturday"`, `"sunday"`, a single
+  day `"mon"`…`"sun"`, or a comma list such as `"fri,sat"`; existing values keep their meaning. The server
+  derives the card's `day_groups` from the store's actual open hours and events, not a fixed weekday/Sat/Sun split.
+- `coverage_grid.day_type: "custom"` makes the card's `days: int[]` authoritative; `truck_day` is offered only
+  when the store has truck events.
+- Napkin mode: `department_staffing.rationale` gives one plain sentence per role saying what the suggestion is
+  based on, quoting the leader where possible (e.g. "You said Friday nights get slammed"). A submitted card
+  saves demand as `source: "leader"`; `source: "estimate"` is only for demand saved without a card (e.g. a
+  dry-run draft), and readiness warns while any exists. Suggestions are always labeled as guesses.
+- `events` card: kinds relevant to `Store.sector` first (e.g. delivery/private_event/catering for food,
+  truck/floor_set for retail); every kind stays valid everywhere. `Event.label` is the display name.
+- `store_basics` collects `sector` and `business_description` (ask what the business is first).
+- Readiness (warnings, non-blocking): "business type not set" when `sector` is None; "staffing levels are a draft"
+  while `estimate` demand exists; tagged roles (any `ROLE_TAGS` tag) that have minors trained in them. `coverage_grid` stays as an advanced editor; with `readonly: true` (v1.4) it is a preview that doesn't pause the turn.
 Forecast CSVs may carry an optional `duration` column (minutes) for start-only rows (v1.4).
 
 ## Environment variables

@@ -114,7 +114,7 @@ export type Headcount = number;
  * This interface was referenced by `ShiftwrightContracts`'s JSON-Schema
  * via the `definition` "DemandSource".
  */
-export type DemandSource = "corporate" | "leader" | "event";
+export type DemandSource = "corporate" | "leader" | "event" | "estimate";
 export type EventId = string | null;
 export type Note2 = string;
 export type Id3 = string;
@@ -141,16 +141,19 @@ export type MinHoursWeek = number;
 export type MaxHoursWeek = number;
 export type Availability = AvailabilityEntry[];
 export type HireDate = string;
+export type TippedWagePerHour = number | null;
 export type Id5 = string;
 /**
  * This interface was referenced by `ShiftwrightContracts`'s JSON-Schema
  * via the `definition` "EventKind".
  */
-export type EventKind = "truck" | "floor_set" | "promo" | "online_surge" | "other";
+export type EventKind =
+  "truck" | "floor_set" | "promo" | "online_surge" | "delivery" | "private_event" | "catering" | "other";
 export type Day3 = number;
 export type Start3 = number;
 export type End3 = number;
 export type Note3 = string;
+export type Label = string;
 /**
  * This interface was referenced by `ShiftwrightContracts`'s JSON-Schema
  * via the `definition` "Lever".
@@ -281,6 +284,21 @@ export type EmployerEmployeeCount = number | null;
  * v1.3. When this week's schedule was posted to employees. None = assume it was posted on time (notice_days before week_start), so changes are measured from the posted schedule. See SEMANTICS.md #17.
  */
 export type SchedulePostedOn = string | null;
+/**
+ * v1.5. Kind of business, used ONLY to decide which law rules apply (SEMANTICS.md #19).
+ *
+ * This interface was referenced by `ShiftwrightContracts`'s JSON-Schema
+ * via the `definition` "Sector".
+ */
+export type Sector = "retail" | "food" | "hospitality" | "other";
+/**
+ * v1.5. Free text from intake, e.g. "family taqueria, 2 locations".
+ */
+export type BusinessDescription = string;
+/**
+ * v1.5. Store policy: shifts one employee may work on one day. 2 = split shifts allowed (common in food service). See SEMANTICS.md #23.
+ */
+export type MaxShiftsPerDay = number;
 export type Departments = Department[];
 export type Id8 = string;
 export type DepartmentId = string;
@@ -291,6 +309,7 @@ export type MinAge = number;
  */
 export type GapPenaltyPerHour = number;
 export type Description = string;
+export type Tipped = boolean;
 export type Roles = Role[];
 export type Employees = Employee[];
 export type Demand = DemandRequirement[];
@@ -316,12 +335,15 @@ export type Level = "federal" | "state" | "city";
  *                           max_hours_day:float|null, max_hours_week:float|null,
  *                           earliest_start:int|null, latest_end:int|null,
  *                           latest_end_summer:int|null}
- * minor_prohibited_roles   {age_below:int, role_tags:[str]}   # e.g. 18, ["powered_industrial_truck"]
+ * minor_prohibited_roles   {age_below:int, age_min:int|null, role_tags:[str]}
+ *                          # applies to employees with age_min <= age < age_below (age_min null = no lower
+ *                          # bound; v1.5). role_tags from ROLE_TAGS, e.g. ["powered_industrial_truck"]
  * min_rest_between_shifts  {minutes:int, premium_multiplier:float|null, waivable:bool}
  * predictive_scheduling    {notice_days:int, change_premium_hours:float,
  *                           applies_if_employees_over:int|null, applies_to:"retail"|"food"|"both"}
  * reporting_time_pay       {min_paid_hours:float|null, fraction_of_scheduled:float|null}
  * minimum_wage             {dollars_per_hour:float, effective:date}
+ * tipped_minimum_wage      {cash_wage_per_hour:float, max_tip_credit_per_hour:float|null, effective:date}   # v1.5
  *
  * This interface was referenced by `ShiftwrightContracts`'s JSON-Schema
  * via the `definition` "LawRuleType".
@@ -336,7 +358,8 @@ export type LawRuleType =
   | "min_rest_between_shifts"
   | "predictive_scheduling"
   | "reporting_time_pay"
-  | "minimum_wage";
+  | "minimum_wage"
+  | "tipped_minimum_wage";
 export type Summary1 = string;
 export type Confidence = "high" | "medium" | "low";
 export type Verified = boolean;
@@ -372,6 +395,7 @@ export type ViolationCode =
   | "not_trained"
   | "unavailable"
   | "double_booked"
+  | "shifts_per_day"
   | "max_hours_week"
   | "shift_length"
   | "rest_between_shifts"
@@ -567,6 +591,7 @@ export interface Employee {
   availability?: Availability;
   hire_date: HireDate;
   attendance?: AttendanceStats1;
+  tipped_wage_per_hour?: TippedWagePerHour;
   [k: string]: unknown;
 }
 /**
@@ -590,6 +615,7 @@ export interface Event {
   start: Start3;
   end: End3;
   note?: Note3;
+  label?: Label;
   [k: string]: unknown;
 }
 /**
@@ -806,6 +832,12 @@ export interface Store {
   school_week?: SchoolWeek;
   employer_employee_count?: EmployerEmployeeCount;
   schedule_posted_on?: SchedulePostedOn;
+  /**
+   * v1.5. For law applicability only (SEMANTICS.md #19). None = unknown: rules apply.
+   */
+  sector?: Sector | null;
+  business_description?: BusinessDescription;
+  max_shifts_per_day?: MaxShiftsPerDay;
   [k: string]: unknown;
 }
 /**
@@ -828,10 +860,11 @@ export interface Role {
   min_age?: MinAge;
   gap_penalty_per_hour: GapPenaltyPerHour;
   description?: Description;
+  tipped?: Tipped;
   [k: string]: unknown;
 }
 /**
- * role_id -> tags, e.g. pit_operator -> ['powered_industrial_truck']
+ * role_id -> tags from ROLE_TAGS (v1.5), e.g. pit_operator -> ['powered_industrial_truck']
  */
 export interface RoleTags {
   [k: string]: string[];
