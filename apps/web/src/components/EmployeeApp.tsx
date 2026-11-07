@@ -59,7 +59,7 @@ export function EmployeeApp({ employeeId, storeId: given }: { employeeId: string
   const mine = (schedule?.shifts ?? []).filter((s) => s.employee_id === employeeId).sort((a, b) => a.day - b.day || a.start - b.start)
   const hours = mine.reduce((h, s) => h + paidMinutes(s) / 60, 0)
   const msgs = (outreach?.messages ?? []).filter((m) => (isOut(m) ? m.to_employee_id === employeeId : me && digits(m.from_phone) === digits(me.phone)))
-  const lastOut = [...msgs].reverse().find(isOut)
+  const lastOut = [...msgs].reverse().find((m): m is OutboundMessage => isOut(m) && m.outreach_rank != null) // offers only, not replies
   const answered = lastOut && msgs.slice(msgs.indexOf(lastOut) + 1).some((m) => !isOut(m) && (m.interpreted_as === 'accept' || m.interpreted_as === 'decline'))
   const offerOpen = !!lastOut && !answered && outreach?.status === 'texting' && outreach.current_rank === lastOut.outreach_rank
   const accepted = outreach?.accepted_employee_ids.includes(employeeId)
