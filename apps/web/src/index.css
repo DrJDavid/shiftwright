@@ -1,1 +1,66 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f2f4f5;
+  --color-panel: #ffffff;
+  --color-ink: #15232d;
+  --color-ink-2: #3d4d59;
+  --color-muted: #5f6f7b;
+  --color-rule: #d2d9de;
+  --color-rule-soft: #e6eaed;
+  --color-pine: #0b5d4f;
+  --color-pine-dark: #084a3f;
+  --color-pine-wash: #e3efec;
+  --color-gap: #b42318;
+  --color-gap-wash: #fbe9e7;
+  --color-warn: #8f5200;
+  --color-warn-wash: #fdf1dc;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes sw-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.sw-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--color-pine);
+  animation: sw-indeterminate 1.2s ease-in-out infinite;
+}
