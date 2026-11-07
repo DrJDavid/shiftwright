@@ -16,14 +16,17 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
   push `main`; tell the other workers to rebase. Never force-push. Update the status board below.
 - No one edits files in the main checkout's working tree except the coordinator.
 
-## Status board (05:25)
+## Status board (06:00, Cursor coordinator)
 
 | Task | State |
 |---|---|
-| C1 fix-plan G1–G3, C2 split shifts, D1 minor hazard rules, E1 food exports | **merged** |
+| C1 fix-plan G1–G3 (+G4), C2 split shifts, D1 minor hazard rules, E1 food exports, E4 dataset builder | **merged** |
 | Plain-language role priorities, chat setup fixes (Claude Code) | **merged** (`7304274`, `80e21fc`) |
-| A1 auth, A3 generated businesses, B1 web shell, E2 rescore, E4 dataset builder | on branches, need rebase onto `main` + review |
-| A2, B2–B7, C3, E3 | not started |
+| A1 auth + A2 basics + A3 generated businesses (`cursor/A3-generated`) | ready; merges **together with** Lane B (old web breaks once auth is on) |
+| B1–B6 web shell (`cursor/B1-web-shell`, includes A1) | built; being wired to the real A1 backend |
+| E2 rescore (`cursor/E2-rescore`) | running |
+| C3 coverage-first (`cursor/C3-coverage-first`) | running, deadline 10:00 |
+| B7 + B4 QA bugs, C3b, C3c, E3 | not started (E3 needs David's OK) |
 
 ## How to run these with Cursor
 
