@@ -1,5 +1,20 @@
 # Coordinator handoff
 
+## Update Sat Nov 7, ~01:45 CT (OpenCode coordinator)
+
+- M1 met. Deployed on Railway (Hobby, 8 GB): https://shiftwright-production.up.railway.app/?key=<RAILWAY_DEMO_KEY in .env>.
+- Contracts v1.3 (tag `contracts-v1.3`): `Shift.why`, `Store.employer_employee_count`, `Store.schedule_posted_on`,
+  SEMANTICS #16 (call-ins ignore preferences) and #17 (predictive-scheduling premiums in fix_day).
+- David's decisions: no live phones (mock outreach with scripted replies); demo stores in several localities
+  (Austin, Chicago, Seattle, maybe SF) with Fair Workweek premiums priced in repair (fallback at 10:00: Chicago
+  without premiums); compliance receipt, per-shift "why", phone-sized employee view; quick real-baseline eval run
+  (~$11, cap $42) only after fix_day lands; ~11% proven gap accepted.
+- Teammate's research (competitor teardown + "clone and fork" plan): we keep our stack; he owns the pitch,
+  "before" slide, demo script, pricing slide, and can design the employee view.
+- In flight: WS1 fix_day → Shift.why → #17 premiums → 5-min breaks; WS3 Fair Workweek params/exemptions;
+  WS4 locality demo stores; WS6 import safety (forklift tagging of imported roles!) + importer bugs + templates;
+  WS7 compliance receipt, why, employee view, locality picker; WS2 engine audit.
+
 ## Update Fri Nov 6, 22:50 CT (OpenCode coordinator)
 
 - **Contracts v1.1 on main (`fafe76a`, tag `contracts-v1.1`, pushed).** David accepted all three requests
