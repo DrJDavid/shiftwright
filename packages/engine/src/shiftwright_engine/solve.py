@@ -39,15 +39,24 @@ def _hard_always_roles(p) -> set[str]:
             if c.kind == ConstraintKind.always_staffed and c.strength == Strength.hard}
 
 
-def _always_covered(p, roles_at: dict) -> bool:
-    staffed = {(r, a) for (_, a), r in roles_at.items()}
+def _always_covered(p, chosen: set[int], roles_at: dict) -> bool:
+    """Every hard always_staffed slot and sub-interval is worked (breaks excluded, SEMANTICS #18)."""
+    nsub = len(p.sub_bounds())
+    staffed = set()
+    for idx in chosen:
+        c = p.cands[idx]
+        for a in c.work_slots:
+            r = roles_at.get((c.emp, a))
+            brk = c.part.get(a, 0)
+            staffed.update((r, a, k) for k in range(nsub) if not brk >> k & 1)
     for con in p.constraints:
         if con.kind == ConstraintKind.always_staffed and con.strength == Strength.hard:
             rid = con.params.get("role_id")
             which = con.params.get("windows", "store_hours")
             for d, (lo, hi) in (p.store_open if which == "store_hours" else p.windows).items():
-                if any((rid, d * DAY + t) not in staffed for t in range(lo - lo % p.slot, hi, p.slot)):
-                    return False
+                for t in range(lo - lo % p.slot, hi, p.slot):
+                    if any((rid, d * DAY + t, k) not in staffed for k in range(nsub)):
+                        return False
     return True
 
 
@@ -89,17 +98,22 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
             if con.kind == ConstraintKind.max_days_per_week and con.strength == Strength.hard and p.applies(con, eid):
                 m.add(sum(w for (e, _), w in works.items() if e == eid) <= int(con.params["days"]))
     cover: dict = {}
+    nsub = len(p.sub_bounds())
     for c in cands:
         for a in c.work_slots:
+            brk = c.part.get(a, 0)
             for r in roles & set(p.allowed_roles[c.emp]):
-                cover.setdefault((r, a), []).append(y[c.idx])
+                for k in range(nsub):
+                    if not brk >> k & 1:
+                        cover.setdefault((r, a, k), []).append(y[c.idx])
     for con in p.constraints:
         if con.kind == ConstraintKind.always_staffed and con.strength == Strength.hard:
             rid = con.params.get("role_id")
             which = con.params.get("windows", "store_hours")
             for d, (lo, hi) in (p.store_open if which == "store_hours" else p.windows).items():
                 for tt in range(lo - lo % p.slot, hi, p.slot):
-                    m.add(sum(cover.get((rid, d * DAY + tt), [])) >= 1)
+                    for k in range(nsub):
+                        m.add(sum(cover.get((rid, d * DAY + tt, k), [])) >= 1)
     m.minimize(sum(y[c.idx] * c.paid_min for c in cands))
     solver, st = None, None
     sv = cp_model.CpSolver()
@@ -152,7 +166,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         tg = time.perf_counter()
         chosen0, roles0 = greedy(p)
         stats["stages"].append({"stage": "greedy", "shifts": len(chosen0), "s": round(time.perf_counter() - tg, 2)})
-        if always and not _always_covered(p, roles0):
+        if always and not _always_covered(p, chosen0, roles0):
             seed = _seed_always_staffed(p, always, min(left() * 0.3, 8.0), stats)
             if seed is not None:
                 tg = time.perf_counter()
@@ -164,8 +178,11 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         lo = {eid: p.shift_bounds(eid)[0] for eid in p.emps}
         keep = set(chosen0)
         cand_ok = lambda c: c.idx in keep or (c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0)  # noqa: E731
+    tb = time.perf_counter()
     built = Builder(p, cand_ok=cand_ok).build()
     stats["model_candidate_shifts"] = len(built.y)
+    stats["build_s"] = round(time.perf_counter() - tb, 2)
+    stats["prep_s"] = round(tb - t0, 2)
     if chosen0 is not None:
         hint = {v: 0 for v in built.y.values()}
         for idx in chosen0:
@@ -173,6 +190,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
                 hint[built.y[idx]] = 1
         for (eid, r, a), v in built.x.items():
             hint[v] = int(roles0.get((eid, a)) == r)
+    stats["phase1_limit_s"] = round(left(1.0), 2)
     solver, status = solve(built, left(1.0), hint=hint)
     stats.update({"solver_status": solver.status_name(status), "num_role_vars": len(built.x),
                   "build_and_solve_s": round(time.perf_counter() - t0, 3)})

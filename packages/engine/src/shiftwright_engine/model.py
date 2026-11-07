@@ -115,6 +115,8 @@ class Builder:
         on_break: dict[tuple[str, int], list] = {}
         slots_of: dict[str, set[int]] = {}
         working_slots: set[tuple[str, int]] = set()
+        subs = p.sub_bounds()
+        part_brk: dict[tuple[str, int, int], list] = {}  # (emp, slot, sub-interval) -> y on break there
         for c in cands:
             starts.setdefault((c.emp, c.abs_start), []).append(y[c.idx])
             ends.setdefault((c.emp, c.abs_end), []).append(y[c.idx])
@@ -124,6 +126,10 @@ class Builder:
             for a in c.on_slots:
                 if a not in ws:
                     on_break.setdefault((c.emp, a), []).append(y[c.idx])
+            for a, mask in c.part.items():
+                for k in range(len(subs)):
+                    if mask >> k & 1:
+                        part_brk.setdefault((c.emp, a, k), []).append(y[c.idx])
         onshift: dict[tuple[str, int], cp_model.IntVar] = {}
         working: dict[tuple[str, int], object] = {}
         for eid, sl in slots_of.items():
@@ -160,19 +166,45 @@ class Builder:
                     m.add(s >= v - prev)
                     churn_terms.append(s)
 
-        # coverage & gaps
+        # coverage & gaps, per sub-interval of a slot where someone may be on a short break
+        # (v1.1 per-minute coverage). l[e,r,a,k] = e is on role r at slot a but on break in
+        # sub-interval k: l <= x[e,r,a], sum_r l = (e on break at a,k).
         cov: dict[tuple[str, int], list] = {}
         for (eid, r, a), v in x.items():
             cov.setdefault((r, a), []).append(v)
+        loss: dict[tuple[str, int, int], list] = {}
+        for (eid, a, k), ys in part_brk.items():
+            b = sum(ys)
+            rs = [r for r in p.allowed_roles[eid] if (eid, r, a) in x]
+            if len(rs) == 1:
+                loss.setdefault((rs[0], a, k), []).append(b)
+                continue
+            ls = []
+            for r in rs:
+                lv = m.new_bool_var("")
+                m.add(lv <= x[(eid, r, a)])
+                ls.append(lv)
+                loss.setdefault((r, a, k), []).append(lv)
+            m.add(sum(ls) == b)
+        self.loss = loss
+        self.subs = subs
         gap = {}
         gap_terms = []
         roles = {r.id: r for r in p.cfg.roles}
         for (r, a), dem in p.demand.items():
-            g = m.new_int_var(0, dem, f"gap[{r},{a}]")
-            m.add(g + sum(cov.get((r, a), [])) >= dem)
-            gap[(r, a)] = g
             pen = roles[r].gap_penalty_per_hour if r in roles else 0.0
-            gap_terms.append((g, money(pen * slot_h)))
+            full = sum(cov.get((r, a), []))
+            if not any((r, a, k) in loss for k in range(len(subs))):
+                g = m.new_int_var(0, dem, f"gap[{r},{a}]")
+                m.add(g + full >= dem)
+                gap[(r, a)] = g
+                gap_terms.append((g, money(pen * slot_h)))
+                continue
+            for k, (u0, u1) in enumerate(subs):
+                g = m.new_int_var(0, dem, f"gap[{r},{a},{k}]")
+                m.add(g + full - sum(loss.get((r, a, k), [])) >= dem)
+                gap[(r, a, k)] = g
+                gap_terms.append((g, money(pen * (u1 - u0) / 60)))
 
         soft: list[SoftTerm] = []
         const_units = 0
@@ -310,15 +342,23 @@ class Builder:
                     t = lo - lo % p.slot
                     while t < hi:
                         a = d * DAY + t
-                        terms = cov.get((rid, a), [])
-                        if hard:
-                            self.add(sum(terms) + self._zero >= 1, g)
-                        else:
-                            unc = m.new_bool_var("")
-                            m.add(sum(terms) + unc >= 1)
-                            w = self.elastic_always if elastic else con.weight_dollars
-                            soft.append(SoftTerm(unc, money(w * slot_h), slot_h, con.id, k.value,
-                                                 None, dollars_per=w * slot_h))
+                        full = sum(cov.get((rid, a), [])) + self._zero
+                        parts = ([(full - sum(loss[(rid, a, kk)]), (u1 - u0) / 60) for kk, (u0, u1) in enumerate(subs)
+                                  if (rid, a, kk) in loss] + [(full, slot_h)])
+                        if len(parts) > 1:  # sub-intervals with a possible break, then the rest of the slot
+                            rest = slot_h - sum(h for _, h in parts[:-1])
+                            parts[-1] = (full, rest)
+                        for expr, h in parts:
+                            if h <= 0:
+                                continue
+                            if hard:
+                                self.add(expr >= 1, g)
+                            else:
+                                unc = m.new_bool_var("")
+                                m.add(expr + unc >= 1)
+                                w = self.elastic_always if elastic else con.weight_dollars
+                                soft.append(SoftTerm(unc, money(w * h), h, con.id, k.value,
+                                                     None, dollars_per=w * h))
                         t += p.slot
             elif k == ConstraintKind.preferred_role:
                 eid, rid = con.params.get("employee_id"), con.params.get("role_id")

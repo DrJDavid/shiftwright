@@ -33,7 +33,9 @@ def greedy(p: Prep, seed: Optional[tuple[set[int], dict[tuple[str, int], str]]] 
             for d, (lo, hi) in (p.store_open if which == "store_hours" else p.windows).items():
                 for t in range(lo - lo % p.slot, hi, p.slot):
                     bonus[(rid, d * 1440 + t)] = money(w * slot_h)
-    staffed: dict[tuple[str, int], int] = {}
+    staffed: dict[tuple[str, int, int], int] = {}  # (role, slot, sub-interval) -> headcount
+    subs = p.sub_bounds()
+    sub_w = [(u1 - u0) / p.slot for u0, u1 in subs]
 
     max_days = {e: 7 for e in p.emps}
     for c in p.constraints:
@@ -67,8 +69,10 @@ def greedy(p: Prep, seed: Optional[tuple[set[int], dict[tuple[str, int], str]]] 
             best, br = 0, None
             for r in p.allowed_roles[c.emp]:
                 v = (pen.get(r, 0) if need.get((r, a), 0) > 0 else 0)
-                if bonus.get((r, a)) and not staffed.get((r, a)):
-                    v += bonus[(r, a)]
+                if bonus.get((r, a)):
+                    brk = c.part.get(a, 0)
+                    v += int(bonus[(r, a)] * sum(w for k, w in enumerate(sub_w)
+                                                  if not brk >> k & 1 and not staffed.get((r, a, k))))
                 if v > best:
                     best, br = v, r
             if br is not None:
@@ -108,7 +112,10 @@ def greedy(p: Prep, seed: Optional[tuple[set[int], dict[tuple[str, int], str]]] 
             roles_at[(c.emp, a)] = r
             if need.get((r, a), 0) > 0:
                 need[(r, a)] -= 1
-            staffed[(r, a)] = staffed.get((r, a), 0) + 1
+            brk = c.part.get(a, 0)
+            for k in range(len(subs)):
+                if not brk >> k & 1:
+                    staffed[(r, a, k)] = staffed.get((r, a, k), 0) + 1
 
     if seed is not None:
         for idx in seed[0]:

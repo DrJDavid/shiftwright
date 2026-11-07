@@ -24,18 +24,24 @@ def _maximal(masks: set[int]) -> list[int]:
     return out
 
 
-def _day_min_shifts(cands: list, slots: list[int]) -> int:
+def _day_min_shifts(cands: list, slots: list[int], subs: list) -> int:
     """Exact minimum number of shifts (one per person) whose worked slots cover every slot, capped
     at 3 (returns 3 for "3 or more"); 0 if no slots, -1 if no cover exists at all."""
     if not slots:
         return 0
-    bit = {a: 1 << i for i, a in enumerate(slots)}
-    full = (1 << len(slots)) - 1
+    nsub = len(subs)
+    bit = {a: i * nsub for i, a in enumerate(slots)}  # one bit per (slot, sub-interval)
+    full = (1 << (len(slots) * nsub)) - 1
     per_emp: dict[str, set[int]] = {}
     for c in cands:
         m = 0
         for a in c.work_slots:
-            m |= bit.get(a, 0)
+            if a not in bit:
+                continue
+            brk = c.part.get(a, 0)
+            for k in range(nsub):
+                if not brk >> k & 1:
+                    m |= 1 << (bit[a] + k)
         if m:
             per_emp.setdefault(c.emp, set()).add(m)
     masks = {e: _maximal(ms) for e, ms in per_emp.items()}
@@ -73,7 +79,7 @@ def always_staffed_conflict(p: Prep) -> Optional[Infeasibility]:
         need_shifts = need_min = 0
         for d, (lo, hi) in sorted((p.store_open if which == "store_hours" else p.windows).items()):
             slots = [d * DAY + t for t in range(lo - lo % p.slot, hi, p.slot)]
-            n = _day_min_shifts([c for c in cands if c.day == d], slots)
+            n = _day_min_shifts([c for c in cands if c.day == d], slots, p.sub_bounds())
             if n == -1:
                 unavail = [f"employee:{e}.availability" for e in elig
                            if any(a.kind == AvailabilityKind.unavailable for a in _avail_for_day(p, p.emps[e], d))]
