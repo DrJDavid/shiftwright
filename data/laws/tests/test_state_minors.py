@@ -8,7 +8,7 @@ from shiftwright_contracts.models import Jurisdiction, LawRuleType as T
 from shiftwright_laws import resolve
 
 STATES_DIR = Path(__file__).resolve().parents[1] / "states"
-MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC"]
+MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC", "MI"]
 # (state, age_min) bands whose law only limits school weeks (non-school weeks: federal floor only)
 SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16), ("NC", 16)}
 
@@ -55,3 +55,10 @@ def test_states_without_extra_limits_say_so(state):
     doc = json.loads((STATES_DIR / f"{state}.json").read_text())
     assert any(n.startswith("Minors researched") for n in doc["notes"])
     assert not any("minor-hour limits not yet researched" in n for n in doc["notes"])
+
+
+def test_mi_future_wage_not_in_force_early():
+    from datetime import date
+    wage = lambda on: next(r for r in resolve("MI", on=on).rules if r.type == T.minimum_wage)
+    assert wage(date(2026, 11, 9)).params["dollars_per_hour"] == 13.73
+    assert wage(date(2027, 1, 4)).params["dollars_per_hour"] == 15.0

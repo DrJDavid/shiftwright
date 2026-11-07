@@ -5,37 +5,15 @@
   },
   "level": "state",
   "notes": [
-    "Michigan minimum wage scheduled to rise to $15.00 on Jan. 1, 2027 (DOL table); not yet encoded.",
     "No state meal-period requirement for adults in the DOL table; federal law does not require one.",
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "Minimum wage indexed to inflation from Jan. 1, 2028 (MCL 408.934(2)); not encoded.",
+    "Minors: any minor needs a 30-minute meal and rest period after 5 continuous hours (MCL 409.112); not encoded (no minor-break rule type). Extra param keys max_days_week (6), max_avg_hours_day (8) for 16-17.",
+    "Minors: 16-17 may work until 11:30 p.m. on Fridays, Saturdays and school vacation (MCL 409.111(2)); encoded via latest_end_before_non_school_day (Fri/Sat nights)."
   ],
   "rules": [
-    {
-      "id": "MI.minimum_wage.1",
-      "jurisdiction": {
-        "state": "MI",
-        "city": null
-      },
-      "level": "state",
-      "type": "minimum_wage",
-      "params": {
-        "dollars_per_hour": 13.73,
-        "effective": "2026-11-05"
-      },
-      "summary": "Michigan's basic minimum wage is $13.73 an hour (DOL table, Nov. 2026).",
-      "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Basic Minimum Rate (per hour): $13.73",
-        "last_verified": "2026-11-06"
-      },
-      "confidence": "medium",
-      "verified": false
-    },
     {
       "id": "MI.weekly_overtime.1",
       "jurisdiction": {
@@ -56,6 +34,167 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "MI.minimum_wage.1",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 13.73,
+        "effective": "2026-01-01"
+      },
+      "summary": "Michigan's minimum wage is $13.73 an hour from January 1, 2026.",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-408-934",
+        "title": "MCL 408.934 \u2014 Improved Workforce Opportunity Wage Act, minimum wage",
+        "excerpt": "the minimum hourly wage rate is: (a) Beginning February 21, 2025, $12.48. (b) Beginning January 1, 2026, $13.73. (c) Beginning January 1, 2027, $15.00",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.minimum_wage.2",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.0,
+        "effective": "2027-01-01"
+      },
+      "summary": "Michigan's minimum wage rises to $15.00 an hour on January 1, 2027.",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-408-934",
+        "title": "MCL 408.934 \u2014 Improved Workforce Opportunity Wage Act, minimum wage",
+        "excerpt": "(b) Beginning January 1, 2026, $13.73. (c) Beginning January 1, 2027, $15.00",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.minor_limits.1",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "During a week when school is in session, minors under 16 may work at most 3 hours a day and 18 hours a week, outside school hours, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-409-110",
+        "title": "MCL 409.110 \u2014 Youth Employment Standards Act, minors under 16",
+        "excerpt": "(b) For not more than 3 hours per day during a week when school is in session ... (e) For not more than 18 hours during a week when school is in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.minor_limits.2",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": null,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "During a week when school is not in session, minors under 16 may work at most 40 hours, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-409-110",
+        "title": "MCL 409.110 \u2014 Youth Employment Standards Act, minors under 16",
+        "excerpt": "(c) Between the hours of 7 a.m. and 9 p.m. ... June 1 and ends on Labor Day ... (f) For not more than 40 hours during a week that is not a week when school is in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.minor_limits.3",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 10,
+        "max_hours_week": 24,
+        "earliest_start": 360,
+        "latest_end": 1350,
+        "latest_end_summer": null,
+        "latest_end_before_non_school_day": 1410,
+        "max_days_week": 6,
+        "max_avg_hours_day": 8
+      },
+      "summary": "Students 16 and 17 may work at most 24 hours in a school week, 10 hours a day (8 h daily average) and 6 days, between 6 a.m. and 10:30 p.m. (11:30 p.m. on Fridays and Saturdays).",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-409-111",
+        "title": "MCL 409.111 \u2014 Youth Employment Standards Act, minors 16 and older",
+        "excerpt": "(e) If the minor is a student in school and school is in session, 24 hours in 1 week. (2) ... shall not employ a minor 16 years of age or older between 10:30 p.m. and 6 a.m.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.minor_limits.4",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 10,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1410,
+        "latest_end_summer": null,
+        "max_days_week": 6,
+        "max_avg_hours_day": 8
+      },
+      "summary": "When school is not in session, 16- and 17-year-olds may work at most 10 hours a day (8 h daily average), 48 hours and 6 days a week, between 6 a.m. and 11:30 p.m.",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-409-111",
+        "title": "MCL 409.111 \u2014 Youth Employment Standards Act, minors 16 and older",
+        "excerpt": "(a) Six days in 1 week. (b) An average of 8 hours per day in 1 week. (c) Ten hours in 1 day. (d) ... 48 hours in 1 week ... until 11:30 p.m. ... (b) During school vacation periods",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
