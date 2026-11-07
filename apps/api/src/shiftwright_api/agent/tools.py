@@ -218,11 +218,13 @@ def ask_training_matrix(ctx: ToolContext, args: dict) -> CardRequest:
     return CardRequest("training_matrix", props, apply)
 
 
-DAY_TYPES = {"weekday", "saturday", "sunday", "truck_day"}
+DAY_TYPES = {"weekday", "saturday", "sunday", "truck_day", "custom"}
 
 
 def _days_for(cfg: StoreConfig, day_type: str) -> list[int]:
     open_days = sorted({h.day for h in cfg.store.hours if h.close > h.open})
+    if day_type == "custom":
+        return open_days
     truck = {e.day for e in cfg.events if e.kind == EventKind.truck}
     if day_type == "truck_day":
         return [d for d in open_days if d in truck]
@@ -254,7 +256,11 @@ def ask_coverage_grid(ctx: ToolContext, args: dict) -> CardRequest:
     day_type = args.get("day_type", "weekday")
     if day_type not in DAY_TYPES:
         day_type = "weekday"
-    days = args.get("days") or _days_for(cfg, day_type)
+    if day_type == "truck_day" and not any(e.kind == EventKind.truck for e in cfg.events):
+        day_type = "custom"  # v1.5: truck_day only when the store has truck events
+    if args.get("days"):
+        day_type = "custom" if day_type != "truck_day" else day_type
+    days = sorted(set(args.get("days") or _days_for(cfg, day_type)))
     slot = cfg.store.slot_minutes
     start, end = _window(cfg, days)
     n = max(0, (end - start) // slot)
@@ -307,11 +313,37 @@ SUGGESTION_NOTE = ("Suggested starting point from your store hours and how many 
                    "Not a forecast, a corporate standard or a legal requirement. Edit freely.")
 
 
+DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
 def day_groups(cfg: StoreConfig) -> list[dict]:
+    """v1.5: groups from the store's actual open days: all, weekday, weekend (+ saturday/sunday), and
+    each open day on its own. Groups with no open days are left out."""
     open_days = sorted({h.day for h in cfg.store.hours if h.close > h.open})
-    groups = [("weekday", [d for d in open_days if d < 5]), ("saturday", [d for d in open_days if d == 5]),
+    groups = [("all", open_days), ("weekday", [d for d in open_days if d < 5]),
+              ("weekend", [d for d in open_days if d >= 5]), ("saturday", [d for d in open_days if d == 5]),
               ("sunday", [d for d in open_days if d == 6])]
+    groups += [(DAY_KEYS[d], [d]) for d in open_days]
     return [{"id": g, "days": days} for g, days in groups if days]
+
+
+def group_days(group: str, open_days: list[int]) -> set[int]:
+    """'all' | 'weekday' | 'weekend' | 'saturday' | 'sunday' | 'mon'..'sun' | comma list 'fri,sat'."""
+    out: set[int] = set()
+    for g in (x.strip().lower() for x in str(group or "").split(",")):
+        if g == "all":
+            out |= set(open_days)
+        elif g == "weekday":
+            out |= {d for d in open_days if d < 5}
+        elif g == "weekend":
+            out |= {d for d in open_days if d >= 5}
+        elif g == "saturday":
+            out.add(5)
+        elif g == "sunday":
+            out.add(6)
+        elif g[:3] in DAY_KEYS:
+            out.add(DAY_KEYS.index(g[:3]))
+    return out & set(open_days)
 
 
 def suggest_staffing(cfg: StoreConfig, role_ids: list[str]) -> tuple[dict, dict]:
@@ -326,7 +358,7 @@ def staffing_to_demand(cfg: StoreConfig, staffing: dict[str, dict]) -> list[dict
     """API.md: base across open hours per day; peaks replace base inside their windows; open/close crews in
     the pre-open/post-close windows. Times snap outward to the store's slots."""
     slot = cfg.store.slot_minutes
-    group_of = {d: g["id"] for g in day_groups(cfg) for d in g["days"]}
+    open_days = sorted({h.day for h in cfg.store.hours if h.close > h.open})
     out: list[dict] = []
     for rid, st in staffing.items():
         for h in cfg.store.hours:
@@ -343,7 +375,7 @@ def staffing_to_demand(cfg: StoreConfig, staffing: dict[str, dict]) -> list[dict
             if base > 0:
                 paint(h.open, h.close, base)
             for pk in st.get("peaks") or []:
-                if pk.get("day_group") == group_of.get(h.day):
+                if h.day in group_days(pk.get("day_group", ""), open_days):
                     paint(int(pk["start"]), int(pk["end"]), int(pk["headcount"]))
             op, cl = st.get("open"), st.get("close")
             if op and int(op.get("headcount") or 0) > 0:
@@ -374,12 +406,17 @@ def ask_department_staffing(ctx: ToolContext, args: dict) -> Union[CardRequest, 
         return ToolResult({"error": f"Department {dept.id!r} has no roles yet; add roles first."})
     suggested, basis = suggest_staffing(cfg, [r.id for r in roles])
     stated = [rid for rid in (args.get("prefill") or {}) if rid in suggested]
+    given = {k: str(v) for k, v in (args.get("rationale") or {}).items() if k in suggested}
+    rationale = {rid: given.get(rid) or (f"A guess from what you told me; change it." if rid in stated else
+                                        f"A starting guess from your hours and {basis[rid]}; change it.")
+                 for rid in suggested}
     for rid in stated:  # what the leader already said in chat wins over the suggestion
         suggested[rid] = {**suggested[rid], **args["prefill"][rid]}
     props = {"department": dept.model_dump(mode="json"), "roles": [r.model_dump(mode="json") for r in roles],
              "day_groups": day_groups(cfg), "hours": [h.model_dump(mode="json") for h in cfg.store.hours],
              "pre_open_minutes": cfg.store.pre_open_minutes, "post_close_minutes": cfg.store.post_close_minutes,
-             "suggested": suggested, "suggestion_note": SUGGESTION_NOTE, "suggestion_basis": basis,
+             "suggested": suggested, "rationale": rationale, "suggestion_note": SUGGESTION_NOTE,
+             "suggestion_basis": basis,
              "from_chat": stated}
     role_ids = {r.id for r in roles}
 
@@ -410,9 +447,23 @@ def show_coverage_preview(ctx: ToolContext, args: dict) -> CardRequest:
     return card
 
 
+SECTOR_EVENT_KINDS = {
+    "food": ["delivery", "private_event", "catering", "promo", "other"],
+    "retail": ["truck", "floor_set", "promo", "online_surge", "delivery"],
+    "hospitality": ["private_event", "catering", "delivery", "promo", "other"],
+}
+
+
+def event_kinds(cfg: StoreConfig) -> list[str]:
+    """v1.5: kinds relevant to the sector first; every kind stays valid."""
+    sector = cfg.store.sector.value if cfg.store.sector else None
+    first = SECTOR_EVENT_KINDS.get(sector, ["delivery", "private_event", "promo", "other"])
+    return first + [k.value for k in EventKind if k.value not in first]
+
+
 def ask_events(ctx: ToolContext, args: dict) -> CardRequest:
     cfg = ctx.config()
-    props = {"events": [e.model_dump(mode="json") for e in cfg.events]}
+    props = {"events": [e.model_dump(mode="json") for e in cfg.events], "kinds": event_kinds(cfg)}
     for ev in args.get("events") or []:
         ev.setdefault("id", _uid("ev"))
         _upsert(props["events"], ev)
@@ -811,8 +862,8 @@ TOOLS: list[Tool] = [
     Tool("ask_coverage_grid", "ADVANCED editor, only when the leader asks to edit the grid directly. "
          "Show the coverage grid card for one day type (headcount per role per slot). "
          "One set of numbers applies to every listed day, and submitting replaces leader demand on those days. "
-         "The grid widens to cover events on those days (e.g. a 4am truck); ask events first. "
-         "Pass `days` to split day types whose needs differ (e.g. a Saturday truck day).",
+         "The grid widens to cover events on those days (e.g. an early delivery). Use day_type 'custom' with "
+         "`days` for any set of days.",
          _obj({"day_type": {"type": "string", "enum": sorted(DAY_TYPES)},
                "days": {"type": "array", "items": {"type": "integer"}, "description": "Override which days (0=Mon)."}},
               ["day_type"]), ask_coverage_grid, "card"),
@@ -820,13 +871,16 @@ TOOLS: list[Tool] = [
          "(base people all day, peaks per day group, open/close crews), prefilled with labeled suggestions. Pass "
          "`prefill` {role_id: RoleStaffing} with anything the leader already said in chat (e.g. 4 cashiers 5-8 pm "
          "weekdays -> peaks:[{day_group:'weekday',start:1020,end:1200,headcount:4}]). Saved as demand on submit.",
-         _obj({"department_id": {"type": "string"}, "prefill": {"type": "object"}}, ["department_id"]),
+         _obj({"department_id": {"type": "string"}, "prefill": {"type": "object"},
+               "rationale": {"type": "object", "description": "{role_id: one sentence on what the guess is based "
+                                                               "on, quoting the leader}"}}, ["department_id"]),
          ask_department_staffing, "card"),
     Tool("show_coverage_preview", "Show a read-only coverage grid for a day type so the leader can see the demand "
          "that was saved (does not wait for input).",
          _obj({"day_type": {"type": "string", "enum": sorted(DAY_TYPES)},
                "days": {"type": "array", "items": {"type": "integer"}}}, ["day_type"]), show_coverage_preview, "card"),
-    Tool("ask_events", "Show the events card (trucks, floor sets, promos, online surges). Saved on submit.",
+    Tool("ask_events", "Show the events card (e.g. deliveries, private events, catering, promos; trucks and floor "
+         "sets for retail). Kinds are ordered for the business's sector. Saved on submit.",
          _obj({"events": {"type": "array", "items": {"type": "object"}}}), ask_events, "card"),
     Tool("ask_csv_import", "Show the CSV import card for a kind of export the leader has.",
          _obj({"kind": {"type": "string", "enum": ["roster", "training", "availability", "forecast", "history",
@@ -871,7 +925,7 @@ TOOLS: list[Tool] = [
          _obj({"requirements": {"type": "array", "items": {"type": "object"}},
                "replace_days": {"type": "array", "items": {"type": "integer"}}}, ["requirements"]),
          set_demand, "mutation"),
-    Tool("add_event", "Add an event (truck, floor_set, promo, online_surge, other) and any demand it adds.",
+    Tool("add_event", "Add an event (any EventKind, with a `label`) and any demand it adds.",
          _obj({"event": _obj({"kind": {"type": "string", "enum": _EVENT_KIND}, "day": {"type": "integer"},
                               "start": {"type": "integer"}, "end": {"type": "integer"}, "note": {"type": "string"}},
                              ["kind", "day", "start", "end"]),

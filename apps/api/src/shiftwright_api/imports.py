@@ -185,7 +185,7 @@ def unmapped_required(kind: str, mapping: dict[str, Optional[str]]) -> list[str]
 async def llm_mapping(llm: LLMClient, kind: str, columns: list[str], sample: list[dict]) -> dict[str, Optional[str]]:
     fields = {f: ("required" if req else "optional") for f, (req, _) in TARGETS[kind].items()}
     prompt = (
-        f"Map the columns of a retail '{kind}' CSV export to our fields.\n"
+        f"Map the columns of a '{kind}' CSV export (any industry: restaurant, retail, hotel, clinic, ...) to our fields.\n"
         f"Our fields: {json.dumps(fields)}\n"
         f"CSV columns: {json.dumps(columns)}\n"
         f"Sample rows: {json.dumps(sample[:5])}\n"
