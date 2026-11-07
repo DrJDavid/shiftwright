@@ -1,6 +1,48 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~09:20 CT (main 590d4c1)_
+_Last updated: 2026-11-07 ~04:45 CT (branch cursor/A1-auth, PUNCHLIST Lane A)_
+
+**Done (A2: workplace basics on create):**
+- `POST /api/stores` also takes optional `sector` (retail | food | hospitality | other; 422 otherwise) and
+  `business_description` (≤ 500 chars, trimmed), saved on structure templates (`empty`, `bigbox_*`,
+  `restaurant_small`; restaurant keeps `food` unless overridden). Fixture templates keep their own.
+  For API.md (stores row; I may only edit its auth section): add `sector?, business_description?` to the body.
+- So the onboarding agent's first `readiness_check` shows `business_type` ok ("food: 30-seat family taqueria");
+  prompt onboard v4.4: when `business_type` is already set it says back what it knows and moves on to hours
+  instead of re-asking. Tests in `test_onboarding.py` (fake LLM).
+
+**Done (A1: accounts, sessions, workplace ownership; `auth.py`):**
+- Routes exactly as the PUNCHLIST A1 table (documented in API.md "Accounts and workplaces"): `POST /api/auth/signup`
+  (409 duplicate, case-insensitive), `/login` (401 "Wrong email or password." for both wrong password and unknown
+  email; unknown emails still run scrypt against a dummy hash), `/logout` (204, session row deleted, cookie
+  cleared), `GET /api/auth/me`, `GET /api/workplaces`, `POST /api/workplaces/sample`.
+- Tables `users(id, email UNIQUE COLLATE NOCASE, name, pw_hash, created_at)`, `sessions(token, user_id, created_at,
+  expires_at)`; `stores.owner_id` + `stores.sample_of` added on open when missing (`db.MIGRATIONS`).
+- Passwords: `hashlib.scrypt` (n=2^14, r=8, p=1), 16-byte salt per user, stored `scrypt$n$r$p$salt$hash`,
+  `hmac.compare_digest`. Min 8 chars (422). Sessions: `secrets.token_urlsafe(32)` in cookie `sw_session`
+  (HttpOnly, SameSite=Lax, Secure when https or `X-Forwarded-Proto: https`, 30 days). The db stores only
+  HMAC-SHA256(`AUTH_SECRET`, token); expired rows are deleted on lookup.
+- Middleware: attaches `request.state.user` from the cookie on every request; with `AUTH_REQUIRED` it 401s every
+  `/api/*` path except `/api/health`, `/api/auth/*`, `/api/templates`, `/api/sms/inbound` (non-`/api` = static,
+  public), and 404s any `/api/stores/{id}...` whose owner isn't the caller (same body as a missing store). Unowned
+  legacy stores (created before A1) are therefore 404 for everyone while auth is on.
+- `POST /api/stores` sets `owner_id` to the caller. Workplaces: `{id, name, sector, city, state, updated_at,
+  has_schedule, sample_of}` (extra `sample_of` = template id or null, so the web can list samples separately).
+- Sample = `templates.from_fixture(template)` under a new id, name "Sample: <fixture name>"; non-fixture
+  templates → 422.
+- Rate limit: 10 signup+login attempts per client IP per rolling 10 min (in memory) → 429 with Retry-After.
+  Client IP = `X-Real-IP`, else the right-most `X-Forwarded-For`, else the socket peer (Railway proxies).
+- Settings: `AUTH_REQUIRED` (from_env default **true**), `AUTH_SECRET` (health warning when auth is on and it's
+  unset). The `Settings` dataclass default is `auth_required=False` so in-process harnesses in other packages
+  (import packs, evals) keep working; every real server goes through `from_env`. `DEMO_KEY` middleware is only
+  installed when auth is off; `/api/health` adds `auth_required` and `demo_key_required` is false with auth on.
+- MESSENGER stays mock by default; SMS allowlist unchanged.
+- Tests: `tests/test_auth.py` (26). conftest's settings have `auth_required=True`; the `client` fixture signs up
+  one leader; `api_helpers.make_store` signs a fresh client up when it has no session; outreach tests that build
+  their own client call `signup(c)`. `scripts/smoke.py` signs up a random `smoke+…@example.com` first.
+- **Coordinator, outside my folder:** `packages/evals/src/shiftwright_evals/realistic.py` builds the API in-process
+  from `Settings.from_env()` (now auth on), so `test_shiftwright_intake_runs_with_fake_agent_and_no_key` gets 401s.
+  One-line fix: add `auth_required=False` to its `dataclasses.replace(Settings.from_env(), ...)` (next to `demo_key=""`).
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3

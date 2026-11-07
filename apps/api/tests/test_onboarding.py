@@ -34,6 +34,33 @@ def test_scripted_onboarding_reaches_ready(client, fake_llm):
     assert client.get(f"/api/stores/{sid}/readiness").json()["ready"] is True
 
 
+def test_business_basics_from_create_form_are_done_at_first_readiness_check(client, fake_llm):
+    import json
+
+    fake_llm.script([call("readiness_check"), say("A taqueria in Chicago. What are your open hours?")])
+    cfg = make_store(client, template="empty", name="Harbor Grill", jurisdiction={"state": "IL", "city": "chicago"},
+                     sector="food", business_description="  30-seat family taqueria ")
+    assert cfg["store"]["sector"] == "food"
+    assert cfg["store"]["business_description"] == "30-seat family taqueria"
+    sid = cfg["store"]["id"]
+    assert client.get(f"/api/stores/{sid}/config").json()["store"]["sector"] == "food"
+
+    r = client.post(f"/api/stores/{sid}/chat", json={"mode": "onboard", "messages": [{"role": "user", "content": "hi"}]})
+    assert "error" not in [e for e, _ in parse_sse(r.text)]
+    first_check = json.loads([m for m in fake_llm.calls[-1] if m["role"] == "tool"][0]["content"])
+    business = {c["id"]: c for c in first_check["checks"]}["business_type"]
+    assert business["ok"] is True and business["severity"] == "ok"
+    assert business["detail"] == "food: 30-seat family taqueria"
+
+
+def test_create_without_business_basics_still_works(client):
+    cfg = make_store(client, template="empty")
+    assert cfg["store"]["sector"] is None and cfg["store"]["business_description"] == ""
+    bad = client.post("/api/stores", json={"template": "empty", "name": "X", "jurisdiction": {"state": "TX"},
+                                           "sector": "spaceport"})
+    assert bad.status_code == 422
+
+
 def test_unmodeled_rule_is_logged(client, fake_llm):
     fake_llm.script([call("log_unmodeled", text="Sam is better with customers",
                           reason="No ConstraintKind expresses customer skill."), say("Logged.")])
