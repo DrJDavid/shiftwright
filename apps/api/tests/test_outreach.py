@@ -132,6 +132,9 @@ def test_question_is_forwarded_and_keeps_waiting(oclient):
 
 
 def test_fix_without_engine_is_503(settings):
+    import shiftwright_engine
+    if hasattr(shiftwright_engine, "fix_day"):
+        pytest.skip("real fix_day is available")
     with TestClient(create_app(settings=settings)) as c:
         sid = c.post("/api/stores", json={"name": "x", "jurisdiction": {"state": "TX"}}).json()["store"]["id"]
         c.post(f"/api/stores/{sid}/solve", json={})
