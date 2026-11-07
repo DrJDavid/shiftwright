@@ -10,8 +10,9 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors researched 2026-11-06 (GDOL, https://dol.georgia.gov/child-labor-work-hour-restrictions): 'Minors 16 and 17 years of age have no state or federal law work hour restrictions'; for 14-15 GDOL applies the federal limits (federal.json). Under-16 may not work during school hours. No extra state rules encoded.",
+    "Minors: GDOL lists the jobs 14-15-year-olds MAY do (anything not listed is prohibited; https://dol.georgia.gov/child-labor-hazardous-occupations); not encoded as minor_prohibited_roles (allow-list, no matching role tags)."
   ],
   "rules": []
 }

@@ -44,3 +44,14 @@ def test_ny_16_17_school_week_is_28_hours():
                 and r.params["age_min"] == 16 and r.params["school_week"] is True)
     assert rule.params["max_hours_week"] == 28
     assert rule.params["max_hours_day"] == 4
+
+
+# States researched where state law adds no hour limits beyond federal; they say so in notes.
+NO_EXTRA_STATE_LIMITS = ["GA"]
+
+
+@pytest.mark.parametrize("state", NO_EXTRA_STATE_LIMITS)
+def test_states_without_extra_limits_say_so(state):
+    doc = json.loads((STATES_DIR / f"{state}.json").read_text())
+    assert any(n.startswith("Minors researched") for n in doc["notes"])
+    assert not any("minor-hour limits not yet researched" in n for n in doc["notes"])
