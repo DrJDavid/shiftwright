@@ -44,7 +44,7 @@ _Last updated: 2026-11-06 ~23:20 CT_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 31 in `apps/api/tests` (+2 live-LLM skipped). Outreach acceptance test passes with faked `fix_day`/`validate`.
+- Tests: 31 in `apps/api/tests` (+2 live-LLM skipped), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Next:** token streaming of agent text; `/outreach/stream` SSE (web polls for now); use real fixtures once WS4 lands;
 re-run outreach tests against the real engine once WS1 merges; live-agent tests once a key exists.
@@ -58,8 +58,7 @@ re-run outreach tests against the real engine once WS1 merges; live-agent tests 
   `solver_stats.stub=true`. Coverage/penalty computed from demand, not invented.
 - `engine.fix_day` → 503 "not landed". `engine.explain_gap` → returns the gap's own reasons. `find_conflicts` → None.
 - `validator.validate` → certifies only schedules with zero shifts; otherwise 503 (won't fake a pass).
-- `laws.resolve` (looks for `shiftwright_laws.resolve` then `shiftwright_laws.resolver.resolve`) →
-  `federal_fallback` pack with **no rules** and a warning. Readiness shows the warning in the detail.
+- ~~`laws.resolve`~~ — real WS3 resolver in use since rebase onto main (TX/austin → state_only, 7 rules).
 - `insights.mine_patterns` → `[]`.
 
 **Blocked on:** nothing. `OPENROUTER_API_KEY` needed for the live-agent tests (`test_live_agent.py`, skipped without it).

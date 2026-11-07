@@ -126,7 +126,10 @@ class OutreachManager:
                     run.state.current_rank = None
                     break
                 config = self.db.get_config(run.store_id)
-                emp = next(e for e in config.employees if e.id == cand.employee_id)
+                emp = next((e for e in config.employees if e.id == cand.employee_id), None)
+                if emp is None:  # engine proposed someone not in the config: skip, never text a guess
+                    run.declined.append(cand.employee_id)
+                    continue
                 out = await self.messenger.send(emp, offer_text(config, cand), outreach_rank=cand.rank)
                 self.db.log_message(out.id, run.store_id, "out", out.model_dump(mode="json"))
                 run.current_phone = emp.phone

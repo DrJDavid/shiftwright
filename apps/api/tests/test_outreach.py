@@ -29,6 +29,11 @@ def _cand(rank, emp, cfg):
                              est_accept_prob=0.5, why="trained, under max hours")
 
 
+def _cashiers(cfg):
+    """First two cashier-trained employees in the loaded fixture (e.g. tiny_store.json), in id order."""
+    return [e.id for e in sorted(cfg.employees, key=lambda e: e.id) if "cashier" in e.trained_role_ids][:2]
+
+
 @pytest.fixture
 def fake_engine(monkeypatch):
     calls: list[FixRequest] = []
@@ -37,7 +42,7 @@ def fake_engine(monkeypatch):
         calls.append(req)
         accepted = {s.employee_id for s in req.schedule.shifts}
         queue = [] if accepted else [_cand(i + 1, e, req.config) for i, e in enumerate(
-            [e for e in ("e0", "e1") if e not in req.declined_employee_ids])]
+            [e for e in _cashiers(req.config) if e not in req.declined_employee_ids])]
         s = req.schedule
         return FixPlan(actions=[], outreach_queue=queue, schedule_if_all_accept=s, schedule_if_none_accept=s,
                        coverage_before_pct=50.0, coverage_after_best_pct=100.0, coverage_after_worst_pct=50.0)
@@ -75,7 +80,7 @@ def _wait(c, sid, pred, timeout=2.0) -> OutreachState:
 
 
 def _start(c, sid):
-    r = c.post(f"/api/stores/{sid}/fix", json={"callouts": [{"employee_id": "e2", "day": 5, "reported_at": 364}],
+    r = c.post(f"/api/stores/{sid}/fix", json={"callouts": [{"employee_id": "e9", "day": 5, "reported_at": 364}],
                                                "day": 5, "now": 364})
     assert r.status_code == 200, r.text
     plan = r.json()
@@ -87,26 +92,28 @@ def _start(c, sid):
 
 def test_decline_then_accept(oclient):
     c, sid, cfg = oclient
+    rank1, rank2 = _cashiers(cfg)
+    wage = {e.id: e.wage_per_hour for e in cfg.employees}
     _start(c, sid)
     st = _wait(c, sid, lambda s: s.current_rank == 1)
     first = st.messages[-1]
-    assert first.to_employee_id == "e0" and first.body.endswith("Reply YES or NO")
-    assert "$16.00/hr" in first.body
+    assert first.to_employee_id == rank1 and first.body.endswith("Reply YES or NO")
+    assert f"${wage[rank1]:.2f}/hr" in first.body
 
     t0 = time.time()
     c.post("/api/sms/mock-reply", json={"from_phone": first.to_phone, "body": "sorry can't today"})
-    st = _wait(c, sid, lambda s: any(getattr(m, "to_employee_id", None) == "e1" for m in s.messages))
+    st = _wait(c, sid, lambda s: any(getattr(m, "to_employee_id", None) == rank2 for m in s.messages))
     assert time.time() - t0 < 2.0, "rank 2 must be texted within 2 s of a decline"
     assert st.messages[1].interpreted_as == "decline"
 
     second = st.messages[-1]
     c.post("/api/sms/mock-reply", json={"from_phone": second.to_phone, "body": "YES"})
     st = _wait(c, sid, lambda s: s.status == "filled")
-    assert st.accepted_employee_ids == ["e1"]
-    assert [s.employee_id for s in st.schedule.shifts] == ["e1"]
+    assert st.accepted_employee_ids == [rank2]
+    assert [s.employee_id for s in st.schedule.shifts] == [rank2]
     assert st.schedule.metrics.total_hours == 4.0      # recomputed by the validator
     latest = Schedule.model_validate(c.get(f"/api/stores/{sid}/schedule").json()["schedule"])
-    assert [s.employee_id for s in latest.shifts] == ["e1"]
+    assert [s.employee_id for s in latest.shifts] == [rank2]
 
 
 def test_question_is_forwarded_and_keeps_waiting(oclient):
