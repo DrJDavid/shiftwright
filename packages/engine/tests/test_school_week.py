@@ -18,7 +18,7 @@ def _with_15yo(school_week):
 def _caps(school_week):
     p = build_prep(_with_15yo(school_week), prune=False)
     e = p.emps["e15"]
-    mon = max(c.paid_min for c in p.by_emp_day[("e15", 0)])
+    mon = p.minor_day_cap(e, 0)
     week = min(c for c, _, _ in p.effective_max_minutes(e))
     return mon, week
 
@@ -32,7 +32,7 @@ def test_school_week_rules_apply(school_week):
 
 def test_non_school_week_uses_only_non_school_rules():
     mon, week = _caps(False)
-    assert mon > 3 * 60 and mon <= 8 * 60
+    assert mon == 8 * 60
     assert week > 18 * 60
 
 

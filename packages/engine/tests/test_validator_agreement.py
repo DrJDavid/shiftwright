@@ -42,13 +42,19 @@ def soft_heavy(j: Jurisdiction | None = None) -> StoreConfig:
         ]})
 
 
+def min_wage(cfg: StoreConfig, dollars: float = 17.0) -> StoreConfig:
+    """CA's minimum wage is above tiny_store's wages; the engine never changes wages (SEMANTICS #15)."""
+    return cfg.model_copy(update={"employees": [e.model_copy(update={"wage_per_hour": max(e.wage_per_hour, dollars)})
+                                                for e in cfg.employees]})
+
+
 CASES = {
     "tx": lambda: tiny_store(),
-    "ca_no_lod": lambda: without(tiny_store(Jurisdiction(state="CA")), "c_lod_always"),
+    "ca_no_lod": lambda: min_wage(without(tiny_store(Jurisdiction(state="CA")), "c_lod_always")),
     "tx_budget10": lambda: without(tiny_store(), "c_lod_always").model_copy(update={"budget": Budget(weekly_hours_cap=10)}),
     "tx_budget40": lambda: tiny_store().model_copy(update={"budget": Budget(weekly_hours_cap=40)}),
     "tx_soft_ot": lambda: soft_heavy(),
-    "ca_soft_ot": lambda: soft_heavy(Jurisdiction(state="CA")),
+    "ca_soft_ot": lambda: min_wage(soft_heavy(Jurisdiction(state="CA"))),
 }
 
 
