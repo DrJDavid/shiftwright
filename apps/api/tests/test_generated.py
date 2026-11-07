@@ -20,12 +20,9 @@ def _generate(client, **body) -> dict:
     return r.json()
 
 
-def _food_builds() -> bool:
-    try:
-        generated.build(generated.parse_params({"sector": "food", "difficulty": "easy", "seed": 7}))
-        return True
-    except Exception:  # noqa: BLE001
-        return False
+def _minutes(hhmm: str) -> int:
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
 
 
 @pytest.fixture
@@ -47,7 +44,9 @@ def test_needs_a_session(anon):
     {"sector": "retail", "state": "Texas"},
     {"sector": "retail", "city": "austin"},
     {"sector": "retail", "state": "TX", "city": "<script>"},
+    {"sector": "retail", "state": "ZZ"},
     {"sector": "retail", "seed": -1},
+    {"sector": "retail", "seed": 10**9},
     {"sector": "retail", "seed": "42"},
     {"sector": "retail", "seed": True},
     {"sector": "retail", "colour": "blue"},
@@ -113,6 +112,20 @@ def test_rate_limit_5_per_user(client, app):
         assert b.post("/api/workplaces/generated", json={"sector": "retail", "seed": 9}).status_code == 200
 
 
+def test_availability_window_ending_2400_imports_as_unavailable_before_it(client, app):
+    # E4 food seed 1: TM_ID 700004 is "1500-2400" Mon-Fri, ALL on the weekend
+    g = _generate(client, sector="food", seed=1)
+    sid, db = g["store_id"], app.state.db
+    for kind in ("roster", "availability"):
+        pv = db.get(sid, "import_preview", kind)
+        r = client.post(f"/api/stores/{sid}/import/{kind}/commit", json={"mapping": pv["proposed_mapping"]})
+        assert r.status_code == 200, r.text
+    assert client.get(f"/api/stores/{sid}/import/availability/warnings").json()["warnings"] == []
+    (e,) = [e for e in r.json()["employees"] if "700004" in e["id"]]
+    blocks = sorted((a["weekday"], a["start"], a["end"]) for a in e["availability"] if a["kind"] == "unavailable")
+    assert blocks == [(d, 0, 900) for d in range(5)]  # free 3 pm to midnight, so only 00:00-15:00 is blocked
+
+
 def test_attachments_must_be_import_kinds(client):
     g = _generate(client)
     r = client.post(f"/api/stores/{g['store_id']}/chat",
@@ -123,16 +136,17 @@ def test_attachments_must_be_import_kinds(client):
 @pytest.mark.parametrize("sector", ["food", "retail"])
 def test_autopilot_reaches_ready_for_an_easy_business(client, fake_llm, sector):
     """The manager's kickoff + attachments; the agent imports each file on a csv_import card, then fills in
-    hours, budget and priorities from the narrative; every card is answered with accept_prefill."""
-    if sector == "food" and not _food_builds():
-        pytest.skip("food CSV export still fails in shiftwright_scenarios (PUNCHLIST E1)")
+    hours, budget and priorities from what the manager says; every card is answered with accept_prefill."""
     g = _generate(client, sector=sector)
     sid = g["store_id"]
     assert client.get(f"/api/stores/{sid}/config").json()["employees"] == []
-    # What the narrative tells the agent (hours, payroll); the fake agent reads it from the scenario.
-    sc = generated._scenario(generated.parse_params({"sector": sector, "difficulty": "easy", "seed": 7}))
-    hours = [h.model_dump() for h in sc.config.store.hours]
-    cap = sc.config.budget.weekly_hours_cap
+    # What the manager tells the chat that no CSV carries (E4's leader_setup); the fake agent reads it here.
+    _, meta = generated.parse_params({"sector": sector, "difficulty": "easy", "seed": 7})
+    setup = meta["leader_setup"]
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    hours = [{"day": days.index(d), "open": _minutes(o), "close": _minutes(c)}
+             for d, (o, c) in setup["hours_by_day"].items()]
+    cap = setup["weekly_hours_cap"]
 
     fake_llm.script([call("ask_csv_import", kind=a["kind"]) for a in g["kickoff"]["attachments"]] + [
         call("ask_store_basics", prefill={"hours": hours}),
@@ -154,11 +168,11 @@ def test_autopilot_reaches_ready_for_an_easy_business(client, fake_llm, sector):
 
     cfg = client.get(f"/api/stores/{sid}/config").json()
     assert len(cfg["employees"]) == g["kickoff"]["attachments"][0]["row_count"]
-    roles = [{**r, "gap_penalty_per_hour": 20} for r in cfg["roles"]]
+    roles = [{**r, "gap_penalty_per_hour": setup["gap_penalty_per_hour"][r["id"]]} for r in cfg["roles"]]
     fake_llm.script([call("ask_roles", roles=roles), call("ask_confirm_tags"), call("readiness_check"),
                      say("Ready to build.")])
     r = client.post(f"/api/stores/{sid}/chat?auto_cards=accept_prefill",
-                    json={"mode": "onboard", "messages": [{"role": "user", "content": "$20 an hour for all of them"}]})
+                    json={"mode": "onboard", "messages": [{"role": "user", "content": "Here's what each role is worth."}]})
     assert "error" not in [e for e, _ in parse_sse(r.text)]
     rd = client.get(f"/api/stores/{sid}/readiness").json()
     assert rd["ready"] is True, [c for c in rd["checks"] if not c["ok"]]

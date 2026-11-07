@@ -171,14 +171,15 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         previewed and cached like POST /import/{kind}; nothing committed. The chat kickoff attaches them."""
         user = auth.require_user(request)
         try:
-            params = generated.parse_params(body)
+            params, meta = await asyncio.to_thread(generated.parse_params, body)
+            if not gen_limiter.hit(user["id"]):
+                raise HTTPException(429, "Too many sample businesses; try again in a few minutes.",
+                                    headers={"Retry-After": str(int(gen_limiter.window_s))})
+            ds = await asyncio.to_thread(generated.build, params, meta)
         except generated.BadParams as e:
             raise HTTPException(400, str(e))
-        if not gen_limiter.hit(user["id"]):
-            raise HTTPException(429, "Too many sample businesses; try again in a few minutes.",
-                                headers={"Retry-After": str(int(gen_limiter.window_s))})
-        try:
-            ds = await asyncio.to_thread(generated.build, params)
+        except HTTPException:
+            raise
         except Exception as e:  # noqa: BLE001 - the dataset builder (WS4) failed; nothing was created
             raise HTTPException(503, f"Sample business generator failed ({type(e).__name__}: {e}). Nothing was created.")
         cfg = templates.build("empty", ds.company_name, ds.jurisdiction)
@@ -186,7 +187,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         db().create_store(cfg, actor="leader", owner_id=user["id"], sample_of="generated")
         sid = cfg.store.id
         db().put(sid, "generated", "params", params.as_dict())
-        kinds = [k for k in generated.CSV_ORDER if f"{k}.csv" in ds.files]
+        kinds = [k for k in meta["import_order"] if f"{k}.csv" in ds.files]
         previews = await asyncio.gather(*(import_flow.preview(db(), sid, k, ds.files[f"{k}.csv"], app.state.helper_llm)
                                           for k in kinds))
         return {
