@@ -216,3 +216,14 @@ def test_decisions_panel_lists_and_applies_without_the_chat(client, built):
     assert again.status_code == 409
     bad = client.post(f"/api/stores/{sid}/decisions/{items[2]['id']}", json={"option_id": "nope"})
     assert bad.status_code == 422
+
+
+def test_agent_build_becomes_the_schedule_the_leader_sees(client, fake_llm, built):
+    sid, _, items, _, _ = built
+    assert client.get(f"/api/stores/{sid}/schedule").status_code == 404  # nothing built yet
+    fake_llm.script([call("dry_run_solve", time_limit_s=5), say("Rebuilt.")])
+    client.post(f"/api/stores/{sid}/chat", json={"mode": "review", "messages": [{"role": "user", "content": "rebuild"}]})
+    r = client.get(f"/api/stores/{sid}/schedule")
+    assert r.status_code == 200 and r.json()["schedule"]["solver_stats"]["tradeoffs"] == items
+    tool = json.loads([m for m in fake_llm.calls[-1] if m["role"] == "tool"][0]["content"])
+    assert tool["saved"] is True

@@ -1012,6 +1012,7 @@ async def dry_run_solve(ctx: ToolContext, args: dict) -> dict:
     cfg = with_law(ctx.config())
     t = float(args["time_limit_s"]) if args.get("time_limit_s") else None  # None: until it stops improving
     sched = await asyncio.to_thread(integrations.solve_week, cfg, t)
+    val = None
     try:
         val = await asyncio.to_thread(integrations.validate, cfg, sched)
         validation = {"passed": val.passed, "hard_count": val.hard_count,
@@ -1019,6 +1020,11 @@ async def dry_run_solve(ctx: ToolContext, args: dict) -> dict:
                                           for v in val.violations if v.severity == "hard"][:10]}
     except integrations.StubUnavailable as e:
         validation = {"unavailable": str(e)}
+    # The agent's build is the week the leader sees: save it like the Build button does (REST /solve), so the
+    # schedule tab shows it. Only a validated week replaces the posted one.
+    saved = val is not None
+    if saved:
+        ctx.db.save_schedule(ctx.store_id, sched, val)
     gaps = sorted(sched.gaps, key=lambda g: -g.penalty_dollars)
     found = tradeoffs.save(ctx.db, ctx.store_id, sched)
     return {
@@ -1033,6 +1039,9 @@ async def dry_run_solve(ctx: ToolContext, args: dict) -> dict:
         "top_gaps": [g.model_dump(mode="json") for g in gaps[:10]],
         "validation": validation,
         "law_warnings": cfg.law_pack.warnings if cfg.law_pack else [],
+        "saved": saved,
+        "note": ("Saved as the current schedule; the leader sees it on the Schedule tab now." if saved else
+                 "Not saved (the validator is unavailable), so the Schedule tab still shows the previous week."),
     }
 
 
