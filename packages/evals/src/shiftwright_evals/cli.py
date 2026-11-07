@@ -45,6 +45,8 @@ def parse_args(argv):
     p.add_argument("--cache-dir", type=Path, default=PKG_ROOT / ".cache")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--run-id", default=None)
+    p.add_argument("--report-only", metavar="RUN_ID", default=None,
+                   help="rebuild the report for an existing run folder; runs nothing")
     return p.parse_args(argv)
 
 
@@ -119,4 +121,10 @@ async def _amain(args) -> int:
 
 
 def main(argv=None) -> int:
-    return asyncio.run(_amain(parse_args(argv if argv is not None else sys.argv[1:])))
+    args = parse_args(argv if argv is not None else sys.argv[1:])
+    if args.report_only:
+        run_dir = args.out_dir / args.report_only
+        manifest = json.loads((run_dir / "manifest.json").read_text())
+        print(f"report: {build(run_dir, args.reports_dir / args.report_only, manifest)}")
+        return 0
+    return asyncio.run(_amain(args))
