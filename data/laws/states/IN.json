@@ -10,8 +10,9 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors researched 2026-11-06 (Indiana DOL, https://www.in.gov/dol/youth-employment/youth-employment-home/): since Jan. 1, 2025 Indiana mirrors federal limits for 14-15 (federal.json; 9 p.m. allowed June 1-Labor Day), and 'There are no hour restrictions for 16- and 17-year-olds.' No extra state rules encoded.",
+    "Minors: Indiana no longer requires breaks for minors; employers with 5+ minors must register them in the Youth Employment System (IC 22-2-18.1)."
   ],
   "rules": [
     {
