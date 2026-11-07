@@ -20,6 +20,7 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | POST | `/api/stores/{id}/gaps/explain` | `{gap: Gap}` → `{text, reasons: GapReason[]}` | LLM phrases engine `reasons`; it may not add facts. |
 | POST | `/api/stores/{id}/fix` | `{callouts: CallOut[], day, now}` → `FixPlan` | The API fills `FixPlan.plan_id` (v1.1); pass it to `/outreach/start`. |
 | POST | `/api/stores/{id}/outreach/start` | `{plan_id}` → `OutreachState` | Texts candidate rank 1; waits; on decline/timeout moves to the next. |
+| POST | `/api/stores/{id}/outreach/cancel` | → `OutreachState` | v1.1. Stops the active outreach (one active outreach per store; a second `/outreach/start` gets 409). |
 | GET | `/api/stores/{id}/outreach` | → `OutreachState` | Web polls every 2s (or SSE `/outreach/stream`). |
 | POST | `/api/sms/inbound` | Twilio webhook (form-encoded) → TwiML 200 | Validates Twilio signature. |
 | POST | `/api/sms/mock-reply` | `{from_phone, body}` → 200 | Only when `MESSENGER=mock`. Same code path as inbound. |
@@ -98,4 +99,7 @@ MESSENGER=mock            # or twilio
 TWILIO_ACCOUNT_SID= TWILIO_AUTH_TOKEN= TWILIO_FROM_NUMBER=
 PUBLIC_BASE_URL=          # for the Twilio webhook
 DATABASE_URL=sqlite:///./shiftwright.db
+SMS_ALLOWLIST=            # v1.1: Twilio only texts these + DEMO_PHONE_1/2
+DEMO_KEY=                 # v1.1: if set, mutating /api/stores/* routes need header X-Demo-Key (401 otherwise)
+MAX_TEXTS_PER_STORE_HOUR=20
 ```
