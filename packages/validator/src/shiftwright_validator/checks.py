@@ -344,6 +344,10 @@ def check_rest_break(ctx: Context, computed: Computed) -> list[Violation]:
             if per <= 0:
                 continue
             needed = length // per
+            # WS3 extra key: below this length no rest break is due; at or above it at least one is.
+            not_under = rule.params.get("not_required_under_minutes")
+            if not_under is not None:
+                needed = 0 if length < as_int(not_under) else max(needed, 1)
             duration = as_int(rule.params.get("duration"))
             have = sum(1 for b in shift.breaks if b.kind == "rest" and b.end - b.start >= duration
                        and b.start >= shift.start and b.end <= shift.end)
@@ -357,17 +361,39 @@ def check_rest_break(ctx: Context, computed: Computed) -> list[Violation]:
 # --------------------------------------------------------------------------- #
 # Minors
 # --------------------------------------------------------------------------- #
+NON_SCHOOL_DAYS = (5, 6)               # Sat, Sun
+BEFORE_NON_SCHOOL_DAY = (4, 5)         # Fri, Sat nights
+
+
+def day_limit(params: dict, day: int) -> float | None:
+    """Daily hours cap for a minor_limits rule on `day`."""
+    if params.get("school_week") and day in NON_SCHOOL_DAYS \
+            and params.get("max_hours_non_school_day") is not None:
+        return as_float(params.get("max_hours_non_school_day"))
+    return as_float(params.get("max_hours_day"))
+
+
+def latest_end(params: dict, day: int) -> int | None:
+    """Latest allowed shift end for a minor_limits rule on `day`."""
+    late = params.get("latest_end_before_non_school_day")
+    if late is not None and (not params.get("school_week") or day in BEFORE_NON_SCHOOL_DAY):
+        return as_int(late)
+    if params.get("latest_end") is None:
+        return None
+    return as_int(params.get("latest_end"))
+
+
 def check_minor_hours(ctx: Context, computed: Computed) -> list[Violation]:
     """Applies every minor_limits rule matching the employee's age (school-week and not), i.e. the
-    most protective reading, because the config doesn't say whether this is a school week."""
+    most protective reading, because the config doesn't say whether this is a school week.
+    Within a school week, Mon-Fri are school days and Sat/Sun are not (our convention, not law);
+    WS3's extra keys `max_hours_non_school_day` and `latest_end_before_non_school_day` use that."""
     out = []
     for rule in law_rules(ctx.config, LawRuleType.minor_limits):
         p = rule.params
         age_min, age_max = as_int(p.get("age_min"), 0), as_int(p.get("age_max"), -1)
-        max_day = as_float(p.get("max_hours_day"))
         max_week = as_float(p.get("max_hours_week"))
         earliest = p.get("earliest_start")
-        latest = p.get("latest_end")
         for employee in ctx.config.employees:
             if not age_min <= employee.age <= age_max:
                 continue
@@ -381,18 +407,19 @@ def check_minor_hours(ctx: Context, computed: Computed) -> list[Violation]:
                 hours = computed.paid_hours_by_employee.get(eid, 0.0)
                 if hours > max_week + EPS:
                     flag(f"{hours:g} h this week; limit {max_week:g} h.")
-            if max_day is not None:
-                for (e, day), hours in sorted(computed.paid_hours_by_employee_day.items()):
-                    if e == eid and hours > max_day + EPS:
-                        flag(f"{hours:g} h on {day_name(day)}; limit {max_day:g} h.", day=day)
+            for (e, day), hours in sorted(computed.paid_hours_by_employee_day.items()):
+                limit = day_limit(p, day)
+                if e == eid and limit is not None and hours > limit + EPS:
+                    flag(f"{hours:g} h on {day_name(day)}; limit {limit:g} h.", day=day)
             for shift in ctx.usable:
                 if shift.employee_id != eid:
                     continue
                 if earliest is not None and shift.start < as_int(earliest):
                     flag(f"starts {fmt_time(shift.start)}, earliest allowed {fmt_time(as_int(earliest))}.",
                          day=shift.day, start=shift.start, end=shift.end)
-                if latest is not None and shift.end > as_int(latest):
-                    flag(f"works until {fmt_time(shift.end)}, latest allowed {fmt_time(as_int(latest))}.",
+                latest_today = latest_end(p, shift.day)
+                if latest_today is not None and shift.end > latest_today:
+                    flag(f"works until {fmt_time(shift.end)}, latest allowed {fmt_time(latest_today)}.",
                          day=shift.day, start=shift.start, end=shift.end)
     return out
 
