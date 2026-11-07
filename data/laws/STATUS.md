@@ -25,6 +25,9 @@
 - `minor_limits.max_hours_non_school_day` — cap on a non-school day inside a school week (federal, CA). Without it, `max_hours_day` in a school-week rule is the school-day cap.
 - `minor_limits.latest_end_before_non_school_day` — CA 16–17 may work to 12:30 a.m. (1470) before a non-school day.
 - `rest_break.not_required_under_minutes` (CA: 210), `reporting_time_pay.max_paid_hours` (CA: 4).
+- `predictive_scheduling`: `reduced_hours_fraction` (pay for cut hours, e.g. 0.5), `change_premium_hours_max`, `change_premium_hours_under_24h`, `change_premium_window_days`, `changes_restricted_within_notice` + `on_call_prohibited` (NYC: prohibitions, no premium), `min_locations`.
+- `min_rest_between_shifts`: `premium_applies_to: "shift"` = whole next shift at the premium (Chicago, LA); absent = only hours inside the rest window. `premium_flat_dollars` (Philadelphia $40, `premium_multiplier: null`).
+- `meal_break.earliest_start_minute_of_shift`, `meal_break.employee_optional` (ND), `rest_break.max_minutes_without_rest` (WA: 180), `daily_overtime.applies_if_rate_below_min_wage_multiple` (NV: 1.5).
 - Minutes are minutes-from-midnight for times of day (420 = 7 a.m., 1140 = 7 p.m.).
 
 **Shortcuts taken:**
