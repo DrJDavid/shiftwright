@@ -1,0 +1,26 @@
+{
+  "_what": "What the leader tells the chat (store_basics + payroll cards, role priorities). Not in any CSV.",
+  "template": "empty",
+  "name": "Store #2104 Round Rock (clean test)",
+  "jurisdiction": {
+    "state": "TX",
+    "city": null
+  },
+  "timezone": "America/Chicago",
+  "slot_minutes": 30,
+  "hours": {
+    "open": "09:00",
+    "close": "21:00",
+    "days": "every day"
+  },
+  "pre_open_minutes": 60,
+  "post_close_minutes": 60,
+  "weekly_hours_cap": 420,
+  "gap_penalty_per_hour": {
+    "leader_on_duty": 200,
+    "guest_service_desk": 40,
+    "cashier": 30,
+    "drive_up": 25,
+    "softlines": 20
+  }
+}
