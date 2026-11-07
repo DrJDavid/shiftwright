@@ -2,9 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, apiMode } from './api'
 import { ApiError } from './api/client'
 import type { Readiness, SolveResponse } from './api/protocol'
-import type { StoreConfig } from './contracts'
+import type { Gap, LawPack, StoreConfig } from './contracts'
 import { ChatPane } from './components/ChatPane'
+import { CoverageTab } from './components/CoverageTab'
+import { GapSheet } from './components/GapSheet'
 import { ReadinessRail } from './components/ReadinessRail'
+import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
@@ -12,7 +15,7 @@ import { fmtDayDate } from './lib/format'
 type Tab = 'schedule' | 'coverage' | 'fix'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'schedule', label: 'Schedule', ready: true },
-  { id: 'coverage', label: 'Coverage', ready: false },
+  { id: 'coverage', label: 'Coverage', ready: true },
   { id: 'fix', label: 'Fix call-outs', ready: false },
 ]
 
@@ -55,7 +58,34 @@ export default function App() {
   const [solve, setSolve] = useState<SolveState>({ status: 'idle' })
   const [tab, setTab] = useState<Tab>('schedule')
   const [railOpen, setRailOpen] = useState(true)
+  const [openGap, setOpenGap] = useState<Gap | null>(null)
+  const [lawPack, setLawPack] = useState<LawPack | null>(null)
+  const [lawError, setLawError] = useState<string | null>(null)
   const storeId = config?.store.id
+  const lawState = config?.store.jurisdiction.state
+  const lawCity = config?.store.jurisdiction.city ?? null
+  const embeddedLaw = config?.law_pack ?? null
+
+  useEffect(() => {
+    if (embeddedLaw) {
+      setLawPack(embeddedLaw)
+      setLawError(null)
+      return
+    }
+    if (!lawState) return
+    let live = true
+    api
+      .resolveLaw({ state: lawState, city: lawCity })
+      .then((p) => {
+        if (!live) return
+        setLawPack(p)
+        setLawError(null)
+      })
+      .catch((e: Error) => live && setLawError(e.message))
+    return () => {
+      live = false
+    }
+  }, [embeddedLaw, lawState, lawCity])
 
   useEffect(() => {
     loadOrCreateStore()
@@ -96,12 +126,32 @@ export default function App() {
     void refreshReadiness(storeId)
   }, [storeId, refreshReadiness])
 
+  const setRuleStatus = useCallback(
+    async (constraintId: string, status: 'confirmed' | 'rejected') => {
+      if (!storeId) return
+      try {
+        // Full replace on the freshest config so a concurrent chat edit isn't overwritten.
+        const cur = await api.getConfig(storeId)
+        const next = {
+          ...cur,
+          constraints: (cur.constraints ?? []).map((c) => (c.id === constraintId ? { ...c, status } : c)),
+        }
+        setConfig(await api.putConfig(storeId, next))
+        void refreshReadiness(storeId)
+      } catch (e) {
+        setReadinessError(`Couldn't save the rule: ${(e as Error).message}`)
+      }
+    },
+    [storeId, refreshReadiness],
+  )
+
   const runSolve = useCallback(async () => {
     if (!storeId) return
     setSolve({ status: 'running', startedAt: Date.now() })
     setTab('schedule')
     try {
       setResult(await api.solve(storeId))
+      setOpenGap(null)
       setSolve({ status: 'idle' })
       setRailOpen(false) // give the week grid the room
     } catch (e) {
@@ -156,7 +206,7 @@ export default function App() {
         )}
       </header>
 
-      <div className={`grid min-h-0 ${railOpen ? 'grid-cols-[minmax(340px,35%)_1fr_17rem]' : 'grid-cols-[minmax(340px,35%)_1fr_3rem]'}`}>
+      <div className={`grid min-h-0 ${railOpen ? 'grid-cols-[minmax(320px,30%)_1fr_19rem]' : 'grid-cols-[minmax(320px,30%)_1fr_3rem]'}`}>
         <ChatPane
           api={api}
           storeId={config.store.id}
@@ -165,7 +215,7 @@ export default function App() {
           onScheduleChanged={() => void refreshSchedule(config.store.id)}
         />
 
-        <main className="flex min-h-0 min-w-0 flex-col bg-panel">
+        <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
           <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
             {TABS.map((t) => (
               <button
@@ -184,7 +234,21 @@ export default function App() {
               </button>
             ))}
           </nav>
-          {tab === 'schedule' && <ScheduleTab config={config} result={result} solve={solve} onSolve={() => void runSolve()} />}
+          {tab === 'schedule' && (
+            <ScheduleTab config={config} result={result} solve={solve} onSolve={() => void runSolve()} onGapClick={setOpenGap} />
+          )}
+          {tab === 'coverage' && <CoverageTab config={config} result={result} onGapClick={setOpenGap} />}
+          {openGap && result && (
+            <GapSheet
+              api={api}
+              storeId={config.store.id}
+              gap={openGap}
+              weekStart={result.schedule.week_start}
+              config={config}
+              lawPack={lawPack}
+              onClose={() => setOpenGap(null)}
+            />
+          )}
         </main>
 
         <ReadinessRail
@@ -194,7 +258,9 @@ export default function App() {
           onSolve={() => void runSolve()}
           open={railOpen}
           onToggle={() => setRailOpen((o) => !o)}
-        />
+        >
+          <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
+        </ReadinessRail>
       </div>
     </div>
   )

@@ -1,9 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
-import { fmtDayDate, fmtHours, fmtMoney, fmtRange } from '../lib/format'
+import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
 
-type Props = { schedule: Schedule; config: StoreConfig }
+type Props = { schedule: Schedule; config: StoreConfig; onGapClick?: (g: Gap) => void }
 type Hover = { x: number; y: number; content: ReactNode } | null
 
 function paidHours(s: Shift) {
@@ -11,7 +11,7 @@ function paidHours(s: Shift) {
   return (s.end - s.start - unpaid) / 60
 }
 
-export function ScheduleGrid({ schedule, config }: Props) {
+export function ScheduleGrid({ schedule, config, onGapClick }: Props) {
   const [hover, setHover] = useState<Hover>(null)
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
@@ -86,9 +86,10 @@ export function ScheduleGrid({ schedule, config }: Props) {
       </div>
       {g.reasons && g.reasons.length > 0 && (
         <div className="text-muted">
-          {g.reasons.length} trained {g.reasons.length === 1 ? 'person' : 'people'} could not cover it. Details in Coverage.
+          {g.reasons.length} trained {g.reasons.length === 1 ? 'person' : 'people'} could not cover it.
         </div>
       )}
+      {onGapClick && <div className="text-xs text-muted">Click to see why.</div>}
     </div>
   )
 
@@ -121,7 +122,7 @@ export function ScheduleGrid({ schedule, config }: Props) {
                     className={`truncate text-xs ${dayGaps.length ? 'font-medium text-gap' : 'text-muted'}`}
                     title={dayGaps.length ? `${dayGaps.length} uncovered stretches, ${fmtMoney(cost)} penalty` : undefined}
                   >
-                    {dayGaps.length ? `${fmtMoney(cost)} gaps` : closed ? 'Closed' : 'Covered'}
+                    {dayGaps.length ? `${fmtMoneyShort(cost)} gaps` : closed ? 'Closed' : 'Covered'}
                   </div>
                 </th>
               )
@@ -160,6 +161,14 @@ export function ScheduleGrid({ schedule, config }: Props) {
                               style={{ left: pct(g.start), width: width(g.start, g.end), background: colors.get(g.role_id) }}
                             />
                           ))}
+                          {/* v1.1: breaks may sit off the slot grid (5-minute steps); cut them out at minute precision. */}
+                          {(s.breaks ?? []).map((b, i) => (
+                            <div
+                              key={`b${i}`}
+                              className="absolute -top-px h-[calc(100%+2px)] bg-panel group-hover:bg-paper"
+                              style={{ left: pct(b.start), width: `max(2px, ${width(b.start, b.end)})` }}
+                            />
+                          ))}
                         </div>
                         <div className="mt-0.5 truncate text-xs text-ink-2">{fmtRange(s.start, s.end)}</div>
                       </div>
@@ -177,12 +186,18 @@ export function ScheduleGrid({ schedule, config }: Props) {
               <td key={d} className="border-t-2 border-l border-t-gap/60 border-l-rule-soft px-1.5 py-2">
                 <div className="relative h-3 rounded-sm bg-rule-soft">
                   {gapsByDay[d].map((g, i) => (
-                    <div
+                    <button
+                      type="button"
                       key={i}
-                      className="absolute top-0 h-full bg-gap"
+                      aria-label={`${roleName.get(g.role_id) ?? g.role_id} uncovered ${fmtRange(g.start, g.end)}: why?`}
+                      className="absolute top-0 h-full cursor-pointer bg-gap hover:outline-2 hover:outline-ink"
                       style={{ left: pct(g.start), width: width(g.start, g.end), opacity: Math.min(1, 0.45 + 0.25 * g.missing_headcount) }}
                       onMouseMove={(ev) => show(ev, gapDetail(g))}
                       onMouseLeave={() => setHover(null)}
+                      onClick={() => {
+                        setHover(null)
+                        onGapClick?.(g)
+                      }}
                     />
                   ))}
                 </div>

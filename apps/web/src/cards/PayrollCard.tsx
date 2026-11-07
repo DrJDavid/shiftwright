@@ -6,7 +6,7 @@ import { CardFrame, Field, inputCls, type CardProps } from './CardFrame'
 export function PayrollCard({ props, status, result, onSubmit, onCancel }: CardProps<PayrollProps, PayrollResult>) {
   const formId = useId()
   const p = props ?? {}
-  const [hours, setHours] = useState(p.weekly_hours_cap != null ? String(p.weekly_hours_cap) : '')
+  const [hours, setHours] = useState(p.weekly_hours_cap ? String(p.weekly_hours_cap) : '') // 0 means not set
   const [dollars, setDollars] = useState(p.weekly_dollar_cap != null ? String(p.weekly_dollar_cap) : '')
   const [overtime, setOvertime] = useState(p.overtime_allowed ?? false)
 

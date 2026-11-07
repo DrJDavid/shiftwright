@@ -1,7 +1,13 @@
 // Shapes defined in contracts/API.md that are NOT in the generated contracts.ts
 // (helper shapes and the chat/SSE protocol). Everything else comes from ./../contracts.
 import type {
+  AvailabilityEntry,
   Budget,
+  Constraint,
+  Department,
+  Event,
+  Infeasibility,
+  Role,
   InboundMessage,
   Jurisdiction,
   OutboundMessage,
@@ -29,6 +35,36 @@ export type StoreBasicsResult = Partial<Store>
 export type PayrollProps = Partial<Budget>
 export type PayrollResult = Budget
 
+export type RolesProps = { departments: Department[]; roles: Role[] }
+export type RolesResult = RolesProps
+export type TrainingMatrixProps = { employees: { id: string; name: string; trained_role_ids?: string[] }[]; roles: Role[] }
+export type TrainingMatrixResult = Record<string, string[]>
+export type DayType = 'weekday' | 'saturday' | 'sunday' | 'truck_day'
+export type CoverageGridProps = {
+  day_type: DayType
+  roles: Role[]
+  slot_minutes: number
+  days: number[]
+  start_minute: number
+  prefill: Record<string, number[]>
+}
+/** API.md: "same grid". apps/api reads `prefill` (or `grid`) from the result. */
+export type CoverageGridResult = { prefill: Record<string, number[]> }
+export type EventsProps = { events: Event[] }
+export type EventsResult = EventsProps
+export type CsvImportKind = 'roster' | 'training' | 'availability' | 'forecast' | 'history'
+export type CsvImportProps = { kind: CsvImportKind; preview?: ImportPreview }
+export type CsvImportResult = { committed: boolean; rows: number }
+export type ProposeRuleProps = { constraint: Constraint; evidence: string; plain_text: string }
+export type ProposeRuleResult = { decision: 'hard' | 'soft' | 'not_a_rule'; weight_dollars?: number }
+export type TradeoffOption = { id: string; label: string; cost_dollars: number; effect: string }
+export type TradeoffProps = { question: string; options: TradeoffOption[] }
+export type OptionResult = { option_id: string }
+export type ConflictOption = { id: string; label: string; cost_dollars: number; patch_summary: string }
+export type ConflictMenuProps = { infeasibility: Partial<Infeasibility>; options: ConflictOption[] }
+export type EmployeeAvailabilityProps = { employee: { id: string; name: string }; parsed: AvailabilityEntry[]; original_text: string }
+export type EmployeeAvailabilityResult = { confirmed: AvailabilityEntry[] }
+
 export type CardEnvelope = { card_id: string; card_type: CardType; props: unknown }
 
 export type ChatMessage = {
@@ -55,7 +91,8 @@ export type CreateStoreRequest = {
   jurisdiction: Jurisdiction
 }
 
-export type SolveResponse = { schedule: Schedule; validation: ValidationReport }
+/** `validation` is null when GET /schedule has a stored schedule that was never validated. */
+export type SolveResponse = { schedule: Schedule; validation: ValidationReport | null }
 
 export type Readiness = {
   ready: boolean

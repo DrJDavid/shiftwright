@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Schedule, ValidationReport } from '../contracts'
 import { fmtHours, fmtMoney, fmtPct, fmtRange, WEEKDAY_NAMES } from '../lib/format'
 
-type Props = { schedule: Schedule; validation: ValidationReport; employeeName: (id: string) => string }
+type Props = { schedule: Schedule; validation: ValidationReport | null; employeeName: (id: string) => string }
 
 export function ScheduleStats({ schedule, validation, employeeName }: Props) {
   const m = schedule.metrics
@@ -14,43 +14,44 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
   const over = used > cap
   // The in-browser mock never runs the real validator; don't let the badge claim it did.
   const mock = schedule.produced_by.startsWith('mock')
+  const unchecked = mock || !validation
 
   return (
     <div className="relative flex items-stretch gap-px border-b border-rule bg-rule">
       <Stat label="Hours used" wide>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold">{fmtHours(used).replace('h', '')}</span>
-          <span className="text-sm text-muted">of {fmtHours(cap)} cap</span>
+          <span className="text-xl font-semibold">{fmtHours(used).replace('h', '')}</span>
+          <span className="text-sm whitespace-nowrap text-muted">of {fmtHours(cap)}</span>
         </div>
         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-rule-soft" aria-hidden>
           <div className={`h-full ${over ? 'bg-gap' : 'bg-ink'}`} style={{ width: `${frac * 100}%` }} />
         </div>
       </Stat>
-      <Stat label="Wage cost">
-        <span className="text-2xl font-semibold">{fmtMoney(m.total_wage_cost)}</span>
+      <Stat label="Wages">
+        <span className="text-xl font-semibold">{fmtMoney(m.total_wage_cost)}</span>
       </Stat>
       <Stat label="Coverage">
-        <span className="text-2xl font-semibold">{fmtPct(m.coverage_pct)}</span>
+        <span className="text-xl font-semibold">{fmtPct(m.coverage_pct)}</span>
       </Stat>
-      <Stat label="Uncovered cost">
-        <span className={`text-2xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>
+      <Stat label="Gap cost">
+        <span className={`text-xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>
           {fmtMoney(m.gap_penalty_dollars)}
         </span>
       </Stat>
-      <div className="flex items-center bg-panel px-4">
+      <div className="flex shrink-0 items-center bg-panel px-3">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-            mock
+            unchecked
               ? 'border-warn/40 bg-warn-wash text-warn hover:border-warn'
               : validation.passed
               ? 'border-pine/30 bg-pine-wash text-pine-dark hover:border-pine'
               : 'border-gap/30 bg-gap-wash text-gap hover:border-gap'
           }`}
         >
-          {mock ? 'Not validated' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violations`}
+          {unchecked ? 'Not validated' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violation${validation.hard_count === 1 ? '' : 's'}`}
         </button>
       </div>
       {open && (
@@ -61,16 +62,20 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
               Close
             </button>
           </div>
-          {mock && (
+          {unchecked && (
             <p className="mb-2 text-sm font-medium text-warn">
-              This schedule came from the in-browser mock, not the solver. The validator has not checked it.
+              {mock
+                ? 'This schedule came from the in-browser mock, not the solver. The validator has not checked it.'
+                : 'The validator has not checked this schedule. Rebuild to check it.'}
             </p>
           )}
-          <p className="text-sm text-ink-2">
-            The validator re-checks every shift independently of the solver.{' '}
-            {validation.passed ? 'This schedule passed.' : 'This schedule did not pass.'}
-          </p>
-          {mock ? null : validation.violations.length === 0 ? (
+          {validation && !mock && (
+            <p className="text-sm text-ink-2">
+              The validator re-checks every shift independently of the solver.{' '}
+              {validation.passed ? 'This schedule passed.' : 'This schedule did not pass.'}
+            </p>
+          )}
+          {unchecked ? null : validation.violations.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No violations, hard or soft.</p>
           ) : (
             <ul className="mt-2 max-h-64 space-y-1.5 overflow-auto text-sm">
@@ -98,8 +103,8 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
 
 function Stat({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className={`flex flex-col justify-center bg-panel px-4 py-2.5 ${wide ? 'min-w-56 flex-[1.4]' : 'flex-1'}`}>
-      <span className="text-xs text-muted">{label}</span>
+    <div className={`flex min-w-0 flex-col justify-center bg-panel px-3 py-2.5 ${wide ? 'min-w-36 flex-[1.4]' : 'flex-1'}`}>
+      <span className="truncate text-xs text-muted">{label}</span>
       {children}
     </div>
   )
