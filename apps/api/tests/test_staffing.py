@@ -134,6 +134,12 @@ def test_minors_on_tagged_roles_and_business_type_warn(client):
     rd = client.get(f"/api/stores/{sid}/readiness").json()
     checks = {c["id"]: c for c in rd["checks"]}
     assert checks["minors_on_tagged_roles"]["severity"] == "warn" and kid.name in checks["minors_on_tagged_roles"]["detail"]
+    pack = client.get("/api/laws/resolve", params={"state": cfg.store.jurisdiction.state}).json()
+    fryer_ban = [r["id"] for r in pack["rules"] if r["type"] == "minor_prohibited_roles"
+                 and "fryer" in r["params"].get("role_tags", [])
+                 and (r["params"].get("age_min") or 0) <= 15 < r["params"]["age_below"]]
+    for rid in fryer_ban:
+        assert f"barred by {rid}" in checks["minors_on_tagged_roles"]["detail"]
     assert checks["business_type"]["severity"] == "warn" and checks["business_type"]["ok"] is True
 
 

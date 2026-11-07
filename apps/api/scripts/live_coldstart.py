@@ -27,14 +27,16 @@ OWNER = [
     "Hi! I run a 30-seat taqueria in Chicago, Pilsen. Family place, about 10 people on staff.",
     "We're closed Mondays. Tuesday to Thursday 11am-9pm, Friday and Saturday 11am-11pm, Sunday 10am-8pm. "
     "I usually schedule about 330 hours a week total. Roles: line cook, prep, dishwasher, server, host, "
-    "bartender, and a manager on duty. Servers and the bartender get tips on top of their hourly pay. "
+    "bartender, and a manager on duty. Servers and the bartender get tips: on tipped shifts I pay them the "
+    "tipped cash wage, $13.00 an hour, and their regular rate for anything else. "
     "We have a fryer for chips and taquitos, the line cooks run it.",
     "Staff (phones are all 312-555-01xx): Maria Lopez, 45, manager, $26/h, 312-555-0101. "
     "Luis Ortega, 34, line cook, $19, 312-555-0102. Ana Ruiz, 28, line cook and prep, $18, 312-555-0103. "
     "Jose Diaz, 19, prep and dishwasher, $17.50, 312-555-0104. Sofia Cruz, 22, server, $17.10, "
     "312-555-0105. Camila Reyes, 24, server and host, $17.10, 312-555-0106. Diego Flores, 17, host, $17.10, "
     "312-555-0107. Lupe Vargas, 30, bartender and server, $17.25, 312-555-0108. Kevin Ng, 15, dishwasher, "
-    "$17.10, 312-555-0109. Rosa Medina, 52, line cook and prep, $20, 312-555-0110. Maria and Rosa can also "
+    "$17.10, 312-555-0109. Tommy Ruiz, 15, line cook (he's trained on the fryer), $17.10, 312-555-0111. "
+    "Rosa Medina, 52, line cook and prep, $20, 312-555-0110. Maria and Rosa can also "
     "be manager on duty.",
     "A normal week: lunch rush 12-2 on weekdays, Friday and Saturday dinners get slammed 6-9pm, Sunday brunch "
     "10-1 is busy. Normally 1 manager on duty always, 2 line cooks (3 on Fri/Sat dinner), 1 prep in the "
@@ -42,7 +44,8 @@ OWNER = [
     "1 host evenings 5-9, 1 bartender from 4pm to close. This Saturday 4-7pm we have a private rehearsal "
     "dinner that needs 2 extra servers. And our produce delivery comes Tuesday and Friday at 9am, 1 prep person "
     "unloads for an hour.",
-    "Rules: shifts at least 4 hours. Kevin can't work before 4pm on school days. Looks good, keep going.",
+    "Rules: shifts at least 4 hours. Kevin can't work before 4pm on school days. Keep both of those role tags, "
+    "and yes, Tommy is trained on the fryer. Looks good, keep going.",
     "Yes, that's right. Go ahead.",
     "Yes. Keep going with whatever is missing.",
     "Sounds good.",
@@ -118,7 +121,7 @@ async def main(turns: int, out: str | None) -> int:
         rd = readiness.compute(db.get_config(sid), equipment.state(db, sid))
         print("  readiness:", "READY" if rd.ready else f"failing {[c.id for c in rd.checks if not c.ok]}",
               "| warn:", [c.id for c in rd.checks if c.severity == "warn"])
-        if rd.ready and n >= 4:
+        if rd.ready and n >= 5:
             ready = True
             break
     cfg = db.get_config(sid)
@@ -134,6 +137,23 @@ async def main(turns: int, out: str | None) -> int:
     print("constraints:", [(c.kind.value, c.strength.value, c.status.value) for c in cfg.constraints],
           "unmodeled:", [u.text for u in cfg.unmodeled])
     print("budget:", cfg.budget.weekly_hours_cap)
+    checks = {c.id: c for c in readiness.compute(cfg, equipment.state(db, sid)).checks}
+    for cid in ("minimum_wage", "minors_on_tagged_roles", "equipment_roles", "business_type"):
+        print(f"check {cid}: ok={checks[cid].ok} severity={checks[cid].severity} — {checks[cid].detail[:300]}")
+    # solve + validate: the 15-year-old must never be on a role the law pack bars at their age
+    from shiftwright_api import integrations
+    from shiftwright_api.agent.tools import with_law
+    full = with_law(cfg)
+    t1 = time.time()
+    sched = integrations.solve_week(full, time_limit_s=20)
+    val = integrations.validate(full, sched)
+    minors = {e.id: e for e in cfg.employees if e.age < 18}
+    hits = [(minors[sh.employee_id].name, seg.role_id, sh.day, seg.start, seg.end) for sh in sched.shifts
+            if sh.employee_id in minors for seg in sh.segments if set(cfg.role_tags.get(seg.role_id, []))]
+    print(f"solve {time.time() - t1:.1f}s: {sched.status}, {len(sched.shifts)} shifts, coverage "
+          f"{sched.metrics.coverage_pct:.1f}%, cost ${sched.metrics.total_wage_cost:,.2f}; validator passed={val.passed} "
+          f"codes={sorted({v.code.value for v in val.violations if v.severity == 'hard'})}")
+    print("minors on tagged roles in the schedule:", hits or "none")
     if out:
         Path(out).write_text(json.dumps({"log": log, "transcript": db.get_transcript(sid),
                                          "config": cfg.model_dump(mode="json")}, indent=1, default=str))
