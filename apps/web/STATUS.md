@@ -1,24 +1,78 @@
 # WS7 status
 
-_Updated Sat Nov 7, slice 8 (demo moments). Rebased on main 087b6fd._day)._day not yet)._
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B3: routes, accounts, create workplace, switcher), branch
+`cursor/B1-web-shell` off main 9413f5e. Built against the PUNCHLIST A1 endpoint table; A1 isn't on main yet._
 
 ## How David runs it locally
 
-From the repo root, after `make install` once: `make dev`, then open **http://localhost:5173/?demo**
-(`?demo=chicago|seattle|sf` once WS6 ships those templates). `make dev-api` now loads `.env` itself.
+From the repo root, after `make install` once: `make dev`, then open **http://localhost:5173/**. Sign up (or sign
+in), then **New workplace** (name, kind of business, city/state) or **Or explore a sample workplace**. In a
+workplace, **My workplaces ▾** (top right) switches workplaces, makes a new one, opens a sample, or signs out.
+Click **Build schedule** (about 20–30 s), then use the tabs.
 
-In the app: **Store ▾** (top right) lists the demo stores the server has (`GET /api/templates`: Austin, Chicago, Seattle, SF) or starts an empty one. Click **Build schedule**
-(about 20–30 s), then use the tabs. Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock&demo.
+Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock. The mock keeps accounts and
+workplaces in memory, so a page reload signs you out (sign up again; any email + 8-character password).
+
+## Routes (B1)
+
+| Path | Page | Signed out |
+|---|---|---|
+| `/` | Landing: headline, three proof points, Get started / Sign in | shown |
+| `/signup`, `/login` | Forms with inline errors (409 → "already exists" on the email field, 401 → "Wrong email or password.") | shown; signed in → `/workplaces` |
+| `/workplaces` | My workplaces (sample copies listed separately under "Explore a sample") | → `/login` |
+| `/workplaces/new` | Create a workplace (B2); signup lands here | → `/login` |
+| `/w/:id` | The workspace (old `App.tsx`, now `src/Workspace.tsx`); 404 → "Workplace not found" | → `/login`, then back here |
+
+- Session check: `GET /api/auth/me` once on load (`src/auth/AuthProvider.tsx`). Any later 401 from the API (expired
+  session) signs the page out and sends you to `/login` with a return path; **Sign out** goes to `/login` without one.
+- Live fetches use `credentials: 'include'` (cookie `sw_session`). The FastAPI static handler already falls back to
+  `index.html`, so deep links like `/w/<id>` work in production.
+- The auto-create-a-store bootstrap and `?demo` are gone; nothing is created until you ask. `sw.storeId.<mode>` is still
+  written when a workplace opens (the phone view `?employee=` falls back to it).
+- Production builds are always live (unless built with `VITE_API_MODE=mock`): no "Mock API" pill, no `?api=mock` hints,
+  and the mock + fixtures are tree-shaken out (main chunk 2.6 MB → 467 kB). `npm run dev` keeps `?api=mock|live`.
+
+## Assumptions about the backend (Lane A)
+
+- Exactly the A1 table: `POST /api/auth/signup {email,password,name}` → `{user}`; `POST /api/auth/login` → `{user}`, 401
+  on bad credentials; `POST /api/auth/logout` → 204; `GET /api/auth/me` → `{user}` or 401; `GET /api/workplaces` →
+  `{workplaces:[{id,name,sector,city,state,updated_at,has_schedule}]}`; `POST /api/workplaces/sample {template}` →
+  `StoreConfig` named "Sample: …".
+- Samples are recognised by the "Sample: " name prefix (to list them under "Explore a sample").
+- `POST /api/stores` (template `empty`) is sent `name, sector, business_description` (omitted when blank) and
+  `jurisdiction {state, city}` (city lower-cased, as before). Until A2 lands the server may ignore `sector` /
+  `business_description`.
+- `/api/workplaces/sample` 404/422 → "isn't on this server yet" and the template is hidden for the session.
+- Errors: string `detail` is shown as-is; FastAPI validation arrays get a generic message.
+- Client-side password minimum is 8, matching A1.
+
+## Mock API (accounts)
+
+`src/mock/server.ts`: users + one session (one browser = one cookie jar); signup 422/409, login 401, logout 204, me
+401; stores remember their owner and someone else's store is a 404; `/workplaces` lists mine; `/workplaces/sample`
+copies the Austin fixture (`demo`/`tiny` only) as "Sample: …". Stores created without a session (older tests) stay open.
+
+## Tests
+
+`src/App.test.tsx` (jsdom + Testing Library, MemoryRouter over the mock): signed-out redirect to `/login` from
+`/workplaces`, `/workplaces/new`, `/w/:id`; landing creates no store; signup inline errors → `/workplaces/new`; taken
+email; wrong password; create-workplace required fields; create posts `{template: empty, name, sector, business_description,
+jurisdiction}` and opens `/w/:id` with the switcher listing it checked; explore a sample. `src/mock/mock.test.ts`: mock
+accounts + ownership. 40 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+
+## Next (Lane B)
+
+- B4 guided setup, B5 workspace tabs/header, B6 plain-language pass (PUNCHLIST).
+- Wire-up check against the real A1 once it lands (cookie on the chat SSE + CSV upload, 401 handling).
 
 ## Running it (details)
 
-- Live API (default now): start the API, then `API_PORT=8017 npm run dev -- --port 5177` (proxy port defaults to 8000).
-- `?api=mock` switches to the in-browser mock (remembered in localStorage; `?api=live` to go back; `VITE_API_MODE=mock` for a mock default).
+- Live API (default): start the API, then `API_PORT=8017 npm run dev -- --port 5177` (proxy port defaults to 8000).
+- Dev server only: `?api=mock` switches to the in-browser mock (remembered in localStorage; `?api=live` to go back;
+  `VITE_API_MODE=mock` for a mock default).
 - Demo key: `?key=...` (remembered in localStorage, then removed from the address bar) or `VITE_DEMO_KEY`. Sent as
-  `X-Demo-Key` on every request, including the chat SSE and CSV upload.
+  `X-Demo-Key` on every request, including the chat SSE and CSV upload. (A1 removes DEMO_KEY when auth is on.)
 - `?gallery` (dev server only): every card with sample props from the WS4 demo fixture, for visual QA.
-- On first load the app creates a store (`POST /api/stores`, template `bigbox_mid`, `VITE_STORE_TEMPLATE` to override) and
-  remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
 

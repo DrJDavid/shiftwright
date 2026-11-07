@@ -2,7 +2,18 @@
 // the SSE chat protocol (turn pauses on a card; POST /chat/card resumes the same stream).
 // It returns real Response objects so the production client + SSE parser are exercised unchanged.
 import type { Budget, Schedule, Store, StoreConfig, ValidationReport } from '../contracts'
-import type { CardSubmission, ChatEvent, ChatRequest, CreateStoreRequest, FixRequestBody, Readiness } from '../api/protocol'
+import type {
+  CardSubmission,
+  ChatEvent,
+  ChatRequest,
+  CreateStoreRequest,
+  FixRequestBody,
+  LoginRequest,
+  Readiness,
+  SignupRequest,
+  User,
+  WorkplaceSummary,
+} from '../api/protocol'
 import type { FetchLike } from '../api/client'
 import { mockStoreConfig } from './fixture'
 import { mockScore, mockSolve } from './solver'
@@ -18,6 +29,9 @@ type StoreState = {
   staffingDone: boolean
   plans: Map<string, ReturnType<typeof mockFix>>
   outreach: MockOutreach
+  /** PUNCHLIST A1: null = created without a session (older mock tests); open to everyone. */
+  ownerId: string | null
+  updatedAt: string
 }
 
 export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
@@ -30,9 +44,83 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
   const ok = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
   const notFound = (detail: string) => ok({ detail }, 404)
+  const unauthorized = () => ok({ detail: 'Not signed in' }, 401)
+
+  // Accounts (PUNCHLIST A1). One browser = one cookie jar, so the mock keeps a single session.
+  const users = new Map<string, { user: User; password: string }>()
+  let session: User | null = null
 
   function bump(st: StoreState) {
     st.config = { ...st.config, config_version: (st.config.config_version ?? 1) + 1 }
+    st.updatedAt = new Date().toISOString()
+  }
+
+  function newStore(config: StoreConfig): StoreState {
+    const st: StoreState = {
+      config,
+      latest: null,
+      basicsDone: false,
+      payrollDone: false,
+      staffingDone: false,
+      plans: new Map(),
+      outreach: new MockOutreach(),
+      ownerId: session?.id ?? null,
+      updatedAt: new Date().toISOString(),
+    }
+    stores.set(config.store.id, st)
+    return st
+  }
+
+  function auth(path: string, method: string, body: unknown): Response | null {
+    if (path === '/auth/signup' && method === 'POST') {
+      const b = body as SignupRequest
+      const email = (b.email ?? '').trim()
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return ok({ detail: 'Enter a valid email address.' }, 422)
+      if ((b.password ?? '').length < 8) return ok({ detail: 'Password must be at least 8 characters.' }, 422)
+      if (users.has(email.toLowerCase())) return ok({ detail: 'An account with that email already exists.' }, 409)
+      const user: User = { id: `u${users.size + 1}`, email, name: (b.name ?? '').trim() }
+      users.set(email.toLowerCase(), { user, password: b.password })
+      session = user
+      return ok({ user })
+    }
+    if (path === '/auth/login' && method === 'POST') {
+      const b = body as LoginRequest
+      const found = users.get((b.email ?? '').trim().toLowerCase())
+      if (!found || found.password !== b.password) return ok({ detail: 'Wrong email or password.' }, 401)
+      session = found.user
+      return ok({ user: found.user })
+    }
+    if (path === '/auth/logout' && method === 'POST') {
+      session = null
+      return new Response(null, { status: 204 })
+    }
+    if (path === '/auth/me') return session ? ok({ user: session }) : unauthorized()
+    if (path === '/workplaces' && method === 'GET') {
+      if (!session) return unauthorized()
+      const mine: WorkplaceSummary[] = [...stores.values()]
+        .filter((st) => st.ownerId === session!.id)
+        .map((st) => ({
+          id: st.config.store.id,
+          name: st.config.store.name,
+          sector: st.config.store.sector ?? null,
+          city: st.config.store.jurisdiction.city ?? null,
+          state: st.config.store.jurisdiction.state,
+          updated_at: st.updatedAt,
+          has_schedule: st.latest != null,
+        }))
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      return ok({ workplaces: mine })
+    }
+    if (path === '/workplaces/sample' && method === 'POST') {
+      if (!session) return unauthorized()
+      const template = (body as { template?: string }).template
+      // The mock only has the Austin demo fixture.
+      if (template !== 'demo' && template !== 'tiny') return ok({ detail: `Template ${template} not available in the mock` }, 422)
+      const cfg = mockStoreConfig(`mock-${stores.size + 1}`, template === 'demo' ? 'bigbox_mid' : 'bigbox_small', '', '', null, true)
+      cfg.store = { ...cfg.store, name: `Sample: ${cfg.store.name}` }
+      return ok(newStore(cfg).config)
+    }
+    return null
   }
 
   function readiness(st: StoreState): Readiness {
@@ -142,6 +230,8 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     if (latency) await sleep(latency / 3)
 
     if (path === '/health') return ok({ ok: true, contract_version: '1.0.0', messenger: 'mock', model: 'mock' })
+    const authed = auth(path, method, body)
+    if (authed) return authed
     if (path === '/stores' && method === 'POST') {
       const req = body as CreateStoreRequest
       const id = `mock-${stores.size + 1}`
@@ -150,19 +240,12 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       const fromFixture = req.template === 'demo' || req.template === 'tiny'
       const name = req.name ?? 'Store #0417'
       const jur = req.jurisdiction ?? { state: 'TX', city: 'austin' }
-      const st: StoreState = {
-        config: fromFixture
-          ? mockStoreConfig(id, req.template === 'demo' ? 'bigbox_mid' : 'bigbox_small', name, jur.state, jur.city ?? null, true)
-          : mockStoreConfig(id, (req.template as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid', name, jur.state, jur.city ?? null),
-        latest: null,
-        basicsDone: false,
-        payrollDone: false,
-        staffingDone: false,
-        plans: new Map(),
-        outreach: new MockOutreach(),
-      }
-      stores.set(id, st)
-      return ok(st.config)
+      const cfg = fromFixture
+        ? mockStoreConfig(id, req.template === 'demo' ? 'bigbox_mid' : 'bigbox_small', name, jur.state, jur.city ?? null, true)
+        : mockStoreConfig(id, (req.template as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid', name, jur.state, jur.city ?? null)
+      if (req.sector) cfg.store = { ...cfg.store, sector: req.sector }
+      if (req.business_description) cfg.store = { ...cfg.store, business_description: req.business_description }
+      return ok(newStore(cfg).config)
     }
     if (path === '/sms/mock-reply' && method === 'POST') {
       const b = body as { from_phone: string; body: string }
@@ -176,7 +259,8 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     const m = path.match(/^\/stores\/([^/]+)(\/.*)$/)
     if (!m) return notFound(`No mock route for ${method} ${path}`)
     const st = stores.get(decodeURIComponent(m[1]))
-    if (!st) return notFound('Store not found')
+    // A1: someone else's store is a 404, not a 403.
+    if (!st || (st.ownerId !== null && st.ownerId !== session?.id)) return notFound('Store not found')
     const rest = m[2]
 
     if (rest === '/config' && method === 'GET') return ok(st.config)

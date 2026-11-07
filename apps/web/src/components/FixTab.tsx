@@ -285,7 +285,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
                 <p className="mt-1 text-ink-2">
                   The engine's <code>fix_day</code> hasn't landed, so the API can't plan coverage. ({error.message})
                 </p>
-                {apiMode === 'live' && (
+                {import.meta.env.DEV && apiMode === 'live' && (
                   <p className="mt-1 text-ink-2">
                     To preview the flow, open the app with{' '}
                     <a className="font-semibold text-pine-dark underline" href="?api=mock">

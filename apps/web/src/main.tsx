@@ -1,7 +1,9 @@
 import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { AuthProvider } from './auth/AuthProvider'
 import { EmployeeApp } from './components/EmployeeApp'
 
 const params = new URLSearchParams(location.search)
@@ -18,7 +20,11 @@ createRoot(document.getElementById('root')!).render(
         <CardGallery />
       </Suspense>
     ) : (
-      <App />
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
     )}
   </StrictMode>,
 )

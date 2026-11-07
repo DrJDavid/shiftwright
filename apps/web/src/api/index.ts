@@ -1,5 +1,6 @@
 // Picks the live API or the in-browser mock.
-//   ?api=live | ?api=mock in the URL (remembered), else VITE_API_MODE, else "live".
+//   Dev server: ?api=live | ?api=mock in the URL (remembered), else VITE_API_MODE, else "live".
+//   Production builds are always live unless built with VITE_API_MODE=mock.
 // Demo key (sent as X-Demo-Key when the server sets DEMO_KEY): ?key=... (remembered), else VITE_DEMO_KEY.
 import { createApi } from './client'
 import { createMockFetch } from '../mock/server'
@@ -24,6 +25,7 @@ function remembered(param: string, storageKey: string): string | null {
 }
 
 function pickMode(): ApiMode {
+  if (!import.meta.env.DEV) return import.meta.env.VITE_API_MODE === 'mock' ? 'mock' : 'live'
   const v = remembered('api', 'sw.apiMode')
   if (v === 'live' || v === 'mock') return v
   return import.meta.env.VITE_API_MODE === 'mock' ? 'mock' : 'live'
@@ -42,4 +44,14 @@ function pickDemoKey(): string | null {
 
 export const apiMode: ApiMode = pickMode()
 const demoKey = pickDemoKey()
-export const api = createApi(apiMode === 'mock' ? createMockFetch() : (input, init) => fetch(input, init), { demoKey })
+
+/** Fires `unauthorized` when a request comes back 401 (signed out or session expired). */
+export const authEvents = new EventTarget()
+
+// Written so production builds drop the mock (and its fixtures) entirely.
+const useMock = (import.meta.env.DEV || import.meta.env.VITE_API_MODE === 'mock') && apiMode === 'mock'
+
+export const api = createApi(
+  useMock ? createMockFetch() : (input, init) => fetch(input, { credentials: 'include', ...init }),
+  { demoKey, onUnauthorized: () => authEvents.dispatchEvent(new Event('unauthorized')) },
+)
