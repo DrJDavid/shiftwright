@@ -7,6 +7,7 @@ import { ScheduleStats } from './ScheduleStats'
 import { SolveButton, type SolveState } from './SolveButton'
 import { SolveProgress } from './SolveProgress'
 import { DecisionsLink } from './DecisionsPanel'
+import { CapacityNote } from './CapacityNote'
 
 type Props = {
   config: StoreConfig
@@ -54,6 +55,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
     <div className="relative flex min-h-0 flex-1 flex-col">
       {solve.status === 'running' && <SolveProgress startedAt={solve.startedAt} coveragePct={coveragePct} />}
       <ScheduleStats schedule={schedule} validation={validation} employeeName={(id) => names.get(id) ?? id} demand={config.demand} />
+      {schedule.status !== 'infeasible' && <CapacityNote config={config} schedule={schedule} />}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule bg-panel px-4 py-2 text-xs text-ink-2">
         {config.roles.map((r) => (
           <span key={r.id} className="flex items-center gap-1.5">
