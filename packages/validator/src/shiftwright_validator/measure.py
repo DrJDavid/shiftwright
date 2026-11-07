@@ -136,48 +136,52 @@ def max_consecutive(ctx: Context, c: Constraint) -> list[Finding]:
     return findings
 
 
-def role_covered_slots(ctx: Context, role_id: str) -> set[int]:
-    """Week-minute starts of slots where at least one usable segment of `role_id` covers the slot."""
-    covered: set[int] = set()
-    slot = ctx.slot
+def role_covered_intervals(ctx: Context, role_id: str) -> list[tuple[int, int]]:
+    """Merged week-minute intervals where at least one usable segment of `role_id` is worked."""
+    raw = []
     for shift in ctx.usable:
         for seg in shift.segments:
             if seg.role_id != role_id:
                 continue
             start = max(seg.start, shift.start)
             end = min(seg.end, shift.end)
-            # first grid point at or after start
-            t = start + (-start) % slot
-            while t + slot <= end:
-                covered.add(week_minute(shift.day, t))
-                t += slot
-    return covered
+            if end > start:
+                raw.append((week_minute(shift.day, start), week_minute(shift.day, end)))
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(raw):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def always_staffed(ctx: Context, c: Constraint) -> list[Finding]:
+    """Uncovered stretches of each window, to the minute (a 10-min break is a 10-min gap)."""
     role_id = c.params.get("role_id")
     if not isinstance(role_id, str):
         return []
     use_staff_hours = c.params.get("windows") == "staff_hours"
     store = ctx.config.store
-    covered = role_covered_slots(ctx, role_id)
+    covered = role_covered_intervals(ctx, role_id)
     findings = []
     for hours in store.hours:
         lo, hi = hours.open, hours.close
         if use_staff_hours:
             lo, hi = lo - store.pre_open_minutes, hi + store.post_close_minutes
-        gap_start = None
+        base = week_minute(hours.day, 0)
         t = lo
-        while t < hi:
-            is_covered = week_minute(hours.day, t) in covered
-            if not is_covered and gap_start is None:
-                gap_start = t
-            if is_covered and gap_start is not None:
-                findings.append(_staffing_gap(role_id, hours.day, gap_start, t))
-                gap_start = None
-            t += ctx.slot
-        if gap_start is not None:
-            findings.append(_staffing_gap(role_id, hours.day, gap_start, hi))
+        for c_start, c_end in covered:
+            c_start, c_end = c_start - base, c_end - base
+            if c_end <= t or c_start >= hi:
+                continue
+            if c_start > t:
+                findings.append(_staffing_gap(role_id, hours.day, t, c_start))
+            t = max(t, c_end)
+            if t >= hi:
+                break
+        if t < hi:
+            findings.append(_staffing_gap(role_id, hours.day, t, hi))
     return findings
 
 

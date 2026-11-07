@@ -131,3 +131,21 @@ def test_california_needs_breaks_on_eight_hour_shifts():
                    RoleSegment(role_id="cashier", start=h("17:30"), end=h("19:00"))]
     remaining = [v for v in validate(config, sched).violations if v.start == h("11:00") and v.day == FRI]
     assert remaining == [], [v.message for v in remaining]
+
+
+def test_california_ten_minute_rest_breaks_on_five_minute_grid():
+    """Real CA pack: 10-min rest breaks off the 30-min slot grid (v1.1) satisfy CA.rest_break.1."""
+    config = load("CA")
+    sched = ws4_hand_schedule(config)
+    r1 = next(s for s in sched.shifts if s.id == "r1")  # Riley Fri 11:00-19:00
+    r1.breaks = [Break(start=h("13:00"), end=h("13:10"), kind="rest", paid=True),
+                 Break(start=h("15:00"), end=h("15:30"), kind="meal", paid=False),
+                 Break(start=h("17:05"), end=h("17:15"), kind="rest", paid=True)]
+    r1.segments = [RoleSegment(role_id="cashier", start=h("11:00"), end=h("13:00")),
+                   RoleSegment(role_id="cashier", start=h("13:10"), end=h("15:00")),
+                   RoleSegment(role_id="cashier", start=h("15:30"), end=h("17:05")),
+                   RoleSegment(role_id="cashier", start=h("17:15"), end=h("19:00"))]
+    report = validate(config, sched)
+    assert V.malformed not in {v.code for v in report.violations}
+    on_r1 = [v for v in report.violations if v.day == FRI and v.start == h("11:00")]
+    assert on_r1 == [], [v.message for v in on_r1]
