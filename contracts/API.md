@@ -36,7 +36,8 @@ Helper shapes (defined in `apps/api`, mirrored in TS by hand only for these):
 ```ts
 ImportPreview = { kind, columns: string[], proposed_mapping: Record<string,string|null>,
                   unmapped_required: string[], rows_preview: object[], row_count: number, warnings: string[],
-                  target_fields: string[], required_fields: string[] }   // v1.2: fields a column may map to / must map
+                  target_fields: string[], required_fields: string[],    // v1.2: fields a column may map to / must map
+                  required_any_of: {need: string, any_of: string[][]}[] }  // v1.4: a need is met when all fields of one alternative are mapped
 Readiness     = { ready: boolean, checks: {id: string, label: string, ok: boolean, detail: string}[] }
 OutreachState = { plan_id, status: "idle"|"texting"|"filled"|"exhausted",
                   current_rank: number|null, messages: (OutboundMessage|InboundMessage)[],
@@ -44,7 +45,8 @@ OutreachState = { plan_id, status: "idle"|"texting"|"filled"|"exhausted",
                   // v1.4
                   mode: "one_to_one"|"group_offer",          // = FixPlan.outreach_mode
                   wave: number, waiting_employee_ids: string[],
-                  premium: {status: "not_applicable"|"exempt"|"owed", law_rule_ids: string[], note: string} | null }
+                  premium: {status: "not_applicable"|"exempt"|"owed", law_rule_ids: string[], note: string,
+                            by_employee: {employee_id, premium_pay_dollars, law_rule_ids, note}[]} | null }
 ```
 
 Readiness checks (in order): store basics, jurisdiction resolved to a LawPack, roles exist,
