@@ -12,7 +12,8 @@
     "Exemptions (6-110-050(d)): (2) mutually agreed shift trade or coverage arrangement between covered employees; (3) change mutually agreed by employee and employer and confirmed in writing; (4) employee-requested change confirmed in writing (incl. sick leave). A call-in to cover an absent coworker that the employee accepts by text is exempt under (3); the employee who called out is exempt under (4) if the request is in writing. Employees may decline hours added with <14 days' notice (6-110-050(a)).",
     "'Writing' or 'written' = printed or printable communication incl. email, text message or computer system (MCC 6-110-020, https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2639928).",
     "Coverage (MCC 6-110-020): 'Employer' = 100+ employees globally (250+ for not-for-profits), 50 of whom are Covered Employees, primarily engaged in a Covered Industry (Retail is one); Restaurants need 30+ locations and 250+ employees globally. Covered Employee: majority of work time in Chicago, in a covered industry, and pay <= the indexed threshold ($26.00/h or $50,000/yr in the code; $33.85/h or $64,945.55/yr per chicago.gov for 2026).",
-    "Tipped minimum wage: max_tip_credit_per_hour 4.09 = $17.05 \u2212 $12.96 (chicago.gov, read 2026-11-07). Chicago's One Fair Wage ordinance phases the tip credit out by July 1, 2028 (not encoded; future steps need their published amounts)."
+    "Tipped minimum wage: max_tip_credit_per_hour 4.09 = $17.05 \u2212 $12.96 (chicago.gov, read 2026-11-07). Chicago's One Fair Wage ordinance phases the tip credit out by July 1, 2028 (not encoded; future steps need their published amounts).",
+    "applies_to='both': Covered Industries include Retail and Restaurants (MCC 6-110-020); Restaurants also need 30+ locations and 250+ employees globally."
   ],
   "rules": [
     {

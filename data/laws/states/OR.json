@@ -16,7 +16,8 @@
     "Schedule-change pay (ORS 653.455(2)): 1 h at the regular rate for adding >30 min, changing date/start/end with no loss of hours, or scheduling an additional shift/on-call shift; 1/2 x regular rate per scheduled hour not worked for subtracting hours, moving with loss of hours, cancelling, or an on-call shift not used. Changes of start/end by 30 minutes or less are exempt.",
     "Exceptions (653.455(3)): employee-initiated swaps/coverage between employees; employee written requests; voluntary standby list acceptances (653.432); (k) employer requests extra hours for unanticipated customer needs or unexpected employee absence, employee consents in writing, standby list exhausted first if one exists, and \u2014 if the employee is not working at the time \u2014 the request is a group communication (to all eligible employees, written or oral); an employee on shift may be asked individually (extensions).",
     "ORS 653.412-.485 do not define 'in writing'; BOLI lists text message as a notice method but the consent standard was not confirmed (OAR 839-026 not fetched), so text_message_counts_as_written=false (conservative).",
-    "Coverage (ORS 653.422): retail, hospitality or food-services establishments with 500+ employees worldwide (chains and integrated enterprises aggregated). ORS 653.490 preempts local scheduling laws."
+    "Coverage (ORS 653.422): retail, hospitality or food-services establishments with 500+ employees worldwide (chains and integrated enterprises aggregated). ORS 653.490 preempts local scheduling laws.",
+    "applies_to='both': retail, food services and hospitality (hotels/motels) establishments (ORS 653.412); hospitality not representable in applies_to yet."
   ],
   "rules": [
     {

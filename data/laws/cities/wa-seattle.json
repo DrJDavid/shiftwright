@@ -12,7 +12,8 @@
     "Exceptions (OLS Q&A \u00a7 I.1): employee-requested change documented in writing; employee shift swaps or coverage; voluntary acceptance of a written 'mass communication' (2+ employees) for hours another employee cannot work; voluntary acceptance of an 'in-person group communication' to 2+ currently working employees for unanticipated customer needs (consecutive hours, i.e. extensions); Access to Hours offers; documented discipline; emergencies.",
     "Call-out repair: a one-on-one call or text to a single employee is NOT exempt (Q&A \u00a7 I.10 Example 1: 1 hour owed). The mass-communication exception does not cover open shifts or hours other than the absent employee's actual hours, and never applies to sending someone home early. Engine keys: exemption_requires_group_message, exemption_min_recipients, exemption_only_for_absent_coworker_hours, exemption_message_must_state.",
     "Employees may decline any hours not on the originally posted schedule.",
-    "No tip credit: since January 1, 2025 small employers may no longer count tips toward minimum compensation (Seattle OLS minimum wage page); state law also forbids it (RCW 49.46.020(3)). No tipped_minimum_wage rule."
+    "No tip credit: since January 1, 2025 small employers may no longer count tips toward minimum compensation (Seattle OLS minimum wage page); state law also forbids it (RCW 49.46.020(3)). No tipped_minimum_wage rule.",
+    "applies_to='both': retail and food-service establishments (full-service restaurants need 40+ locations)."
   ],
   "rules": [
     {

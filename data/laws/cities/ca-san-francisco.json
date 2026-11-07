@@ -10,7 +10,8 @@
     "No SF rest-between-shifts rule recorded; California state meal/rest/OT rules apply.",
     "Predictability pay (L.E.C. \u00a7 42.4(c), OLSE FAQ \u00a7 d): owed for each scheduled shift the employer moves or cancels, or each unscheduled shift the employer requires, with less than 7 days' notice: 1 h (notice >= 24 h, any length); under 24 h: 2 h if the hours added or subtracted are 4 or less, 4 h if more (under_24h_tiers). For a moved shift the FAQ does not say which hours count; engine should use the moved shift's hours (conservative). Schedules are posted 2 weeks ahead.",
     "Exceptions (\u00a7 42.4(e)): emergencies/utilities/Act of God closing operations; another scheduled employee unable to work due to illness, vacation or employer-provided time off (no 7 days' notice); another employee failed to report, was sent home or disciplined; mandatory overtime; employee shift trades or employee-requested changes. So covering an absent coworker owes no predictability pay regardless of consent; voluntariness alone is NOT an exemption: encoded voluntary_additional_hours_exempt=true with exemption_only_for_absent_coworker_hours=true (no consent form needed; open shifts or demand-driven call-ins still owe pay).",
-    "Coverage: formula retail establishments with 40+ establishments worldwide and 20+ employees in San Francisco (plus their janitorial/security contractors)."
+    "Coverage: formula retail establishments with 40+ establishments worldwide and 20+ employees in San Francisco (plus their janitorial/security contractors).",
+    "applies_to='both': SF 'Formula Retail Use' includes Restaurant, Limited-Restaurant, Bar, Take-out Food and Eating and Drinking Use as well as retail sales (OLSE FRERO FAQ \u00a7 I), if the chain has 40+ establishments worldwide."
   ],
   "rules": [
     {
@@ -24,7 +25,7 @@
       "params": {
         "notice_days": 14,
         "change_premium_window_days": 7,
-        "applies_to": "retail",
+        "applies_to": "both",
         "applies_if_employees_over": 19,
         "employee_count_scope": "city",
         "min_locations": 40,
