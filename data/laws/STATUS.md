@@ -7,7 +7,7 @@
 - Resolver `shiftwright_laws.resolve(jurisdiction | state, city=None) -> LawPack` + acceptance tests (`uv run pytest data/laws`).
 - `python -m shiftwright_laws.coverage` prints the coverage table below.
 
-- Cities (`cities/_index.json`): Austin (no rules — Tex. Lab. Code § 1.005 preemption), Seattle, Chicago, Evanston, New York City, Philadelphia, San Francisco, Los Angeles, Berkeley, Emeryville. All predictive-scheduling ordinances from official city sources (high), except Evanston's predictability-pay hours (low, excluded by default).
+- Cities (`cities/_index.json`): Austin (no rules — Tex. Lab. Code § 1.005 preemption), Seattle, Chicago, Evanston, New York City, Philadelphia, San Francisco, Los Angeles, Berkeley, Emeryville. All predictive-scheduling ordinances from official city sources (high), except Emeryville (medium: city site blocked re-verification on 2026-11-07; exemptions not encoded). Premium params + call-in exemptions completed for all 10 Fair Workweek jurisdictions on 2026-11-07 (SEMANTICS #17; `tests/test_predictive_scheduling.py`).
 - Oregon statewide predictive scheduling + rest between shifts (BOLI, high).
 - All 48 remaining states + DC drafted from US DOL WHD tables (`medium`): minimum wage (table updated 2026-11-05), weekly/daily overtime, meal and rest periods (tables revised 2023-01-01). States with no such law say so in `notes`.
 
@@ -39,6 +39,10 @@
   - `premium_flat_dollars` (when set) replaces the hourly amount; `grace_minutes`: changes shorter than this cost nothing (Seattle 15).
   - coverage: `applies_if_employees_over` counted per `employee_count_scope` (`global`); `min_covered_employees` (Chicago 50); `covered_wage_max_hourly` / `covered_salary_max_annual` (Chicago: employees paid above are not covered).
   - exemptions: `voluntary_additional_hours_exempt`, `consent_must_be_written`, `text_message_counts_as_written`, `coworker_coverage_exempt` (shift trades/coverage between employees), `exemption_note`; Seattle-style conditions: `exemption_requires_group_message` (offer must go to `exemption_min_recipients`+ employees at once, not one-on-one), `exemption_only_for_absent_coworker_hours` (only the hours the absent employee can't work; not open shifts), `exemption_message_must_state` (list of statements the message must contain).
+  - more premium keys (2026-11-07): `moved_premium_per_attribute` (LA, Philadelphia: 1 h for EACH of date / time / location changed); `under_24h_tiers` (SF: list of `{max_changed_hours, premium_hours}`; first tier with changed hours ≤ max applies to any change with < 24 h notice, `null` max = no limit); `reduced_premium_hours_cap` (reduced premium = min(cap, fraction × hours)); `reduced_hours_measure` = `"scheduled_shift"` (Emeryville, Evanston: the cap compares against the shift's scheduled hours, i.e. min(4, scheduled hours) for any cut/cancel with < 24 h notice) — default is hours not worked; `post_deadline_grace_hours` (Philadelphia: changes within 24 h after the posting deadline are free); `min_local_employees` (Berkeley: 10+ in the city); `employee_count_scope` `"city"`/`"city_stores"` (SF, NYC).
+  - more exemption keys: `exemption_recipients` (`"all_qualified"` Philadelphia, `"all_eligible"` Oregon); `exemption_individual_ok_if_on_shift` (Oregon: an on-shift employee may be asked one-on-one, i.e. extensions; off-shift needs a group message); `standby_list_first` (Oregon: exhaust the voluntary standby list first); `coworker_absence_exempt` + `mandatory_overtime_exempt` (SF: covering an absent/no-show coworker is exempt even without consent).
+  - prohibition model (NYC retail, `premium_basis: "none"`): `cancel_or_reduce_prohibited_within_notice`, `added_hours_require_written_consent`, `consent_record_must_include`, `consent_deadline_minutes_after_start` (15) — violations, not premiums.
+  - `min_rest_between_shifts.consent_must_be_written` (Evanston).
   - older keys: `change_premium_hours_max`, `change_premium_window_days`, `changes_restricted_within_notice` + `on_call_prohibited` (NYC: prohibitions, no premium), `min_locations`.
 - `min_rest_between_shifts`: `premium_applies_to: "shift"` = whole next shift at the premium (Chicago, LA); absent = only hours inside the rest window. `premium_flat_dollars` (Philadelphia $40, `premium_multiplier: null`).
 - `minor_limits.max_days_week` (NY, FL, PA, MI, NJ, WA, MA, MO, WI: 6) and `minor_limits.max_avg_hours_day` (MI 16-17: 8) — informational; the validator does not check them yet.
@@ -100,7 +104,7 @@
 | NY | 1 | – | 1 | – | 4 | – | – | – | – | 1 | 10 |
 | OH | 1 | – | – | – | 3 | – | – | – | – | 1 | 9 |
 | OK | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
-| OR | 1 | – | 1 | 1 | 4 | – | 1 | 1 | – | 1 | 8 |
+| OR | 1 | – | 1 | 1 | 4 | – | 1 | 1 | – | 1 | 12 |
 | PA | 1 | – | – | – | 4 | – | – | – | – | 1 | 8 |
 | RI | 1 | – | 2 | – | 3 | – | – | – | – | 1 | 7 |
 | SC | – | – | – | – | – | – | – | – | – | – | 7 |
@@ -114,13 +118,13 @@
 | WI | 1 | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | WV | 1 | – | 1 | – | 2 | – | – | – | – | 1 | 6 |
 | WY | – | – | – | – | 2 | – | – | – | – | – | 7 |
-| ca-berkeley | – | – | – | – | – | – | 1 | 1 | – | 1 | 3 |
+| ca-berkeley | – | – | – | – | – | – | 1 | 1 | – | 1 | 5 |
 | ca-emeryville | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |
-| ca-los-angeles | – | – | – | – | – | – | 1 | 1 | – | 1 | 3 |
-| ca-san-francisco | – | – | – | – | – | – | – | 1 | – | 1 | 4 |
-| il-chicago | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |
-| il-evanston | – | – | – | – | – | – | – | 1 | – | – | 3 |
-| ny-new-york | – | – | – | – | – | – | – | 1 | – | 1 | 5 |
-| pa-philadelphia | – | – | – | – | – | – | 1 | 1 | – | – | 4 |
+| ca-los-angeles | – | – | – | – | – | – | 1 | 1 | – | 1 | 6 |
+| ca-san-francisco | – | – | – | – | – | – | – | 1 | – | 1 | 6 |
+| il-chicago | – | – | – | – | – | – | 1 | 1 | – | 1 | 7 |
+| il-evanston | – | – | – | – | – | – | 1 | 1 | – | – | 4 |
+| ny-new-york | – | – | – | – | – | – | – | 1 | – | 1 | 7 |
+| pa-philadelphia | – | – | – | – | – | – | 1 | 1 | – | – | 7 |
 | tx-austin | – | – | – | – | – | – | – | – | – | – | 4 |
-| wa-seattle | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |
+| wa-seattle | – | – | – | – | – | – | 1 | 1 | – | 1 | 7 |
