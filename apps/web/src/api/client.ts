@@ -15,6 +15,7 @@ import type {
   LoginRequest,
   Readiness,
   SignupRequest,
+  SolveProgress,
   SolveResponse,
   User,
   WorkplaceSummary,
@@ -91,6 +92,8 @@ export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
     readiness: (id: string) => json<Readiness>(`${s(id)}/readiness`),
     solve: (id: string, timeLimitS?: number) =>
       post<SolveResponse>(`${s(id)}/solve`, timeLimitS ? { time_limit_s: timeLimitS } : {}),
+    /** C4, optional: 404 on servers without it. */
+    solveProgress: (id: string) => json<SolveProgress>(`${s(id)}/solve/progress`),
     latestSchedule: (id: string) => json<SolveResponse>(`${s(id)}/schedule`),
     resolveLaw: (j: Jurisdiction) =>
       json<LawPack>(`/laws/resolve?state=${encodeURIComponent(j.state)}${j.city ? `&city=${encodeURIComponent(j.city)}` : ''}`),

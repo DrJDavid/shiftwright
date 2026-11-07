@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { Readiness } from '../api/protocol'
 import { setupSteps, type Check, type StepState } from '../lib/setupSteps'
 import { EquipmentReview } from './EquipmentReview'
+import { BuildProgressLine } from './BuildProgressLine'
 import { SolveButton, type SolveState } from './SolveButton'
 
 type Props = {
@@ -15,6 +16,8 @@ type Props = {
   plain?: (text: string) => string
   /** "Chicago, IL": the resolved-law check reads "Labor rules for Chicago, IL". */
   place: string
+  /** C4: coverage so far while a build runs, when the server reports it. */
+  coveragePct?: number | null
 }
 
 /** Without these the build has nobody to place or nothing to cover (PUNCHLIST B4 QA), so Build stays off. */
@@ -29,7 +32,7 @@ function listPhrase(items: string[]): string {
 }
 
 /** Setup mode's left rail: Business → Hours & budget → Team → Staffing → Rules → Build. */
-export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipment, plain = (t) => t, place }: Props) {
+export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipment, plain = (t) => t, place, coveragePct }: Props) {
   const steps = setupSteps(readiness)
   const detail = (c: Check) => (c.id === 'jurisdiction' && c.ok ? `Labor rules for ${place}` : plain(c.detail))
   const current = steps.find((s) => !s.done)?.id
@@ -57,6 +60,11 @@ export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipmen
       <div className="shrink-0 border-t border-rule px-4 py-3">
         {error && <p className="mb-2 text-xs text-gap">Couldn't check setup: {error}</p>}
         {!readiness && !error && <p className="mb-2 text-xs text-muted">Checking…</p>}
+        {solve.status === 'running' && (
+          <div className="mb-2">
+            <BuildProgressLine startedAt={solve.startedAt} coveragePct={coveragePct} />
+          </div>
+        )}
         {ready ? (
           <SolveButton state={solve} onSolve={onBuild} label="Build my schedule" />
         ) : (

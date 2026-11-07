@@ -37,6 +37,8 @@ type StoreState = {
   updatedAt: string
   /** A3 generated business: its CSV previews, cached until committed. */
   cached: Map<CsvImportKind, CachedImport>
+  /** C4: the running build's progress (GET /solve/progress). */
+  progress: { running: boolean; elapsed_s: number; coverage_pct?: number }
   tagsReviewed: boolean
 }
 
@@ -74,6 +76,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       sampleOf: null,
       updatedAt: new Date().toISOString(),
       cached: new Map(),
+      progress: { running: false, elapsed_s: 0 },
       tagsReviewed: false,
     }
     stores.set(config.store.id, st)
@@ -278,6 +281,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
             if (/build|solve|schedule/i.test(last)) {
               emit({ event: 'tool', data: { name: 'solve', status: 'start', summary: 'Building the week' } })
               st.latest = mockSolve(st.config)
+              st.latest.schedule.solver_stats = { ...st.latest.schedule.solver_stats, stop_reason: 'plateau' }
               emit({ event: 'tool', data: { name: 'solve', status: 'done', summary: 'Built the week' } })
               await say('Done. The schedule is in the Schedule tab.')
             } else {
@@ -347,9 +351,20 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       return ok(st.config)
     }
     if (rest === '/readiness') return ok(readiness(st))
+    if (rest === '/solve/progress' && method === 'GET') return ok(st.progress)
     if (rest === '/solve' && method === 'POST') {
-      if (latency) await sleep(latency * 3)
-      st.latest = mockSolve(st.config)
+      // C4: a few seconds of "still improving", coverage climbing toward the result, then stop on a plateau.
+      const started = Date.now()
+      const result = mockSolve(st.config)
+      const final = result.schedule.metrics?.coverage_pct ?? 0
+      const steps = latency ? 8 : 0
+      for (let i = 1; i <= steps; i++) {
+        st.progress = { running: true, elapsed_s: (Date.now() - started) / 1000, coverage_pct: Math.round(final * (0.6 + (0.4 * i) / steps)) }
+        await sleep(500)
+      }
+      st.progress = { running: false, elapsed_s: (Date.now() - started) / 1000 }
+      result.schedule.solver_stats = { ...result.schedule.solver_stats, stop_reason: 'plateau', total_s: (Date.now() - started) / 1000 }
+      st.latest = result
       return ok(st.latest)
     }
     if (rest === '/validate' && method === 'POST') {

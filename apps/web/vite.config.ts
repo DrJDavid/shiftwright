@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     server: {
-      proxy: { '/api': `http://localhost:${apiPort}` },
+      // C4 builds can run up to 90 s; keep the dev proxy from cutting them off.
+      proxy: { '/api': { target: `http://localhost:${apiPort}`, timeout: 120_000, proxyTimeout: 120_000 } },
       // The mock API seeds itself from WS4's fixtures in packages/scenarios/fixtures/.
       fs: { allow: ['.', '../../packages/scenarios/fixtures'] },
     },
