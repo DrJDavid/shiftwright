@@ -427,3 +427,45 @@ def test_seattle_one_to_one_plan_is_sent_one_to_one_and_owed(settings, fake_engi
         assert [b["employee_id"] for b in st.premium["by_employee"]] == _cashiers(cfg)
     finally:
         c.__exit__(None, None, None)
+
+
+def test_group_wave_keeps_both_when_shifts_differ(settings, fake_engine, monkeypatch):
+    """Two people offered DIFFERENT shifts in one group wave both say YES: both are booked, nobody gets 'filled'."""
+    times = {}
+
+    def fix_day(req, time_limit_s=8):
+        fake_engine.append(req)
+        cash = _cashiers(req.config)
+        times.setdefault(cash[0], (600, 840))
+        times.setdefault(cash[1], (900, 1140))
+        booked = {s.employee_id for s in req.schedule.shifts if s.id.startswith("s_")}
+        queue = []
+        for i, e in enumerate(x for x in cash if x not in booked and x not in req.declined_employee_ids):
+            a, b = times[e]
+            sh = Shift(id=f"s_{e}", employee_id=e, day=5, start=a, end=b,
+                       segments=[RoleSegment(role_id="cashier", start=a, end=b)])
+            queue.append(OutreachCandidate(rank=i + 1, employee_id=e, proposed_shift=sh, added_cost_dollars=64.0,
+                                           est_accept_prob=0.5, why="trained"))
+        s = req.schedule
+        return FixPlan(actions=[], outreach_queue=queue, schedule_if_all_accept=s, schedule_if_none_accept=s,
+                       coverage_before_pct=50.0, coverage_after_best_pct=100.0, coverage_after_worst_pct=50.0,
+                       outreach_mode=req.outreach_mode or "one_to_one")
+    monkeypatch.setattr(integrations, "fix_day", fix_day)
+    settings.mock_autoreply = "off"
+    c, sid, cfg = _client_in(settings, "WA", "seattle")
+    try:
+        rank1, rank2 = _cashiers(cfg)
+        _start(c, sid)
+        st = _wait(c, sid, lambda s: len(s.messages) >= 2)
+        assert st.mode == "group_offer" and {m.to_employee_id for m in st.messages} == {rank1, rank2}
+        phones = {m.to_employee_id: m.to_phone for m in st.messages}
+        c.post("/api/sms/mock-reply", json={"from_phone": phones[rank1], "body": "YES"})
+        st = _wait(c, sid, lambda s: rank1 in s.accepted_employee_ids)
+        assert st.status == "texting" and st.waiting_employee_ids == [rank2]  # rank2's shift is still open
+        c.post("/api/sms/mock-reply", json={"from_phone": phones[rank2], "body": "yes I can"})
+        st = _wait(c, sid, lambda s: s.status == "filled")
+        assert sorted(st.accepted_employee_ids) == sorted([rank1, rank2])
+        assert not any("filled" in m.body for m in st.messages if getattr(m, "to_employee_id", None))
+        assert sorted((s.employee_id, s.start) for s in st.schedule.shifts) == sorted([(rank1, 600), (rank2, 900)])
+    finally:
+        c.__exit__(None, None, None)
