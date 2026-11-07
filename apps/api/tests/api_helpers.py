@@ -73,7 +73,18 @@ def parse_sse(text: str) -> list[tuple[str, dict]]:
     return events
 
 
+def signup(client, email: str = "leader@example.com", password: str = "correct horse",
+           name: str = "Store Leader") -> dict:
+    """Create an account; the client keeps its `sw_session` cookie for later requests."""
+    r = client.post("/api/auth/signup", json={"email": email, "password": password, "name": name})
+    assert r.status_code == 200, r.text
+    return r.json()["user"]
+
+
 def make_store(client, **kw) -> dict:
+    """Signs the client up first if it has no session yet (auth is on in tests)."""
+    if not client.cookies.get("sw_session") and client.get("/api/auth/me").status_code == 401:
+        signup(client)
     body = {"name": "Store #0417", "jurisdiction": {"state": "TX", "city": "austin"}, **kw}
     r = client.post("/api/stores", json=body)
     assert r.status_code == 200, r.text

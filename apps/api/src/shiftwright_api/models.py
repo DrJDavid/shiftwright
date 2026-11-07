@@ -19,6 +19,21 @@ class CreateStoreRequest(BaseModel):
     jurisdiction: Optional[Jurisdiction] = None
 
 
+class SignupRequest(BaseModel):
+    email: str = Field(..., max_length=254, pattern=r"^\s*[^@\s]+@[^@\s]+\.[^@\s]+\s*$")
+    password: str = Field(..., min_length=8, max_length=256)
+    name: str = Field(..., max_length=100, pattern=r"\S")
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., max_length=256)
+
+
+class SampleRequest(BaseModel):
+    template: str = "demo"
+
+
 class ImportPreview(BaseModel):
     kind: ImportKind
     columns: list[str]

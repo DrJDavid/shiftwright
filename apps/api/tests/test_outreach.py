@@ -7,7 +7,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from api_helpers import tiny_config
+from api_helpers import signup, tiny_config
 from shiftwright_api import integrations
 from shiftwright_api.main import create_app
 from shiftwright_api.messenger import interpret_keywords, twilio_signature_valid
@@ -65,6 +65,7 @@ def fake_engine(monkeypatch):
 def oclient(settings, fake_engine):
     settings.outreach_timeout_s = 5
     with TestClient(create_app(settings=settings)) as c:
+        signup(c)
         sid = c.post("/api/stores", json={"name": "Store #0417", "jurisdiction": {"state": "TX"}}).json()["store"]["id"]
         cfg = tiny_config().model_copy(deep=True)
         cfg.store.id = sid
@@ -137,6 +138,7 @@ def test_fix_without_engine_is_503(settings):
     if hasattr(shiftwright_engine, "fix_day"):
         pytest.skip("real fix_day is available")
     with TestClient(create_app(settings=settings)) as c:
+        signup(c)
         sid = c.post("/api/stores", json={"name": "x", "jurisdiction": {"state": "TX"}}).json()["store"]["id"]
         c.post(f"/api/stores/{sid}/solve", json={})
         r = c.post(f"/api/stores/{sid}/fix", json={"callouts": [], "day": 5, "now": 300})
@@ -231,6 +233,7 @@ def test_text_rate_limit(oclient):
 
 def test_demo_key_guards_mutations(settings):
     settings.demo_key = "s3cret"
+    settings.auth_required = False  # DEMO_KEY only applies when accounts are off
     with TestClient(create_app(settings=settings)) as c:
         assert c.get("/api/health").json()["demo_key_required"] is True
         body = {"name": "x", "jurisdiction": {"state": "TX"}}
@@ -287,6 +290,7 @@ def auto_client(settings, fake_engine):
     settings.mock_autoreply = "script"
     settings.mock_reply_delay_s = 0.05
     with TestClient(create_app(settings=settings)) as c:
+        signup(c)
         sid = c.post("/api/stores", json={"name": "Store #0417", "jurisdiction": {"state": "TX"}}).json()["store"]["id"]
         cfg = tiny_config().model_copy(deep=True)
         cfg.store.id = sid
@@ -346,6 +350,7 @@ def _client_in(settings, state, city):
     settings.outreach_timeout_s = 5
     c = TestClient(create_app(settings=settings))
     c.__enter__()
+    signup(c)
     sid = c.post("/api/stores", json={"name": "Store", "jurisdiction": {"state": state}}).json()["store"]["id"]
     cfg = tiny_config().model_copy(deep=True)
     cfg.store.id = sid

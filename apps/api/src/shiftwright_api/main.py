@@ -25,7 +25,7 @@ from shiftwright_contracts.models import (
     ValidationReport,
 )
 
-from . import equipment, imports, integrations, predictive, readiness, templates
+from . import auth, equipment, imports, integrations, predictive, readiness, templates
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
@@ -41,6 +41,7 @@ from .models import (
     ImportPreview,
     OutreachState,
     Readiness,
+    SampleRequest,
     SolveRequest,
 )
 from .outreach import OutreachBusy, OutreachManager
@@ -80,7 +81,10 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
                                          settings.max_texts_per_store_hour, autoreply=settings.mock_autoreply,
                                          reply_delay_s=settings.mock_reply_delay_s, seed=settings.mock_seed)
 
-    if settings.demo_key:
+    if settings.auth_required and not settings.auth_secret:
+        startup_warnings.append("AUTH_SECRET is not set; session digests use an empty HMAC key.")
+
+    if settings.demo_key and not settings.auth_required:
         @app.middleware("http")
         async def require_demo_key(request: Request, call_next):
             path = request.url.path
@@ -92,6 +96,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     def db() -> Database:
         return app.state.db
+
+    auth.install(app, settings, db)
 
     def load(store_id: str) -> StoreConfig:
         try:
@@ -109,14 +115,19 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             "model": settings.agent_model,
             "llm_configured": bool(settings.openrouter_api_key) or llm is not None,
             "stubs": integrations.active_stubs(),
-            "demo_key_required": bool(settings.demo_key),
+            "demo_key_required": bool(settings.demo_key) and not settings.auth_required,
+            "auth_required": settings.auth_required,
             "mock_autoreply": app.state.outreach.autoreply,
             "warnings": startup_warnings,
         }
 
     # ---------------------------------------------------------------- stores
+    def owner_id(request: Request) -> Optional[str]:
+        user = auth.current_user(request)
+        return user["id"] if user else None
+
     @app.post("/api/stores", response_model=StoreConfig)
-    def create_store(req: CreateStoreRequest) -> StoreConfig:
+    def create_store(req: CreateStoreRequest, request: Request) -> StoreConfig:
         if templates.is_fixture(req.template):
             try:
                 cfg = templates.from_fixture(req.template)
@@ -126,11 +137,28 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
         else:
             cfg = templates.build(req.template, req.name, req.jurisdiction)
-        return db().create_store(cfg, actor="leader")
+        return db().create_store(cfg, actor="leader", owner_id=owner_id(request))
 
     @app.get("/api/templates")
     def list_templates() -> dict:
         return {"templates": templates.available()}
+
+    @app.get("/api/workplaces")
+    def list_workplaces(request: Request) -> dict:
+        return {"workplaces": db().workplaces(auth.require_user(request)["id"])}
+
+    @app.post("/api/workplaces/sample", response_model=StoreConfig)
+    def sample_workplace(req: SampleRequest, request: Request) -> StoreConfig:
+        """A private copy of a demo store, named "Sample: …"; edits never touch the template or other copies."""
+        user = auth.require_user(request)
+        if not templates.is_fixture(req.template):
+            raise HTTPException(422, f"Samples come from demo templates (demo, tiny, demo_<city>), not {req.template!r}.")
+        try:
+            cfg = templates.from_fixture(req.template)
+        except templates.TemplateUnavailable as e:
+            raise HTTPException(422, str(e))
+        cfg.store.name = f"Sample: {cfg.store.name}"
+        return db().create_store(cfg, actor="leader", owner_id=user["id"], sample_of=req.template)
 
     @app.get("/api/stores/{store_id}/config", response_model=StoreConfig)
     def get_config(store_id: str) -> StoreConfig:
