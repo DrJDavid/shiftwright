@@ -86,7 +86,13 @@ export type CsvImportResult = { committed: boolean; rows: number } | { mapping: 
 /** v1.5: protective tags on roles that minors are trained for; the manager keeps or removes each. */
 export type ConfirmTagsProps = { roles: { role_id: string; name: string; tags: string[]; minors_trained: string[] }[]; note: string }
 export type ConfirmTagsResult = { decisions: Record<string, 'keep' | 'remove'> }
-export type ProposeRuleProps = { constraint: Constraint; evidence: string; plain_text: string }
+export type ProposeRuleProps = {
+  constraint: Constraint
+  evidence: string
+  plain_text: string
+  /** What the card preselects: the agent's reading of their words (firm when the wording is absolute). */
+  suggested?: 'firm' | 'strong_preference' | 'preference' | null
+}
 export type ProposeRuleResult = { decision: 'hard' | 'soft' | 'not_a_rule'; weight_dollars?: number }
 export type TradeoffOption = { id: string; label: string; cost_dollars: number; effect: string }
 export type TradeoffProps = { question: string; options: TradeoffOption[] }

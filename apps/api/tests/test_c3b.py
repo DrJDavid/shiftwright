@@ -227,3 +227,22 @@ def test_agent_build_becomes_the_schedule_the_leader_sees(client, fake_llm, buil
     assert r.status_code == 200 and r.json()["schedule"]["solver_stats"]["tradeoffs"] == items
     tool = json.loads([m for m in fake_llm.calls[-1] if m["role"] == "tool"][0]["content"])
     assert tool["saved"] is True
+
+
+@pytest.mark.parametrize("agent,wording,want", [
+    (None, "nobody does more than 10 hours in a day", "firm"),
+    ("strong_preference", "There always has to be a leader on duty", "firm"),  # absolute wording wins
+    ("strong_preference", "I hate clopens. Try to give people 10 hours", "strong_preference"),
+    (None, "Ira likes being on drive up, put them there when you can", "preference"),
+    ("preference", "Sam and Jo split closes", "preference"),
+    (None, "Sam and Jo split closes", None),
+])
+def test_rule_card_suggests_strength_from_their_words(agent, wording, want):
+    assert rules.suggest_level(agent, wording) == want
+
+
+def test_propose_rule_card_carries_the_suggestion(client):
+    ctx, cfg = _ctx(client)
+    out = T.propose_rule(ctx, {"constraint": {"kind": "max_shift_length", "params": {"minutes": 600}},
+                               "level": "strong_preference", "evidence": 'You said "nobody does more than 10 hours in a day."'})
+    assert out.props["suggested"] == "firm"

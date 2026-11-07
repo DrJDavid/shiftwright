@@ -6,6 +6,8 @@ set aside at solve time with a note instead of failing the build.
 """
 from __future__ import annotations
 
+import re
+
 from typing import Optional
 
 from shiftwright_contracts.models import StoreConfig
@@ -43,6 +45,37 @@ def level_of(strength: Optional[str], weight: Optional[float] = None) -> str:
     if strength == "hard":
         return "firm"
     return "strong_preference" if (weight or 0) >= STRENGTHS["strong_preference"][2] else "preference"
+
+
+_FIRM_WORDS = re.compile(
+    r"\b(never|nobody|no one|no-one|always|must|has to|have to|can'?t|cannot|no more than|at least|not allowed|"
+    r"under no circumstances|not ever|only ever)\b", re.I)
+_STRONG_WORDS = re.compile(r"\b(really try|whenever possible|as much as possible|do (our|your) best|hate)\b", re.I)
+_PREF_WORDS = re.compile(r"\b(prefer|prefers|try to|when you can|if possible|likes?|ideally)\b", re.I)
+
+
+def level_from_words(text: str) -> Optional[str]:
+    """The strength their wording implies (core rule 3), or None when it doesn't say."""
+    if not text:
+        return None
+    if _FIRM_WORDS.search(text):
+        return "firm"
+    if _STRONG_WORDS.search(text):
+        return "strong_preference"
+    if _PREF_WORDS.search(text):
+        return "preference"
+    return None
+
+
+def suggest_level(agent_level: Optional[str], wording: str) -> Optional[str]:
+    """What the rule card preselects: the agent's reading, except that absolute wording always suggests firm
+    (the protective reading). None: nothing preselected."""
+    words = level_from_words(wording)
+    if words == "firm":
+        return "firm"
+    if agent_level in STRENGTHS:
+        return agent_level
+    return words
 
 
 def set_level(c: dict, level: str) -> None:

@@ -42,3 +42,21 @@ describe('ProposeRuleCard (C3: words, not dollars)', () => {
     expect(sent).toEqual([expected])
   })
 })
+
+describe('ProposeRuleCard preselects what their words said', () => {
+  it('starts on the suggested strength, marks it, and still lets them pick another', () => {
+    const sent: unknown[] = []
+    render(<ProposeRuleCard props={{ ...(props as object), suggested: 'firm' } as never} status="open" onSubmit={(r) => sent.push(r)} onCancel={() => {}} />)
+    const firm = screen.getByLabelText(/^Firm rule/) as HTMLInputElement
+    expect(firm.checked).toBe(true)
+    expect(screen.getByText('Suggested from what you said')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText(/^Preference/))
+    fireEvent.submit(firm.closest('form')!)
+    expect(sent).toEqual([{ decision: 'soft', weight_dollars: 25 }])
+  })
+
+  it('preselects nothing when there is no suggestion', () => {
+    card()
+    expect(screen.getAllByRole('radio').some((r) => (r as HTMLInputElement).checked)).toBe(false)
+  })
+})
