@@ -173,3 +173,23 @@ def test_new_turn_supersedes_a_parked_card(live_server, disconnect):
     tool_results = [m for m in llm.calls[-1] if m["role"] == "tool"]
     assert len(tool_results) == 1 and '"cancelled": true' in tool_results[0]["content"]
     assert [m["content"] for m in llm.calls[-1] if m["role"] == "user"] == ["budget", "hi"]
+
+
+def test_accept_prefill_headless(client, fake_llm):
+    fake_llm.script([call("ask_payroll", prefill={"weekly_hours_cap": 640}),
+                     call("propose_rule", constraint={"kind": "min_shift_length", "params": {"minutes": 240},
+                                                      "strength": "hard"}),
+                     say("done")])
+    sid = make_store(client)["store"]["id"]
+    events = parse_sse(client.post(f"/api/stores/{sid}/chat?auto_cards=accept_prefill", json={
+        "mode": "onboard", "messages": [{"role": "user", "content": "x"}]}).text)
+    assert events[-1] == ("done", {})
+    cfg = client.get(f"/api/stores/{sid}/config").json()
+    assert cfg["budget"]["weekly_hours_cap"] == 640
+    assert cfg["constraints"][0]["status"] == "confirmed" and cfg["constraints"][0]["strength"] == "hard"
+    # same via card_script {"*": "accept_prefill"}, with a per-type override taking precedence
+    fake_llm.script([call("ask_payroll", prefill={"weekly_hours_cap": 700}), say("ok")])
+    client.post(f"/api/stores/{sid}/chat?auto_cards=scripted", json={
+        "mode": "onboard", "messages": [{"role": "user", "content": "y"}],
+        "card_script": {"*": "accept_prefill", "payroll": [{"weekly_hours_cap": 650}]}})
+    assert client.get(f"/api/stores/{sid}/config").json()["budget"]["weekly_hours_cap"] == 650

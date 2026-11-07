@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~10:15 CT_
+_Last updated: 2026-11-07 ~09:20 CT (main 590d4c1)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -44,7 +44,7 @@ _Last updated: 2026-11-07 ~10:15 CT_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 77 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 78 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -338,6 +338,27 @@ _Last updated: 2026-11-07 ~10:15 CT_
   **Taqueria**: ready in 4 owner turns, 20 calls, ≈0.95M chars, 100 s; one confirm_tags card covered line cook +
   bartender; the agent cited US.minor_prohibited_roles.7 (after lookup_law) and suggested training Tommy (15) on
   prep/dishwasher; solve put no minor on a tagged role. Engine/validator tipped-pay `metrics_mismatch` persists (WS1).
+
+**Done (headless accept_prefill, deployed smoke):**
+- **Neutral headless manager** (for WS5; shape for API.md): `POST /chat?auto_cards=accept_prefill`, or
+  `auto_cards=scripted` with `card_script: {"*": "accept_prefill", <card_type>: [result, ...]}`. Per-type scripted
+  results are used first; any other card is submitted unchanged: store_basics/payroll = props as shown
+  (minus id/week_start/approvals), roles = {departments, roles}, training_matrix = current trained roles,
+  coverage_grid = prefill, department_staffing = `suggested`, events = props.events, propose_rule = the agent's
+  proposed strength (soft: its weight_dollars), tradeoff/conflict_menu = first option, confirm_tags = keep all,
+  employee_availability = parsed; csv_import (no file headless) = cancelled.
+- `/api/templates` lists `demo_restaurant` (Harbor Grill #12, Chicago, 'load_demo_store("restaurant")') and
+  `restaurant_small` (verified locally and on the deployed app).
+- **Bug found by the deployed smoke, fixed:** after the first decline, re-fixes planned against the saved
+  schedule that already had the plan's actions applied, so fix_day sometimes returned an empty queue and the
+  outreach ended "exhausted" with one text. Re-fixes now plan against the posted schedule + booked call-ins.
+- **Deployed smoke** (https://shiftwright-production.up.railway.app, contract 1.5.0, mock + scripted replies 4 s,
+  running main 590d4c1, i.e. before this fix): demo — solve 25.1 s (210 shifts, 95.0%), fix 1.9 s, outreach
+  **exhausted** after one decline (the bug above); demo_chicago — solve 26.8 s (181 shifts, 90.0%), fix 2.7 s
+  (10 in queue), filled in 53.6 s, 7 call-ins, every text "Accepting is voluntary…", premium exempt
+  (IL.chicago.predictive_scheduling.1), saved validation passed; demo_restaurant — solve 22.5 s (140 shifts,
+  94.4%), fix 0.6 s (2 in queue), filled in 13.2 s (decline → question → yes), premium exempt, validation passed.
+  No call-out shifts after `now` in any saved schedule.
 
 **Next:** re-run the Seattle what-if once WS1 honours `FixRequest.outreach_mode` (expect a group_offer thread).
 

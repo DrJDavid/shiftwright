@@ -534,7 +534,7 @@ def test_moved_shift_is_reoffered_and_old_yes_ignored(settings, fake_engine, mon
         c.__exit__(None, None, None)
 
 
-def test_fix_apply_saves_none_accept_schedule_with_recomputed_metrics(oclient, monkeypatch):
+def test_fix_apply_saves_none_accept_schedule_with_recomputed_metrics(oclient, fake_engine, monkeypatch):
     c, sid, cfg = oclient
     real = integrations.fix_day
     marker = Shift(id="a_extend", employee_id=_cashiers(cfg)[0], day=5, start=600, end=840,
@@ -552,3 +552,8 @@ def test_fix_apply_saves_none_accept_schedule_with_recomputed_metrics(oclient, m
     assert body["schedule"]["metrics"]["total_hours"] == 4.0 and body["validation"]["passed"]
     st = OutreachState.model_validate(c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]}).json())
     assert [s.id for s in st.schedule.shifts] == ["a_extend"]  # outreach builds on the applied plan
+    st = _wait(c, sid, lambda s: s.current_rank == 1)
+    c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "no"})
+    _wait(c, sid, lambda s: len(s.messages) >= 3)
+    # re-fixes plan against the posted schedule (+ booked call-ins), not the one with actions already applied
+    assert "a_extend" not in {x.id for x in fake_engine[-1].schedule.shifts}

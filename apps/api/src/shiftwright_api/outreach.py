@@ -80,6 +80,8 @@ class Run:
     task: Optional[asyncio.Task] = None
     auto_tasks: dict = field(default_factory=dict)  # phone -> simulated reply task (mock messenger)
     policy: Optional[predictive.Policy] = None
+    posted: Optional[Schedule] = None  # the schedule fix_day planned against (re-fixes use it + booked shifts)
+    booked: list = field(default_factory=list)  # call-in shifts accepted so far
     texted: int = 0  # how many people this run has texted (drives the scripted demo replies)
 
 
@@ -173,7 +175,7 @@ class OutreachManager:
         schedule = await asyncio.to_thread(self.apply_plan, store_id, plan_id)
         run = Run(store_id=store_id, plan_id=plan_id, plan=plan,
                   callouts=[CallOut.model_validate(c) for c in saved["callouts"]], day=saved["day"],
-                  now=saved["now"], schedule=schedule,
+                  now=saved["now"], schedule=schedule, posted=Schedule.model_validate(saved["schedule"]),
                   state=OutreachState(plan_id=plan_id, status="texting", schedule=schedule))
         mode = plan.outreach_mode or "one_to_one"  # SEMANTICS #17: send in the plan's mode
         try:
@@ -318,6 +320,7 @@ class OutreachManager:
 
     async def _accept(self, run: Run, config: StoreConfig, cand: OutreachCandidate) -> list[OutreachCandidate]:
         run.state.accepted_employee_ids.append(cand.employee_id)
+        run.booked.append(cand.proposed_shift)
         run.schedule, report = await asyncio.to_thread(self._commit_shift, config, run.schedule, cand)
         run.state.schedule = run.schedule
         self.db.save_schedule(run.store_id, run.schedule, report)
@@ -432,7 +435,11 @@ class OutreachManager:
         return validated(config, sched)
 
     async def _refix(self, run: Run, config: StoreConfig) -> list[OutreachCandidate]:
-        req = FixRequest(config=with_law_pack(config), schedule=run.schedule, callouts=run.callouts, day=run.day,
+        # plan against the same posted schedule as the first fix, plus the call-ins booked so far (the saved
+        # schedule already has the plan's actions applied; planning on it would count them twice)
+        base = run.posted or run.schedule
+        planned = base.model_copy(update={"shifts": list(base.shifts) + list(run.booked)}) if run.posted else base
+        req = FixRequest(config=with_law_pack(config), schedule=planned, callouts=run.callouts, day=run.day,
                          now=run.now, declined_employee_ids=list(run.declined),
                          outreach_mode=(run.policy.mode if run.policy else None))
         plan = await asyncio.to_thread(integrations.fix_day, req)
