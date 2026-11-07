@@ -12,8 +12,8 @@ which days, start, end, how many), the way leaders write it in a spreadsheet.
 
 **Importer support:**
 - Per-day file: **works**. All columns auto-map; readiness green; solve 94.0% coverage, validator passed.
-- Day ranges: **needs conversion.** `Days` maps to day, but every row is skipped
-  ("bad date 'Mon-Thu'"), so no demand at all. Spec 2 in `../README.md`.
+- Day ranges: **needs conversion.** `Days` isn't proposed for day ("Still needed: day"). Mapped by
+  hand, every row is skipped ("bad date 'Mon-Thu'"), so no demand at all. Spec 2 in `../README.md`.
 - Second import (e.g. `truck_override.csv` after the plan): today it **replaces the whole plan**, so
   only trucks remain. Spec 0: replace only Truck Unload on Tue/Thu/Sat.
 

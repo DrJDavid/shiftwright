@@ -12,8 +12,7 @@ the format a Target-style store actually lives by.
 The hours are the per-slot truth summed by department (e.g. normal week: 949.0 h, FRONT END 257.0 h).
 
 **Importer support: unsupported.** As a Workload forecast the preview says "Still needed: role, day,
-start, headcount" and the commit is refused (422). `labor_model.csv` gets `Window Start` proposed as
-*day* (the substring "dow" in "window").
+start, headcount" and the commit is refused (422). `labor_model.csv` maps `Window Start`/`End` to start/end but still lacks day and headcount (422).
 
 **Wanted (Spec 3 in `../README.md`):** import `labor_model` then `labor_hours`; each department-day's
 hours split by share, turned into headcount-slots (round half up) and spread evenly over the role's

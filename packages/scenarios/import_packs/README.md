@@ -23,7 +23,8 @@ look employees up by ID, so the roster must come first).
 
 ```
 uv run python packages/scenarios/import_packs/build.py          # rewrite the CSVs (deterministic)
-uv run pytest packages/scenarios/import_packs -rxX              # ~50 s: 3 real solves at 20 s limit
+uv run pytest packages/scenarios/import_packs -rxX              # ~2 min (8 real solves, marked slow)
+uv run pytest packages/scenarios/import_packs -m "not slow"     # ~6 s, no solves
 uv run python packages/scenarios/import_packs/packs_harness.py  # human-readable run per pack
 ```
 
@@ -45,6 +46,8 @@ sending just `rows_preview` like `CsvImportCard` → PUT payroll cap + prioritie
 Clean pack with no priorities step: readiness **ready**, solve returns 0 shifts / 0% coverage, validator passed.
 
 ## Importer bugs / limitations found (for WS6; none worked around in the packs)
+
+_Update: WS6 fixed these in efa3797 (all 17 slice-1 xfails now pass); the list is kept as the record._
 
 Safety / correctness first:
 
