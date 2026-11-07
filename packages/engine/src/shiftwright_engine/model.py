@@ -22,6 +22,7 @@ class SoftTerm:
     kind: str
     employee_id: Optional[str]
     note: str = ""
+    dollars_per: Optional[float] = None  # exact $ per unit for reporting (else units_per / SCALE)
 
 
 @dataclass
@@ -147,10 +148,10 @@ class Builder:
         weekly_ot = {}
         paid_by_emp: dict[str, list] = {}
         for c in cands:
-            paid_by_emp.setdefault(c.emp, []).append((y[c.idx], c.paid_min))
+            paid_by_emp.setdefault(c.emp, []).append((y[c.idx], c.paid_min, c.daily_ot_min))
         for eid, terms in paid_by_emp.items():
             e = p.emps[eid]
-            total = sum(v * m_ for v, m_ in terms)
+            total = sum(v * m_ for v, m_, _ in terms)
             for cap, bucket, ident in p.effective_max_minutes(e):
                 g = self.guard("other" if bucket == "employee" else "law", ident)
                 if g:  # filtering already enforces it without assumptions; keep it explicit here
@@ -160,7 +161,7 @@ class Builder:
             if p.weekly_ot is not None and p.cfg.budget.overtime_allowed:
                 thr = int(p.weekly_ot.params["threshold_hours"] * 60)
                 ot = m.new_int_var(0, 7 * DAY, f"ot[{eid}]")
-                m.add(ot >= total - thr)
+                m.add(ot >= total - sum(v * d_ for v, _, d_ in terms) - thr)
                 weekly_ot[eid] = ot
 
         # --- rest between shifts (always no overlap; plus rules) ------------------
@@ -184,9 +185,10 @@ class Builder:
                 if strength == Strength.hard:
                     m.add(start_n - end_d >= minutes).only_enforce_if([w, nxt] + self.guard(bucket, ident))
                 elif not self.assume:
-                    viol = m.new_bool_var("")
-                    m.add(start_n - end_d >= minutes).only_enforce_if([w, nxt, viol.Not()])
-                    soft.append(SoftTerm(viol, money(weight), 1.0, ident, con.kind.value, eid))
+                    miss = m.new_int_var(0, minutes, "")  # minutes of rest missing ($/hour missing)
+                    m.add(start_n - end_d + miss >= minutes).only_enforce_if([w, nxt])
+                    soft.append(SoftTerm(miss, money(weight / 60), 1 / 60, ident, con.kind.value, eid,
+                                         dollars_per=weight / 60))
 
         days = sorted(p.windows)
         for con in p.constraints:
@@ -226,7 +228,7 @@ class Builder:
                     need = int(round(e.min_hours_week * 60))
                     if need <= 0:
                         continue
-                    total = sum(v * mm for v, mm in paid_by_emp.get(eid, [])) + self._zero
+                    total = sum(v * mm for v, mm, _ in paid_by_emp.get(eid, [])) + self._zero
                     if hard:
                         self.add(total >= need, g)
                     else:
@@ -273,7 +275,13 @@ class Builder:
                     while t < hi:
                         a = d * DAY + t
                         terms = cov.get((rid, a), [])
-                        self.add(sum(terms) + self._zero >= 1, g)
+                        if hard:
+                            self.add(sum(terms) + self._zero >= 1, g)
+                        else:
+                            unc = m.new_bool_var("")
+                            m.add(sum(terms) + unc >= 1)
+                            soft.append(SoftTerm(unc, money(con.weight_dollars * slot_h), slot_h, con.id, k.value,
+                                                 None, dollars_per=con.weight_dollars * slot_h))
                         t += p.slot
             elif k == ConstraintKind.preferred_role:
                 eid, rid = con.params.get("employee_id"), con.params.get("role_id")
@@ -288,6 +296,23 @@ class Builder:
                         soft.append(SoftTerm(v, money(con.weight_dollars * slot_h), slot_h, con.id, k.value, eid))
             # min/max_shift_length: applied in candidate generation (hard only).
             # week_stability: not yet modeled (see STATUS.md).
+
+        # --- soft shift length ($/hour short or over), per candidate ----------------
+        if not self.assume:
+            for con in p.constraints:
+                if con.strength != Strength.soft or con.kind not in (ConstraintKind.min_shift_length,
+                                                                     ConstraintKind.max_shift_length):
+                    continue
+                lim = int(con.params["minutes"])
+                for c in cands:
+                    if not p.applies(con, c.emp):
+                        continue
+                    length = c.end - c.start
+                    dev = (lim - length) if con.kind == ConstraintKind.min_shift_length else (length - lim)
+                    if dev > 0:
+                        h = dev / 60
+                        soft.append(SoftTerm(y[c.idx], money(con.weight_dollars * h), h, con.id, con.kind.value,
+                                             c.emp, dollars_per=con.weight_dollars * h))
 
         # --- budget -----------------------------------------------------------------
         b = p.cfg.budget

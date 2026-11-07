@@ -13,13 +13,23 @@
 - Acceptance tests on WS4's `tiny_store.json` + WS3's resolved TX pack (and the CA pack for breaks/OT): optimal < 2 s (actual ~0.2 s), no-trained
   gaps with full penalty and empty reasons, one reason per trained cashier, minor never on PIT,
   10 h budget cap, approvals raise the cap, contradictory hard set → infeasible with the id,
-  provisional rules ignored. `tests/selfcheck.py` is a small independent hard-rule checker used
-  until WS2's validator lands.
+  provisional rules ignored. `tests/test_validator_agreement.py` runs WS2's `validate()` on 6 cases
+  (TX, CA, tight budgets, soft rules + overtime allowed): 0 hard violations, every recomputed
+  metric equal to the engine's. `tests/selfcheck.py` is an older small independent checker.
+- Metrics follow `contracts/requests/ws2-validator-semantics.md`: coverage 0–100; OT premium in
+  `total_wage_cost`; daily OT removed before weekly OT (no double count); churn tiebreak not reported.
 
 **In progress:**
 - Demo-scale performance. Synthetic 60-staff/7-day store (`engine_fixtures.demo_like_store`):
   92k candidate shifts; 30 s gives ~10% gap, 90 s ~3.5%. Target is <30 s with ≤1% gap. Working on it.
-- `fix_day` (M2) — not implemented yet (raises ImportError if called).
+- `fix_day` (M2) — not implemented yet and NOT exported from `shiftwright_engine` (the API detects
+  it by import, so don't export a placeholder).
+
+**Seam note for the coordinator:** with the real engine merged, 2 tests in
+`apps/api/tests/test_outreach.py` fail (`test_decline_then_accept`, `test_question_is_forwarded_and_keeps_waiting`).
+Their fake `fix_day` returns an empty queue whenever `req.schedule.shifts` is non-empty; before the
+engine landed `/solve` returned no shifts. Fix belongs in apps/api (e.g. track accepted ids from
+the outreach state, or monkeypatch `integrations.solve_week` too). Not an engine bug.
 
 **Blocked on:**
 - Nothing. (Rebased onto main afa0323; tests use tiny_store.json + `shiftwright_laws.resolve`.)
@@ -31,8 +41,8 @@
     it ENDS by `latest_start_minute_of_shift` (midpoint if null); the engine also tries the meal 1 h
     and 2 h earlier so overlapping shifts can cover each other. `waivable_under_minutes` ignored
     (we never assume a waiver).
-  - rest: round-half-up(length / `per_minutes_worked`) breaks ("major fraction" — the more
-    protective reading), none if length < `not_required_under_minutes`; evenly spaced.
+  - rest: floor(span / `per_minutes_worked`), and at least 1 when span ≥ `not_required_under_minutes`
+    (WS2 #6); evenly spaced.
   - Break durations are rounded UP to the slot size (contract requires slot-aligned times), e.g. a
     10-min rest break becomes 30 min at 30-min slots.
   - If several rest rules exist, the one with the smallest `per_minutes_worked` is used.
@@ -47,8 +57,12 @@
   `latest_end_before_non_school_day` unused (we use `latest_end`, the stricter one).
 - `minor_prohibited_roles` and `Role.min_age` block the role; reason code `minor_rule`.
 - Overtime: if `overtime_allowed=False`, weekly paid hours ≤ weekly OT threshold and shift paid hours
-  ≤ daily OT threshold. If allowed, premium = (multiplier−1)×wage per OT hour, daily and weekly
-  both counted (may pyramid; conservative).
+  ≤ daily OT threshold. If allowed, premium = (multiplier−1)×wage per OT hour; daily OT first, weekly
+  OT on the remaining hours; above `double_threshold_hours` paid 2×.
+- Soft units (WS2 #11): min_rest $/hour missing; min/max shift length $/hour short/over (only for
+  lengths the candidate grid generates: hard bounds, else defaults 180–600); always_staffed $/uncovered
+  hour; days/consecutive days $/extra day; fair_spread $/excess shift; preferred_role $/hour worked in
+  another role; not_together $/overlapping on-shift hour; min_hours_week $/hour short.
 - Overlapping `DemandRequirement`s for the same role/slot are SUMMED (WS4 fixtures never overlap,
   so this matches their per-slot reading there).
 - `coverage_pct` is 0–100 (covered headcount-hours / required, capped per slot at demand).

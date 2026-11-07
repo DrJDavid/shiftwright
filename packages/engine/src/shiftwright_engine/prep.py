@@ -194,11 +194,11 @@ def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0) -> Optio
     r = p.rest_rule
     if r is not None:
         per = int(r.params["per_minutes_worked"])
-        # "per X minutes worked": round half up (a major fraction earns a break), which is the
-        # more protective reading; none below `not_required_under_minutes` if given.
-        n = (length + per // 2) // per if per > 0 else 0
-        if length < int(r.params.get("not_required_under_minutes") or 0):
-            n = 0
+        # floor(span / per), and at least 1 at or above `not_required_under_minutes` (WS2 semantics #6).
+        n = length // per if per > 0 else 0
+        nru = r.params.get("not_required_under_minutes")
+        if nru is not None and length >= int(nru):
+            n = max(n, 1)
         dur = _round_up(int(r.params["duration"]), s)
         for k in range(1, n + 1):
             target = start + _round_down(k * length // (n + 1), s)

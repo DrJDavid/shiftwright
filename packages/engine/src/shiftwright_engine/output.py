@@ -123,17 +123,17 @@ def soft_from_solution(built, solver) -> list[SoftViolation]:
         key = (s.constraint_id, s.kind, s.employee_id)
         cur = agg.setdefault(key, [0.0, 0.0])
         cur[0] += v * s.amount_per
-        cur[1] += v * s.units_per / SCALE
+        cur[1] += v * (s.dollars_per if s.dollars_per is not None else s.units_per / SCALE)
     return [SoftViolation(constraint_id=cid, kind=kind, employee_id=eid, amount=round(a, 4),
                           penalty_dollars=round(d, 2))
             for (cid, kind, eid), (a, d) in agg.items()]
 
 
 def ot_breakdown(p: Prep, shifts: list[Shift]) -> tuple[float, float]:
-    """(overtime_hours, overtime premium dollars) under the engine's OT accounting:
-    daily OT per shift (law pack daily_overtime) plus weekly OT over threshold (weekly_overtime)."""
+    """(overtime_hours, overtime premium dollars): daily OT per shift (law pack daily_overtime), then
+    weekly OT over threshold on the remaining hours, so no hour counts twice (WS2 semantics #4)."""
     hours, prem = 0.0, 0.0
-    week_min: dict[str, int] = defaultdict(int)
+    week_min: dict[str, float] = defaultdict(float)  # paid minutes NOT already daily OT
     for sh in shifts:
         e = p.emps[sh.employee_id]
         pm = paid_minutes(sh)
@@ -141,6 +141,7 @@ def ot_breakdown(p: Prep, shifts: list[Shift]) -> tuple[float, float]:
         if p.daily_ot is not None:
             thr = p.daily_ot.params["threshold_hours"] * 60
             if pm > thr:
+                week_min[e.id] -= pm - thr
                 hours += (pm - thr) / 60
                 prem += (pm - thr) / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)
                 dbl = p.daily_ot.params.get("double_threshold_hours")
