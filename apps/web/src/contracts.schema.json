@@ -694,6 +694,18 @@
     },
     "FixPlan": {
       "properties": {
+        "plan_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Id"
+        },
         "actions": {
           "items": {
             "$ref": "#/$defs/FixAction"
@@ -1604,6 +1616,19 @@
           "default": 60,
           "title": "Post Close Minutes",
           "type": "integer"
+        },
+        "school_week": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "v1.1. Is the schedule week a school week for minors? None = unknown: enforce every matching minor_limits rule (strictest). True = only rules with school_week=true. False = only rules with school_week=false. See SEMANTICS.md #8.",
+          "title": "School Week"
         }
       },
       "required": [
@@ -1619,7 +1644,7 @@
     "StoreConfig": {
       "properties": {
         "contract_version": {
-          "default": "1.0.0",
+          "default": "1.1.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -1919,6 +1944,7 @@
         "minor_prohibited_role",
         "always_staffed",
         "outside_store_window",
+        "below_minimum_wage",
         "metrics_mismatch",
         "soft"
       ],

@@ -21,3 +21,7 @@ Please add that to the chat section of API.md so WS5 can rely on it.
 `prefill: headcount[role][slot]` doesn't say where slot 0 starts or which days the day_type covers.
 WS6 adds `days: int[]` and `start_minute: int` to the props (slot i = [start_minute + i*slot_minutes, +slot)).
 Please add them to the card catalogue so WS7 renders the right time axis.
+
+
+---
+**Decision (David, Fri Nov 6 22:30 CT): ACCEPTED in contracts v1.1.** See `contracts/SEMANTICS.md`.

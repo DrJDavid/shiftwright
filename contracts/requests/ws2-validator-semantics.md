@@ -42,3 +42,7 @@ Where the contract is silent, the validator currently does this:
 14. **Not checked (needs data `validate()` isn't given):** `week_stability`, predictive-scheduling
     change premiums, reporting-time pay, minimum wage (an employee wage below `minimum_wage`: easy to add
     as a hard check if you want it; there's no ViolationCode for it today).
+
+
+---
+**Decision (David, Fri Nov 6 22:30 CT): ACCEPTED in contracts v1.1.** See `contracts/SEMANTICS.md`.

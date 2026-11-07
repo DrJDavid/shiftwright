@@ -164,6 +164,7 @@ export type AddedCostDollars = number;
 export type PremiumPayDollars = number;
 export type LawRuleIds = string[];
 export type Rationale = string;
+export type PlanId = string | null;
 export type Actions = FixAction[];
 export type Rank = number;
 export type EmployeeId2 = string;
@@ -260,6 +261,10 @@ export type WeekStart1 = string;
 export type Hours = DayHours[];
 export type PreOpenMinutes = number;
 export type PostCloseMinutes = number;
+/**
+ * v1.1. Is the schedule week a school week for minors? None = unknown: enforce every matching minor_limits rule (strictest). True = only rules with school_week=true. False = only rules with school_week=false. See SEMANTICS.md #8.
+ */
+export type SchoolWeek = boolean | null;
 export type Departments = Department[];
 export type Id8 = string;
 export type DepartmentId = string;
@@ -364,6 +369,7 @@ export type ViolationCode =
   | "minor_prohibited_role"
   | "always_staffed"
   | "outside_store_window"
+  | "below_minimum_wage"
   | "metrics_mismatch"
   | "soft";
 export type Severity = "hard" | "soft";
@@ -590,6 +596,7 @@ export interface FixAction {
  * via the `definition` "FixPlan".
  */
 export interface FixPlan {
+  plan_id?: PlanId;
   actions: Actions;
   outreach_queue: OutreachQueue;
   schedule_if_all_accept: Schedule;
@@ -773,6 +780,7 @@ export interface Store {
   hours: Hours;
   pre_open_minutes?: PreOpenMinutes;
   post_close_minutes?: PostCloseMinutes;
+  school_week?: SchoolWeek;
   [k: string]: unknown;
 }
 /**

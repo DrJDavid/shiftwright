@@ -1,4 +1,4 @@
-# Shiftwright API & chat protocol — v1
+# Shiftwright API & chat protocol — v1.1
 
 Owner: David. Backend (WS6) implements; web (WS7) and evals (WS5) consume.
 All bodies are JSON shaped by `contracts/models.py`. TypeScript types are generated
@@ -18,7 +18,7 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | POST | `/api/stores/{id}/validate` | `Schedule` → `ValidationReport` | Used by evals for baseline schedules. |
 | GET | `/api/stores/{id}/schedule` | → latest `{schedule, validation}` | |
 | POST | `/api/stores/{id}/gaps/explain` | `{gap: Gap}` → `{text, reasons: GapReason[]}` | LLM phrases engine `reasons`; it may not add facts. |
-| POST | `/api/stores/{id}/fix` | `{callouts: CallOut[], day, now}` → `FixPlan` | |
+| POST | `/api/stores/{id}/fix` | `{callouts: CallOut[], day, now}` → `FixPlan` | The API fills `FixPlan.plan_id` (v1.1); pass it to `/outreach/start`. |
 | POST | `/api/stores/{id}/outreach/start` | `{plan_id}` → `OutreachState` | Texts candidate rank 1; waits; on decline/timeout moves to the next. |
 | GET | `/api/stores/{id}/outreach` | → `OutreachState` | Web polls every 2s (or SSE `/outreach/stream`). |
 | POST | `/api/sms/inbound` | Twilio webhook (form-encoded) → TwiML 200 | Validates Twilio signature. |
@@ -39,7 +39,8 @@ OutreachState = { plan_id, status: "idle"|"texting"|"filled"|"exhausted",
 
 Readiness checks (in order): store basics, jurisdiction resolved to a LawPack, roles exist,
 ≥1 employee, every role has ≥1 trained employee, demand exists for every open day,
-budget set, no `provisional` constraints older than the current session (warn, not block).
+budget set, every employee's wage ≥ the law pack's minimum wage (v1.1; names the employees),
+no `provisional` constraints older than the current session (warn, not block).
 
 ## Chat protocol (Server-Sent Events)
 
@@ -59,6 +60,11 @@ Card submission: `POST /api/stores/{id}/chat/card` `{card_id, result}` → resum
 SSE turn (the result becomes the tool result the LLM sees). `result` may be
 `{cancelled: true}`.
 
+Headless mode (for evals, v1.1): `POST /api/stores/{id}/chat?auto_cards=scripted` with an extra
+body field `card_script: {card_type: [result, ...]}`. Each card of that type takes the next scripted
+result, in order; a card with no scripted result left gets `{cancelled: true}`. The SSE stream is the
+same as in interactive mode, but no `POST /chat/card` is needed.
+
 `ChatMessage = {role: "user"|"assistant", content: string, card?: {card_id, card_type, props, result}}`
 The server keeps the canonical transcript; the client sends only new user messages.
 
@@ -70,7 +76,7 @@ The server keeps the canonical transcript; the client sends only new user messag
 | `payroll` | prefill `Budget` | `Budget` |
 | `roles` | `{departments, roles}` | `{departments, roles}` |
 | `training_matrix` | `{employees:[{id,name}], roles}` | `{employee_id: role_id[]}` |
-| `coverage_grid` | `{day_type: "weekday"\|"saturday"\|"sunday"\|"truck_day", roles, slot_minutes, prefill: headcount[role][slot]}` | same grid |
+| `coverage_grid` | `{day_type: "weekday"\|"saturday"\|"sunday"\|"truck_day", roles, slot_minutes, days: int[], start_minute: int, prefill: headcount[role][slot]}` | same grid |
 | `events` | `{events}` | `{events}` |
 | `csv_import` | `{kind, preview?: ImportPreview}` | `{committed: boolean, rows: number}` |
 | `propose_rule` | `{constraint: Constraint, evidence, plain_text}` | `{decision: "hard"\|"soft"\|"not_a_rule", weight_dollars?}` |
@@ -78,12 +84,16 @@ The server keeps the canonical transcript; the client sends only new user messag
 | `conflict_menu` | `{infeasibility: Infeasibility, options:[{id,label,cost_dollars,patch_summary}]}` | `{option_id}` |
 | `employee_availability` | `{employee, parsed: AvailabilityEntry[], original_text}` | `{confirmed: AvailabilityEntry[]}` |
 
+`coverage_grid` (v1.1): `days` are the day indexes the day_type covers (weekday = Mon–Fri,
+saturday = 5, sunday = 6, each excluding truck days; truck_day = days with a truck event).
+Slot i covers `[start_minute + i*slot_minutes, start_minute + (i+1)*slot_minutes)`.
+
 ## Environment variables
 
 ```
 OPENROUTER_API_KEY=
-AGENT_MODEL=anthropic/claude-sonnet-...     # pick the strongest tool-calling model available on OpenRouter
-BASELINE_MODELS=x-ai/grok-...,anthropic/claude-...,openai/gpt-...
+AGENT_MODEL=anthropic/claude-sonnet-5.5
+BASELINE_MODELS=x-ai/grok-4.7,anthropic/claude-opus-5.5,openai/gpt-6.1-terra-pro
 MESSENGER=mock            # or twilio
 TWILIO_ACCOUNT_SID= TWILIO_AUTH_TOKEN= TWILIO_FROM_NUMBER=
 PUBLIC_BASE_URL=          # for the Twilio webhook

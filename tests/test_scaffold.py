@@ -23,4 +23,4 @@ def test_package_imports(name):
 def test_contract_version():
     from shiftwright_contracts.models import CONTRACT_VERSION
 
-    assert CONTRACT_VERSION == "1.0.0"
+    assert CONTRACT_VERSION == "1.1.0"
