@@ -199,13 +199,10 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
                       value={toHHMM(r.close)}
                       onChange={(e) => setRow(day, { close: fromHHMM(e.target.value) })}
                     />
-                    <span className="flex-1 text-xs text-gap">{r.close > r.open ? '' : 'Ends before it opens'}</span>
+                    <span className="flex-1 text-xs text-gap">{r.close > r.open ? '' : 'Ends early'}</span>
                   </>
                 )}
-                <label className="flex items-center gap-1 text-xs text-ink-2">
-                  <input type="checkbox" checked={r.closed} onChange={(e) => setRow(day, { closed: e.target.checked })} />
-                  Closed
-                </label>
+
               </div>
             ))}
           </div>
