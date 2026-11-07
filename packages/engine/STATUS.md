@@ -1,5 +1,21 @@
 # WS1 status
 
+## C4 — stop when it stops improving (branch `cursor/C4-plateau`)
+
+`solve_week(config, time_limit_s=None, plateau_s=8, max_s=90)`: the main solve gets `max_s − 20` s;
+day LNS gives each day model 3 s and keeps doing rounds until one full round is done and no better
+week (open tier-weighted demand −0.2%, or guided objective −0.5% at no less coverage) for
+`plateau_s`, or the cap; full-model CP-SAT guide/cost stages stop at a 1% relative gap (coverage
+and preference stages run to proof or limit); phase 2 ≤ 15 s per round; tradeoff what-ifs 4 s each
+within 20 s, all inside `max_s`. `solver_stats`: `mode`, `stop_reason` (proven_close | plateau |
+cap | time_limit), `main_s`, `wall_s`. An explicit `time_limit_s` behaves as before
+(`stop_reason: time_limit`). Tests: `tests/test_plateau.py`.
+
+Measured 09:46–09:58 at load 19–32 (other agents + the full test suite), plateau vs 20 s mode:
+demo 95.22% / 69 s (plateau) vs 93.27% / 17.5 s; Chicago 95.82% / 78 s (cap) vs 93.08% / 23.5 s;
+Seattle 93.59% / 83 s (cap) vs 92.11% / 26 s; SF 94.29% / 84 s (cap) vs 92.11% / 28 s; Harbor Grill
+98.52% / 51 s (plateau) vs 96.07% / 18 s. 0 hard in all. tiny_store: proven_close in < 1 s.
+
 ## C3 — rules and coverage first, real dollars only for real money (branch `cursor/C3-coverage-first`)
 
 Brief: `briefs/C3-coverage-first.md` (revised 07:30); contract text: `contracts/SEMANTICS.md` #25.
