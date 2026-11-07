@@ -16,6 +16,13 @@
       "source": "https://www.nyc.gov/site/dca/workers/workersrights/retail-workers.page"
     },
     {
+      "file": "pa-philadelphia.json",
+      "state": "PA",
+      "city": "philadelphia",
+      "reason": "Fair Workweek Ordinance (retail, 250+ employees, 30+ locations)",
+      "source": "https://www.phila.gov/documents/fww/"
+    },
+    {
       "file": "tx-austin.json",
       "state": "TX",
       "city": "austin",

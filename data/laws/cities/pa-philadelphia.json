@@ -1,0 +1,65 @@
+{
+  "jurisdiction": {
+    "state": "PA",
+    "city": "philadelphia"
+  },
+  "level": "city",
+  "notes": [
+    "Philadelphia Fair Workweek (Phila. Code ch. 9-4600) covers retail, food and hospitality employers with 250+ employees and 30+ locations worldwide, for employees working in Philadelphia.",
+    "Predictability pay: 1 hour for added time or changed date/time/location; no less than 0.5x pay for scheduled hours cut or cancelled (extra key reduced_hours_fraction).",
+    "Right to rest: no shift less than 9 hours after the previous day's shift unless the employee consents and is paid $40 (extra key premium_flat_dollars).",
+    "No city minimum-wage rule recorded for private employers (Pennsylvania state minimum wage applies)."
+  ],
+  "rules": [
+    {
+      "id": "PA.philadelphia.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "PA",
+        "city": "philadelphia"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "reduced_hours_fraction": 0.5,
+        "applies_if_employees_over": 249,
+        "min_locations": 30,
+        "applies_to": "both"
+      },
+      "summary": "Covered retail employers (250+ employees, 30+ locations) must post schedules 14 days ahead and pay predictability pay for later changes.",
+      "citation": {
+        "url": "https://www.phila.gov/media/20231218102835/FWW-FAQ-December-2023.pdf",
+        "title": "Philadelphia Office of Worker Protections \u2014 Fair Workweek FAQ (Dec. 2023)",
+        "excerpt": "The work schedule must be posted no later than 14 days before the first day of any new Work Week.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "PA.philadelphia.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "PA",
+        "city": "philadelphia"
+      },
+      "level": "city",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 540,
+        "premium_multiplier": null,
+        "premium_flat_dollars": 40,
+        "waivable": true
+      },
+      "summary": "Employees may not be scheduled less than 9 hours after the previous day's shift unless they consent and are paid $40.",
+      "citation": {
+        "url": "https://www.phila.gov/media/20231218102835/FWW-FAQ-December-2023.pdf",
+        "title": "Philadelphia Office of Worker Protections \u2014 Fair Workweek FAQ (Dec. 2023)",
+        "excerpt": "Employees shall not be scheduled less than nine hours after the end of the previous day's shift ... unless the employee provides consent and payment of $40.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}
