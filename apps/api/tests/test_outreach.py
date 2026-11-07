@@ -1,4 +1,5 @@
-"""Fix + mock outreach. engine.fix_day and validator.validate are faked here (WS1/WS2 not merged)."""
+"""Fix + mock outreach. engine.solve_week/fix_day and validator.validate are faked here so the test
+is deterministic whether or not the real WS1/WS2 packages are installed."""
 from __future__ import annotations
 
 import time
@@ -40,7 +41,7 @@ def fake_engine(monkeypatch):
 
     def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
         calls.append(req)
-        accepted = {s.employee_id for s in req.schedule.shifts}
+        accepted = {s.employee_id for s in req.schedule.shifts if s.id.startswith("s_")}  # our proposed shifts
         queue = [] if accepted else [_cand(i + 1, e, req.config) for i, e in enumerate(
             [e for e in _cashiers(req.config) if e not in req.declined_employee_ids])]
         s = req.schedule
@@ -52,6 +53,8 @@ def fake_engine(monkeypatch):
         m = schedule.metrics.model_copy(update={"total_hours": hours, "coverage_pct": 100.0 if hours else 0.0})
         return ValidationReport(passed=True, hard_count=0, violations=[], recomputed_metrics=m)
 
+    monkeypatch.setattr(integrations, "solve_week", lambda config, time_limit_s=20, previous=None:
+                        integrations._stub_solve(config))  # empty base schedule, as with the stub engine
     monkeypatch.setattr(integrations, "fix_day", fix_day)
     monkeypatch.setattr(integrations, "validate", validate)
     return calls
