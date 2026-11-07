@@ -9,8 +9,9 @@
     "No state meal-period requirement for adults in the DOL table; federal law does not require one.",
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (AS 23.10.340): the 9 h daily cap counts school + work combined (school-day work cap not encodable without school hours); whether the 23 h weekly cap applies in vacation weeks is unclear, so it is encoded for school weeks only. Federal 3 h/18 h/7 p.m. limits (federal.json) also apply.",
+    "Minors (AS 23.10.350): under-18 may work at most 6 days a week and need a 30-minute break when scheduled 6+ consecutive hours (not encoded: no minor-break type)."
   ],
   "rules": [
     {
@@ -78,6 +79,63 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "AK.minor_limits.1",
+      "jurisdiction": {
+        "state": "AK",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": 23,
+        "earliest_start": 300,
+        "latest_end": 1260,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 9
+      },
+      "summary": "Minors under 16 may work at most 23 hours a week outside school hours, with school plus work no more than 9 hours a day, between 5 a.m. and 9 p.m.",
+      "citation": {
+        "url": "https://www.akleg.gov/basis/statutes.asp?media=print&secStart=23.10.340&secEnd=23.10.340",
+        "title": "AS 23.10.340 \u2014 Employment of children under 16",
+        "excerpt": "Employment outside school hours may not exceed 23 hours in one week, domestic work and baby-sitting excepted.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "AK.minor_limits.2",
+      "jurisdiction": {
+        "state": "AK",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 9,
+        "max_hours_week": null,
+        "earliest_start": 300,
+        "latest_end": 1260,
+        "latest_end_summer": null
+      },
+      "summary": "Minors under 16 may work at most 9 hours a day, between 5 a.m. and 9 p.m.",
+      "citation": {
+        "url": "https://www.akleg.gov/basis/statutes.asp?media=print&secStart=23.10.340&secEnd=23.10.340",
+        "title": "AS 23.10.340 \u2014 Employment of children under 16",
+        "excerpt": "may not be employed for more than a combined total of nine hours school attendance and employment in one day. If employed, the minor's work may be performed only between 5 a.m. and 9 p.m.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
