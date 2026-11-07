@@ -21,7 +21,9 @@
 - **v1.5 slice (2026-11-07):** `tipped_minimum_wage` for federal ($2.13 / $5.12 credit, 29 CFR 531.50), TX (§ 62.052 adopts FLSA), IL ($9.00, 40% credit, 820 ILCS 105/4(c)), Chicago ($12.96 from 2026-07-01, chicago.gov); CA, WA, Seattle: no tip credit (notes, no rule). Federal hazardous orders HO 2/7/10/11/12/14 and the 14-15 limits (29 CFR 570.33-.34) mapped to ROLE_TAGS; IL under-16 alcohol handling, ladders/scaffolds, power saws (820 ILCS 206/40). `applies_to` verified on every Fair Workweek rule (SF corrected to both); food-sector thresholds; `excludes_same_day_split` set for Chicago, Seattle, Philadelphia, Oregon, LA (Berkeley, Evanston, Emeryville: not set); `exemption_applies_to` on all Fair Workweek rules.
 - **Resolver tipped policy:** one `tipped_minimum_wage` rule, highest cash wage, ties to the more local level, and only from a level at or below the level whose `minimum_wage` rule won. So a state with its own minimum wage but no researched tipped rule gets NO tipped rule (tipped employees owed the full minimum wage — conservative); only states whose wage rule ties federal and is kept at the federal level would fall back to $2.13.
 
-**In progress / next:** tipped_minimum_wage for the remaining states; TX/CA/WA state hazardous-occupation equivalents; alcohol_service ages (IL Liquor Control Act sets no server age; Chicago ordinance not yet read). VT done 2026-11-07 (VT DOL WH-30). Not done — MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; state lists in notes).
+- **Follow-up (2026-11-07):** Chicago alcohol_service (MCC 4-60-140/-143: under 21 conservative, under 18 absolute; trained 18-20 restaurant servers lawful); CA alcohol under 18 (BPC 25663/25667 via DLSE); WA under-16 cooking/baking/machinery bans (WAC 296-125-141) and alcohol under 18 (RCW 66.44.340/.350); TX hazard list = federal (§ 51.014). Tipped minimum wage added for NC, AZ, MD, MO, CO, NJ (2026 medium, 2027 high), WI, NY + NYC (from 2027-01-01), MI (2026, 2027); no-tip-credit notes: MN, AK, OR, NV; no rule with reason: VA (no fixed cash wage), PA and FL (amount not stated in the fetched text). GA and TN have no state minimum wage, so the federal $2.13 applies.
+
+**In progress / next:** tipped_minimum_wage for the remaining states (OH, MA, IN, TN ok via federal, etc.); TX alcohol ages (statutes site JS-only). VT done 2026-11-07 (VT DOL WH-30). Not done — MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; state lists in notes).
 
 **Blocked on:** nothing.
 
@@ -72,16 +74,16 @@
 | file | wOT | dOT | meal | rest | minor | minRole | clopen | predict | report | wage | tipW | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | federal | 1 | – | – | – | 2 | 7 | – | – | – | 1 | 1 | 7 |
-| AK | 1 | 1 | – | – | 2 | – | – | – | – | 1 | – | 7 |
+| AK | 1 | 1 | – | – | 2 | – | – | – | – | 1 | – | 8 |
 | AL | – | – | – | – | 3 | – | – | – | – | – | – | 7 |
 | AR | 1 | – | – | – | 4 | – | – | – | – | 1 | – | 7 |
-| AZ | – | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
-| CA | 1 | 1 | 2 | 1 | 4 | – | – | – | 1 | 1 | – | 6 |
-| CO | 1 | 1 | 1 | 1 | 4 | – | – | – | – | 1 | – | 5 |
+| AZ | – | – | – | – | 2 | – | – | – | – | 1 | 1 | 8 |
+| CA | 1 | 1 | 2 | 1 | 4 | 1 | – | – | 1 | 1 | – | 8 |
+| CO | 1 | 1 | 1 | 1 | 4 | – | – | – | – | 1 | 1 | 6 |
 | CT | 1 | – | 1 | – | 6 | – | – | – | – | 1 | – | 6 |
 | DC | 1 | – | – | – | 4 | – | – | – | – | 1 | – | 6 |
 | DE | – | – | 1 | – | 2 | – | – | – | – | 1 | – | 6 |
-| FL | – | – | – | – | 3 | – | – | – | – | 1 | – | 11 |
+| FL | – | – | – | – | 3 | – | – | – | – | 1 | – | 12 |
 | GA | – | – | – | – | – | – | – | – | – | – | – | 8 |
 | HI | 1 | – | – | – | 2 | – | – | – | – | 1 | – | 6 |
 | IA | – | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
@@ -92,44 +94,44 @@
 | KY | 1 | – | – | 1 | 3 | – | – | – | – | 1 | – | 6 |
 | LA | – | – | – | – | 4 | – | – | – | – | – | – | 8 |
 | MA | 1 | – | 1 | – | 4 | – | – | – | – | 1 | – | 6 |
-| MD | 1 | – | 1 | 1 | 2 | – | – | – | – | 1 | – | 6 |
+| MD | 1 | – | 1 | 1 | 2 | – | – | – | – | 1 | 1 | 7 |
 | ME | 1 | – | 1 | – | 4 | – | – | – | – | 1 | – | 6 |
-| MI | 1 | – | – | – | 4 | – | – | – | – | 2 | – | 7 |
-| MN | 1 | – | – | – | 3 | – | – | – | – | 1 | – | 7 |
-| MO | 1 | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
+| MI | 1 | – | – | – | 4 | – | – | – | – | 2 | 2 | 8 |
+| MN | 1 | – | – | – | 3 | – | – | – | – | 1 | – | 8 |
+| MO | 1 | – | – | – | 2 | – | – | – | – | 1 | 1 | 8 |
 | MS | – | – | – | – | – | – | – | – | – | – | – | 7 |
 | MT | 1 | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
-| NC | 1 | – | – | – | 3 | – | – | – | – | 1 | – | 7 |
+| NC | 1 | – | – | – | 3 | – | – | – | – | 1 | 1 | 8 |
 | ND | 1 | – | 1 | – | 2 | – | – | – | – | 1 | – | 5 |
 | NE | – | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
 | NH | 1 | – | 1 | – | 4 | – | – | – | – | 1 | – | 5 |
-| NJ | 1 | – | – | – | 4 | – | – | – | – | 2 | – | 10 |
+| NJ | 1 | – | – | – | 4 | – | – | – | – | 2 | 2 | 11 |
 | NM | 1 | – | – | – | – | – | – | – | – | 1 | – | 7 |
-| NV | 1 | 1 | 1 | 1 | 3 | – | – | – | – | 1 | – | 3 |
-| NY | 1 | – | 1 | – | 4 | – | – | – | – | 1 | – | 10 |
+| NV | 1 | 1 | 1 | 1 | 3 | – | – | – | – | 1 | – | 4 |
+| NY | 1 | – | 1 | – | 4 | – | – | – | – | 1 | 1 | 11 |
 | OH | 1 | – | – | – | 3 | – | – | – | – | 1 | – | 9 |
 | OK | – | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
-| OR | 1 | – | 1 | 1 | 4 | – | 1 | 1 | – | 1 | – | 15 |
-| PA | 1 | – | – | – | 4 | – | – | – | – | 1 | – | 8 |
+| OR | 1 | – | 1 | 1 | 4 | – | 1 | 1 | – | 1 | – | 16 |
+| PA | 1 | – | – | – | 4 | – | – | – | – | 1 | – | 9 |
 | RI | 1 | – | 2 | – | 3 | – | – | – | – | 1 | – | 7 |
 | SC | – | – | – | – | – | – | – | – | – | – | – | 7 |
 | SD | – | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
 | TN | – | – | 1 | – | 3 | – | – | – | – | – | – | 8 |
-| TX | – | – | – | – | 2 | – | – | – | – | 1 | 1 | 6 |
+| TX | – | – | – | – | 2 | – | – | – | – | 1 | 1 | 7 |
 | UT | – | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
-| VA | – | – | – | – | – | – | – | – | – | 2 | – | 8 |
+| VA | – | – | – | – | – | – | – | – | – | 2 | – | 9 |
 | VT | 1 | – | – | – | 2 | – | – | – | – | 1 | – | 8 |
-| WA | 1 | – | 1 | 1 | 4 | – | – | – | – | 1 | – | 7 |
-| WI | 1 | – | – | – | 2 | – | – | – | – | 1 | – | 7 |
+| WA | 1 | – | 1 | 1 | 4 | 2 | – | – | – | 1 | – | 8 |
+| WI | 1 | – | – | – | 2 | – | – | – | – | 1 | 1 | 8 |
 | WV | 1 | – | 1 | – | 2 | – | – | – | – | 1 | – | 6 |
 | WY | – | – | – | – | 2 | – | – | – | – | – | – | 7 |
 | ca-berkeley | – | – | – | – | – | – | 1 | 1 | – | 1 | – | 7 |
 | ca-emeryville | – | – | – | – | – | – | 1 | 1 | – | 1 | – | 6 |
 | ca-los-angeles | – | – | – | – | – | – | 1 | 1 | – | 1 | – | 9 |
 | ca-san-francisco | – | – | – | – | – | – | – | 1 | – | 1 | – | 10 |
-| il-chicago | – | – | – | – | – | – | 1 | 1 | – | 1 | 1 | 11 |
+| il-chicago | – | – | – | – | – | 2 | 1 | 1 | – | 1 | 1 | 12 |
 | il-evanston | – | – | – | – | – | – | 1 | 1 | – | – | – | 6 |
-| ny-new-york | – | – | – | – | – | – | – | 1 | – | 1 | – | 9 |
+| ny-new-york | – | – | – | – | – | – | – | 1 | – | 1 | 1 | 10 |
 | pa-philadelphia | – | – | – | – | – | – | 1 | 1 | – | – | – | 10 |
 | tx-austin | – | – | – | – | – | – | – | – | – | – | – | 4 |
 | wa-seattle | – | – | – | – | – | – | 1 | 1 | – | 1 | – | 11 |
