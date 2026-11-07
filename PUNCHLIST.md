@@ -1,0 +1,197 @@
+# Punch list: from demo to product (Sat Nov 7, night shift)
+
+*Written 03:50 CT by the Claude Code coordinator. Freeze 13:00, demo 16:00.*
+*Goal: a judge watches David **sign up, create a workplace from scratch, set it up in chat, build the
+week, and handle call-outs** on the deployed URL, and it feels like a product, not a dev console.*
+
+## How to run these with Cursor
+
+- **One task per agent, one branch per task:** `cursor/<task-id>` (e.g. `cursor/A1-auth`), cut from `main`.
+- Every agent reads `AGENTS.md` first, then its task below. Stay inside the task's **Files**. Never edit
+  `contracts/` (except where a task says so), the engine/validator outside your lane, or `.env`.
+- Tests first where the task lists them. Before reporting: `uv run pytest` (Python) and/or
+  `cd apps/web && npm run build && npm run lint && npm test` (web) must pass.
+- **Don't push, don't merge.** Finish with `READY TO MERGE: <branch> <commit> — <what>`. The coordinator
+  (Claude Code) trial-merges, runs everything, merges to `main`, and pushes.
+- Lanes A–E touch disjoint folders, so they can run in parallel. Inside a lane, run tasks in order.
+- No paid LLM calls from agents' code or tests. Live-agent tests stay skipped without a key.
+
+---
+
+## Lane 0: humans (David), do these first (~10 min)
+
+- [ ] **0.1 Persistent storage on Railway.** The Dockerfile already points SQLite at `/data/shiftwright.db`;
+      the service just has no volume, so every deploy wipes all data. Dashboard: project **modest-spirit** →
+      service → **Settings → Volumes → Add volume**, mount path `/data`. (CLI: `railway volume add --mount-path /data`.)
+- [ ] **0.2 Fund OpenRouter with separate capped keys:** an *app* key (~$20 limit) and an *evals* key
+      (~$25 limit). Never give coding agents a paid key.
+- [ ] **0.3 Railway variables:** `OPENROUTER_API_KEY=<app key>`, `AGENT_MODEL=anthropic/claude-haiku-5.5`
+      (`railway variables --set AGENT_MODEL=anthropic/claude-haiku-5.5`). After A1 lands also set
+      `AUTH_SECRET=<random 32+ chars>` and remove `DEMO_KEY`.
+
+---
+
+## Lane A: accounts and ownership (`apps/api/` + `contracts/API.md`) — **critical path**
+
+### A1. Email + password accounts, sessions, workplace ownership (L)
+**Files:** `apps/api/src/shiftwright_api/` (new `auth.py`, `db.py`, `main.py`, `settings.py`, `models.py`),
+`apps/api/tests/`, `contracts/API.md` (auth section only; David approved via this list), `.env.example`.
+
+API (the web lane builds against exactly this):
+
+| Method | Path | Body → Response |
+|---|---|---|
+| POST | `/api/auth/signup` | `{email, password, name}` → `{user: {id, email, name}}` + session cookie. 409 if email exists. |
+| POST | `/api/auth/login` | `{email, password}` → `{user}` + cookie. 401 on bad credentials (same message for unknown email). |
+| POST | `/api/auth/logout` | → 204, clears cookie |
+| GET | `/api/auth/me` | → `{user}` or 401 |
+| GET | `/api/workplaces` | → `{workplaces: [{id, name, sector, city, state, updated_at, has_schedule}]}` (mine only) |
+| POST | `/api/workplaces/sample` | `{template}` → `StoreConfig`: a copy of a demo store, owned by me, named "Sample: …" |
+
+- Tables: `users(id, email UNIQUE COLLATE NOCASE, name, pw_hash, created_at)`,
+  `sessions(token, user_id, created_at, expires_at)`, `stores.owner_id` (migrate: add column if missing).
+- Passwords: stdlib `hashlib.scrypt` with a random salt per user; constant-time compare. Min length 8.
+  Sessions: 32-byte random token, cookie `sw_session`, `HttpOnly`, `SameSite=Lax`, `Secure` when the
+  request is https, 30-day expiry.
+- `POST /api/stores` sets `owner_id` to the caller. **Every** `/api/stores/{id}/...` route checks ownership
+  and returns **404** (not 403) for someone else's store.
+- Public routes: `/api/health`, `/api/auth/*`, `/api/templates`, `/api/sms/inbound`, static web files.
+  Everything else under `/api` requires a session.
+- `AUTH_REQUIRED` setting: default **true**; tests that predate auth use a fixture that signs up a user and
+  reuses its client. Remove the `DEMO_KEY` middleware (`main.py` ~line 83) when auth is on.
+- Light abuse limits: 10 signup/login attempts per IP per 10 min (in-memory is fine).
+- Outreach stays `MESSENGER=mock` in production; keep the existing SMS allowlist.
+
+**Tests first:** signup/login/logout/me; duplicate email 409; wrong password 401; user B gets 404 on user A's
+store for config, solve, chat, fix, outreach; public routes still public; sample workplace is owned and
+independent of the template.
+**Done when:** all API tests green with auth on, and `apps/api/scripts/smoke.py` updated to sign up first.
+
+### A2. Workplace basics on create (S, after A1)
+`POST /api/stores` with template `empty` accepts `{name, sector, business_description, jurisdiction}` and
+saves them, so the chat starts from "I know you're a taqueria in Chicago" instead of re-asking.
+**Done when:** the onboarding agent's first readiness check shows business basics done (test with the fake LLM).
+
+---
+
+## Lane B: product shell (`apps/web/` only) — start now against the Lane A table, wire up when A1 lands
+
+### B1. Routes and auth screens (M)
+- Add routing (`react-router-dom` if not present): `/` landing, `/signup`, `/login`, `/workplaces`,
+  `/workplaces/new`, `/w/:id` (the workspace). Unauthenticated users on app routes → `/login`.
+- **Landing (`/`):** one headline ("Legal, lowest-cost schedules for hourly teams, in minutes."), three short
+  proof points (builds the week in seconds · follows the labor law where you are · fixes call-outs and
+  texts your team), **Get started** / **Sign in**. No demo store, no tabs.
+- Signup/login forms with inline errors; after signup → `/workplaces/new`.
+- Remove the auto-create-a-store bootstrap in `App.tsx` (lines ~40–60) and the "Mock API" pill from
+  production builds (keep mock for `npm run dev` with `?api=mock`).
+
+### B2. Create a workplace (S)
+`/workplaces/new`: three fields: **Name**, **What kind of business?** (Restaurant/café · Retail store · Hotel ·
+Other, mapped to `sector`), **City, State**. Optional one-line description. Submit → `POST /api/stores` →
+`/w/:id`. Secondary link: "Or explore a sample workplace" → picks a demo template → `/api/workplaces/sample`.
+
+### B3. Workplace switcher (S)
+Replace the "Store ▾ / Load a demo store" menu with **My workplaces** (list from `/api/workplaces`, current one
+checked, "+ New workplace", "Sign out"). Samples appear only under "Explore a sample".
+
+### B4. Guided setup instead of the 15-item checklist (M)
+- Until the first schedule exists, the workspace is **setup mode**: chat centered and wide; a slim step
+  tracker on the left: **Business → Hours & budget → Team → Staffing → Rules → Build**.
+- Map readiness checks to steps (store basics + law → Business; budget → Hours & budget; roles, employees,
+  training, hazard tags, minors → Team; demand + priorities → Staffing; provisional rules → Rules). A step is
+  done when all its checks pass; hovering shows the plain-language detail.
+- One **Build my schedule** button, enabled when ready (or "Build anyway" with a one-line warning).
+- After the first build → **workspace mode** (B5). The chat collapses to a side drawer ("Ask Shiftwright").
+
+### B5. Workspace mode: fewer, clearer tabs (M)
+- Tabs: **Schedule** (grid + stats; coverage heatmap as a toggle inside it) · **Call-outs** (current Fix tab)
+  · **Team & rules** (Store + Rulebook merged) · **Compliance** (receipt).
+- Header: workplace name, location, week; nothing else.
+- Mark call-in shifts in the grid (badge) — listed as open in `apps/web/STATUS.md`.
+
+### B6. Plain-language pass (S, last in lane)
+Grep the UI copy and replace engineer words: "validator" → "compliance check", "law pack / N rules" →
+"Labor rules for {city, state}", "slots" → "time blocks", raw ids like `powered_industrial_truck` → their
+labels ("Forklift / powered industrial truck"), "infeasible" → "can't be fully covered under your rules"
+(with the reason). The conflict menu shows rule names, not ids.
+
+**Lane B done when:** a fresh visitor can sign up → create "Harbor Grill" (restaurant, Chicago) → finish
+setup in chat → build → see the schedule, without seeing a demo store, a dev pill, or an internal id.
+Playwright or Vitest coverage for: auth redirect, create workplace, setup → workspace mode switch.
+
+---
+
+## Lane C: engine (`packages/engine/` only)
+
+### C1. Fix-plan correctness G1–G3 (M) — demo-critical
+Findings from the validator's audit, in `packages/validator/STATUS.md` (~lines 169–190) and SEMANTICS #24:
+- **G1:** changes that appear only in `schedule_if_all_accept` (Seattle e011, e058) must be listed as actions
+  or call-in candidates and priced; or not made. SEMANTICS #24: immediate actions apply to both schedules.
+- **G2:** predictive-scheduling grace: only changes **shorter than** `grace_minutes` are free.
+- **G3:** Seattle group offer: the exemption covers only the absent coworker's hours.
+**Done when:** `uv run python packages/validator/scripts/audit_fix.py --all-fww` reports no G1–G3 findings
+and every engine test stays green.
+
+### C2. Split shifts (M, after C1)
+SEMANTICS #23, `Store.max_shifts_per_day`. In `model.py` ~line 98–105 the per-day constraint is
+`sum(y) == w`; change to `sum(y) <= N*w` and `sum(y) >= w` (keep `works[e,d]` boolean so max-days rules stay
+correct). Rest-between-shifts (~lines 264–266) assumes one shift per day: handle split days (rest within a
+day per SEMANTICS #23, rest across days from last end to next first start). Infeasibility proofs must hold
+under the max. **Done when:** S legal_trap CA solves feasible with 0 hard violations (WS4 set
+`max_shifts_per_day=2` there), the validator's `audit_engine.py` passes on it, all engine tests green.
+
+---
+
+## Lane D: law data (`data/laws/` only)
+
+### D1. Hazardous-job rules for minors beyond forklifts (M) — makes the restaurant "law catch" work
+Today the only encoded hazard rule is HO 7 (forklifts), so Harbor Grill's `fryer` / `meat_slicer` tags do
+nothing. From **29 CFR Part 570** (read the eCFR / law.cornell.edu text; no memory, no secondary sources
+alone), add `minor_prohibited_roles` rules to `federal.json` with `age_below`, `age_min`, `role_tags`
+from `ROLE_TAGS`, citation and excerpt:
+- meat-processing / slicing machines → `meat_slicer`; power-driven bakery machines → `bakery_machine`;
+  paper balers / compactors → `baler_compactor`; motor-vehicle driving → `motor_vehicle_driving`;
+  power saws → `power_saw`; for ages 14–15, the cooking and fryer limits in § 570.34 → `cooking` / `fryer`
+  (record the exceptions in `notes` if they can't be expressed).
+**Done when:** data tests green; `resolve("IL","chicago")` returns them; the Harbor Grill demo store shows a
+minor kept off the fryer on the Compliance tab (coordinator verifies after merge).
+
+Everything else in WS3's queue (MS/NM minors, more effective dates) is **parked**.
+
+---
+
+## Lane E: scenarios and evals (small)
+
+### E1. Food scenario CSV export bug (S) — `packages/scenarios/`
+`write_exports` raises `KeyError: 'management'` for the food store, so the realistic eval skips it.
+**Done when:** `write_exports(generate(..., food...))` works and has a test.
+
+### E2. Re-score evals for free after C1/C2 (S) — `packages/evals/`
+`uv run python -m shiftwright_evals --quick --rescore-from real-quick-1 --run-id real-quick-2` (no API spend).
+Drop `SUSPECT_EXPECTED` for S legal_trap CA if C2 made it pass. Update `packages/evals/STATUS.md` with the table.
+
+### E3. Real realistic-eval run (needs David's OK + the evals key)
+`uv run python -m shiftwright_evals.estimate --quick --suite realistic` first; budget guard ≤ $20. Run only
+after B/A are merged (the Shiftwright side uses the real API). This produces the pitch's headline chart.
+
+---
+
+## After merges (coordinator + David)
+
+- [ ] Deploy, then **full rehearsal on the deployed URL** with a brand-new account: sign up → create Harbor Grill
+      (Chicago) → setup in chat (Haiku) → build → minor kept off the fryer → Saturday call-outs → outreach.
+      Log every rough edge; fix the top ones before 13:00.
+- [ ] Record the backup demo video.
+- [ ] Pitch numbers come only from `packages/evals/reports/*`.
+
+## Parked (roadmap slide, not tonight)
+Contract v1.6 custom rules (`briefs/CONTRACT-v1.6.md`) · live Twilio · pattern mining · remaining state research.
+
+## Suggested order to 13:00
+| When | Lane A | Lane B | Lane C | Lane D | Lane E |
+|---|---|---|---|---|---|
+| now–06:00 | A1 | B1, B2 (against the table above) | C1 | D1 | E1 |
+| 06:00–09:00 | A2 | B3, B4 (wired to A1) | C2 | — | E2 |
+| 09:00–11:00 | fixes | B5, B6 | fixes | — | E3 (if approved) |
+| 11:00–13:00 | **rehearse on deploy, fix only what breaks the demo** | | | | |
