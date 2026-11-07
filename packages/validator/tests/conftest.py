@@ -198,3 +198,7 @@ def kit():
         simple_shift=simple_shift, hard=hard, test_law=test_law, emp=emp,
         build_config=build_config, build_perfect_schedule=build_perfect_schedule,
     )
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: runs the engine (skip with -m 'not slow')")
