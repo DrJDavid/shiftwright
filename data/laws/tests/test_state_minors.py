@@ -8,7 +8,9 @@ from shiftwright_contracts.models import Jurisdiction, LawRuleType as T
 from shiftwright_laws import resolve
 
 STATES_DIR = Path(__file__).resolve().parents[1] / "states"
-MINOR_STATES = ["CA", "NY"]
+MINOR_STATES = ["CA", "NY", "FL"]
+# (state, age_min) bands whose law only limits school weeks (non-school weeks: federal floor only)
+SCHOOL_WEEK_ONLY = {("FL", 16)}
 
 
 def minor_rules(state):
@@ -24,7 +26,8 @@ def test_each_age_band_has_both_school_week_variants(state):
     for band in bands:
         variants = {r["params"]["school_week"] for r in rules
                     if (r["params"]["age_min"], r["params"]["age_max"]) == band}
-        assert variants == {True, False}, (state, band)
+        expected = {True} if (state, band[0]) in SCHOOL_WEEK_ONLY else {True, False}
+        assert variants == expected, (state, band)
     for r in rules:
         assert r["confidence"] == "high" and r["citation"]["url"].startswith("http")
 

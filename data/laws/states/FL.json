@@ -5,14 +5,17 @@
   },
   "level": "state",
   "notes": [
-    "Florida minimum wage formula-indexed from Jan. 1, 2028 (DOL table).",
     "No state overtime provision listed; federal weekly overtime applies.",
     "No state meal-period requirement for adults in the DOL table; federal law does not require one.",
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "Minimum wage indexed to inflation each September 30 from 2027 (Fla. Const. art. X, \u00a7 24(c)).",
+    "Minors: no Florida hour limits for 16-17 when school is not in session (federal has none either). The 16-17 30 h/week cap may be waived by a parent/custodian or the school superintendent on a state form.",
+    "Minors: \u00a7 450.081 does not apply to 16-17 graduates/GED holders, home-education or virtual-school students (16-17), or minors with a hardship waiver.",
+    "Minors: 15 and under may not work more than 4 hours continuously without a 30-minute meal period; 16-17 working 8+ hours likewise (\u00a7 450.081(4)); not encoded (no minor-meal rule type).",
+    "Minors: FL 14-15 school-day 3 h cap does not apply when there is no school the next day (Friday); validator treats Mon-Fri as school days (stricter). Extra param key max_days_week.",
+    "Minors: FL 16-17 8 h/day cap applies only on days before a school day (not holidays/Sundays); the validator applies it every day of a school week (stricter)."
   ],
   "rules": [
     {
@@ -25,16 +28,102 @@
       "type": "minimum_wage",
       "params": {
         "dollars_per_hour": 15.0,
-        "effective": "2026-11-05"
+        "effective": "2026-09-30"
       },
-      "summary": "Florida's basic minimum wage is $15.00 an hour (DOL table, Nov. 2026).",
+      "summary": "Florida's minimum wage is $15.00 an hour from September 30, 2026 (Fla. Const. art. X, \u00a7 24).",
       "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Basic Minimum Rate (per hour): $15.00",
+        "url": "https://www.flsenate.gov/Laws/Constitution",
+        "title": "Fla. Const. art. X, \u00a7 24(c) \u2014 Florida minimum wage",
+        "excerpt": "increase each September 30th thereafter by $1.00 per hour, until the Minimum Wage reaches $15.00 per hour on September 30th, 2026",
         "last_verified": "2026-11-06"
       },
-      "confidence": "medium",
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "FL.minor_limits.1",
+      "jurisdiction": {
+        "state": "FL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 15,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "While school is in session, minors 15 and under may work at most 3 hours on a school day (unless no school the next day) and 15 hours a week, not before 7 a.m. or after 7 p.m. before a school day.",
+      "citation": {
+        "url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0450/Sections/0450.081.html",
+        "title": "Fla. Stat. \u00a7 450.081 \u2014 Hours of work in certain occupations (2026)",
+        "excerpt": "Before 7 a.m. or after 7 p.m. when school is scheduled the following day. 2. For more than 15 hours in any one week when school is in session ... may not be gainfully employed for more than 3 hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "FL.minor_limits.2",
+      "jurisdiction": {
+        "state": "FL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1260,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "During holidays and summer vacation, minors 15 and under may work at most 8 hours a day and 40 a week, between 7 a.m. and 9 p.m., and no more than 6 consecutive days.",
+      "citation": {
+        "url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0450/Sections/0450.081.html",
+        "title": "Fla. Stat. \u00a7 450.081 \u2014 Hours of work in certain occupations (2026)",
+        "excerpt": "During holidays and summer vacations, minors 15 years of age or younger may not be employed ... before 7 a.m. or after 9 p.m., for more than 8 hours in any one day, or for more than 40 hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "FL.minor_limits.3",
+      "jurisdiction": {
+        "state": "FL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 30,
+        "earliest_start": 390,
+        "latest_end": 1380,
+        "latest_end_summer": null
+      },
+      "summary": "While school is in session, 16- and 17-year-olds may work at most 8 hours on a day before a school day (except holidays/Sundays) and 30 hours a week (waivable by parent or school), 6:30 a.m.-11 p.m. before a school day, and not during school hours.",
+      "citation": {
+        "url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0450/Sections/0450.081.html",
+        "title": "Fla. Stat. \u00a7 450.081 \u2014 Hours of work in certain occupations (2026)",
+        "excerpt": "Before 6:30 a.m. or after 11 p.m. when school is scheduled the following day. 2. For more than 8 hours in any one day when school is scheduled the following day ... 3. For more than 30 hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
