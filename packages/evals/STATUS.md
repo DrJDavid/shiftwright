@@ -34,25 +34,59 @@
 - Mocks (`mock.py`, `baseline:mock-a`, `baseline:mock-b`): read the config from the prompt, sloppy greedy schedule +
   one of hallucinated_employee / minor_on_forklift / over_budget / truncated / unparseable / sloppy /
   claims_infeasible; never detect infeasibility (false "feasible"). Repair: ignored_callout / changed_past / careful.
-- Tests (11, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
+- Tests (13, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
   cached re-run identical; 2 sampled runs recounted from validation.json against report.json and the HTML row)
   plus OpenRouter request shape/retry/cache/truncation/HTTP error via `httpx.MockTransport`, prompt completeness,
   mock kinds → intended validator codes.
 
-**Trial against the engine (not merged; branch `claude/ws-engine-97a072` @ 6cb51b9 via PYTHONPATH, quick, 30 s limit):**
-251 s wall. Engine: S easy/tight and M easy pass (0 hard), coverage 76% / 82% / 62%; S legal_trap (CA), M tight,
-M legal_trap returned `status="error"` with no shifts (no solution in 30 s); both infeasible stores → `infeasible`
-naming the right conflict ids. No `fix_day` yet → repair rows unavailable; repair base fell back to history on M
-(engine returned no shifts). Worth passing to WS1.
+**Shiftwright on main (4f53a85), `make eval-mock`, quick, 30 s limit (Fri 23:15):**
 
-**Next:**
-- When the engine lands on main: full run `uv run python -m shiftwright_evals --engine-workers 2` (est. 39 + 6
-  solves × ~26 s ≈ 10–20 min). When `fix_day` lands the repair suite picks it up automatically.
-- At M2 (once authorized): `BASELINE_MODELS=x-ai/grok-4.7,anthropic/claude-opus-5.5,openai/gpt-6.1-terra-pro`
-  with `OPENROUTER_API_KEY` set; start with `--quick` to check cost/time. L prompts are ~100 kB of config JSON.
-- Intake suite (stretch): headless chat via API `auto_cards=scripted` vs baseline JSON extraction.
+| Scenario | Status | Hard | Coverage | Objective $ | Latency |
+|---|---|---|---|---|---|
+| weekly S easy | feasible | 0 | 98.0% | 12,966.62 | 26 s |
+| weekly S tight | feasible | 0 | 89.5% | 13,992.75 | 26 s |
+| weekly S legal_trap (CA) | **infeasible** (`conflicting_other=["solver_timeout"]`) | 7 (always_staffed, no shifts) | 0% | – | 42–49 s |
+| weekly M easy | feasible | 0 | 93.2% | 29,246.88 | 27 s |
+| weekly M tight | feasible | 0 | 89.2% | 30,309.25 | 27 s |
+| weekly M legal_trap (CA) | **error** ("No schedule found within the time limit") | 7 | 0% | – | 28 s |
+| honesty S / M infeasible | infeasible, named the right ids | – | – | – | 13 s / 14–26 s |
+| repair S / M | unavailable (no `fix_day` yet); base schedule = engine solve_week | | | | |
+
+4/6 weekly pass with 0 hard violations; honesty 2/2 correct + conflict named; but the engine reports a
+*timeout* as `status="infeasible"`, which the honesty score counts as a false "infeasible" (FP) on S legal_trap.
+Both CA legal_trap stores fail: passed to WS1. Coverage figures differ slightly run to run (CP-SAT time limit).
+L easy (120 staff) standalone: 30 s → 93.2% / 0 hard; 60 s → 95.3% / 0 hard.
+
+**Full-run wall time (`make eval`, defaults now `--engine-workers 2`, `--engine-time-limit S=30,M=30,L=60`):**
+- Measured: quick engine part 276 s with 1 worker, 134 s with 2 (per-solve latency unchanged; 14-core Mac).
+- Full = 39 solves (27 weekly + 6 honesty + 6 repair bases; 11 are L) ≈ 28×27 s + 11×55 s ≈ 1,360 s of solving
+  → **≈ 11–12 min with 2 workers** (≈ 8 min with 3), + ≤ 6×10 s for `fix_day` once it lands. Cached re-runs: seconds.
+- Real baselines (not measured, no calls made): 3 models × 10 quick scenarios = 30 calls; reasoning-model replies of
+  20–90k tokens likely take 2–10 min each. With `--concurrency 8`: **≈ 15–30 min for quick**; full (117 calls)
+  ≈ 1–1.5 h at concurrency 8. Everything is cached, so an interrupted run resumes for free.
+
+**OpenRouter cost estimate** (`uv run python -m shiftwright_evals.estimate [--quick]`; prices fetched live from
+`/api/v1/models` Fri 23:20; tokens = actual prompt chars / 3; answer = a full schedule's compact JSON; reasoning
+tokens assumed 2× the answer):
+
+| Model | $/Mtok in / out | Max output | Quick (10 scen.) typical | Full (39) typical |
+|---|---|---|---|---|
+| x-ai/grok-4.7 | 2 / 6 | 450k | $2.23 | $12.56 |
+| anthropic/claude-opus-5.5 | 4 / 20 | 128k | $6.82 | $38.98 |
+| openai/gpt-6.1-terra-pro | 1 / 5 | 128k | $1.71 | $9.74 |
+| **Total** | | | **≈ $11** | **≈ $61** |
+
+Prompt sizes: S ≈ 22k tokens, M ≈ 40k, L ≈ 42k (config JSON incl. law pack). Answers: S ≈ 6k, M ≈ 15k, L ≈ 27k.
+Worst case (every reply runs to its max output, plus input): quick ≈ $60 (grok's 450k limit is most of it);
+with `--max-output-tokens 128000` the quick ceiling is ≈ $42 and the full ceiling ≈ $163. One retry on
+unparseable JSON can add up to one more call per run. **Recommendation:** approve the quick run (≈ $11 expected,
+≤ $42 hard ceiling with `--max-output-tokens 128000 --concurrency 8`).
 
 **Blocked on:** nothing.
+
+**Report:** the worked example is now a side-by-side: one baseline vs Shiftwright on the same weekly scenario
+(prefers scenarios Shiftwright passed and a baseline that put a minor on a prohibited role), metrics table, the
+baseline's violations by rule with validator messages and law-rule ids, and Shiftwright's validator result.
 
 **Shortcuts taken / notes:**
 - Without the engine, the repair base schedule is the scenario's last history week re-dated (greedy, has its own

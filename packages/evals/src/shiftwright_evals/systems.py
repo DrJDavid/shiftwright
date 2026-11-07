@@ -80,7 +80,7 @@ class ShiftwrightSystem:
 
     name = "shiftwright"
 
-    def __init__(self, enabled: bool = True, time_limit_s: float = 30, fix_time_limit_s: float = 10,
+    def __init__(self, enabled: bool = True, time_limit_s: float | dict = 30, fix_time_limit_s: float = 10,
                  cache_dir: Path | None = None, workers: int = 1):
         self.mod = _engine_module() if enabled else None
         self.time_limit_s = time_limit_s
@@ -125,20 +125,30 @@ class ShiftwrightSystem:
             path.write_text(json.dumps({"output": text, "latency_s": latency}))
         return text, latency
 
+    def limit_for(self, config: StoreConfig) -> float:
+        """Per-size solve time limit (S <= 40 staff, M <= 80, else L) when given as a dict."""
+        if not isinstance(self.time_limit_s, dict):
+            return float(self.time_limit_s)
+        n = len(config.employees)
+        size = "S" if n <= 40 else "M" if n <= 80 else "L"
+        return float(self.time_limit_s.get(size, max(self.time_limit_s.values())))
+
+    async def _solve_text(self, config: StoreConfig) -> tuple[str, float]:
+        tl = self.limit_for(config)
+        return await self._cached(f"solve_week|{tl}", config.model_dump_json(),
+                                  lambda: self.mod.solve_week(config, time_limit_s=tl))
+
     async def solve(self, config: StoreConfig) -> tuple[Schedule, float]:
-        text, latency = await self._cached(
-            f"solve_week|{self.time_limit_s}", config.model_dump_json(),
-            lambda: self.mod.solve_week(config, time_limit_s=self.time_limit_s))
+        text, latency = await self._solve_text(config)
         return Schedule.model_validate_json(text), latency
 
     async def weekly(self, config: StoreConfig) -> Output:
-        call = f"shiftwright_engine.solve_week(config, time_limit_s={self.time_limit_s})\nconfig: _inputs/<scenario>/config.json\n"
+        call = (f"shiftwright_engine.solve_week(config, time_limit_s={self.limit_for(config):g})\n"
+                "config: _inputs/<scenario>/config.json\n")
         if not self.available:
             return Output(call, outcome="unavailable", note=self.unavailable_reason)
         try:
-            text, latency = await self._cached(
-                f"solve_week|{self.time_limit_s}", config.model_dump_json(),
-                lambda: self.mod.solve_week(config, time_limit_s=self.time_limit_s))
+            text, latency = await self._solve_text(config)
         except Exception as exc:  # noqa: BLE001 - an engine crash is a reported outcome
             return Output(call, raw_text=f"{type(exc).__name__}: {exc}", outcome="error", note="engine raised")
         return Output(call, raw_text=text, schedule_input=json.loads(text), latency_s=latency)

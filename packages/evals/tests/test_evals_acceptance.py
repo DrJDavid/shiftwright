@@ -45,7 +45,7 @@ def test_quick_cli_subprocess_no_api_key(tmp_path):
     """`make eval-quick` equivalent, in a fresh process with no key in the environment."""
     env = {k: v for k, v in os.environ.items() if k not in ("OPENROUTER_API_KEY", "BASELINE_MODELS")}
     proc = subprocess.run(
-        [sys.executable, "-m", "shiftwright_evals", "--quick", "--mock-baselines",
+        [sys.executable, "-m", "shiftwright_evals", "--quick", "--mock-baselines", "--no-engine",
          "--out-dir", str(tmp_path / "runs"), "--reports-dir", str(tmp_path / "reports"),
          "--cache-dir", str(tmp_path / "cache"), "--run-id", "sub"],
         env=env, capture_output=True, text=True, timeout=600,

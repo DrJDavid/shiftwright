@@ -31,9 +31,12 @@ def parse_args(argv):
     p.add_argument("--suites", default="weekly,honesty,repair", help=f"comma list from {SUITES}")
     p.add_argument("--models", default=None, help="override BASELINE_MODELS (comma list)")
     p.add_argument("--no-engine", action="store_true", help="skip the Shiftwright engine (reported unavailable)")
-    p.add_argument("--engine-time-limit", type=float, default=30.0)
+    p.add_argument("--engine-time-limit", default="S=30,M=30,L=60",
+                   help="seconds per solve: a number, or per size like S=30,M=30,L=60")
     p.add_argument("--fix-time-limit", type=float, default=10.0)
-    p.add_argument("--engine-workers", type=int, default=1)
+    p.add_argument("--engine-workers", type=int, default=2, help="concurrent engine solves")
+    p.add_argument("--max-output-tokens", type=int, default=None,
+                   help="cap baseline max_tokens (default: as high as each model allows)")
     p.add_argument("--concurrency", type=int, default=4, help="max concurrent baseline API calls")
     p.add_argument("--out-dir", type=Path, default=PKG_ROOT / "runs")
     p.add_argument("--reports-dir", type=Path, default=PKG_ROOT / "reports")
@@ -41,6 +44,12 @@ def parse_args(argv):
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--run-id", default=None)
     return p.parse_args(argv)
+
+
+def parse_limits(text: str) -> float | dict:
+    if "=" not in text:
+        return float(text)
+    return {k.strip(): float(v) for k, v in (part.split("=") for part in text.split(",") if part.strip())}
 
 
 async def _amain(args) -> int:
@@ -51,7 +60,7 @@ async def _amain(args) -> int:
     cache_dir = None if args.no_cache else args.cache_dir
     suites = [s.strip() for s in args.suites.split(",") if s.strip()]
 
-    engine = ShiftwrightSystem(enabled=not args.no_engine, time_limit_s=args.engine_time_limit,
+    engine = ShiftwrightSystem(enabled=not args.no_engine, time_limit_s=parse_limits(args.engine_time_limit),
                                fix_time_limit_s=args.fix_time_limit, cache_dir=cache_dir,
                                workers=args.engine_workers)
     systems: list = [engine]
@@ -66,7 +75,7 @@ async def _amain(args) -> int:
             notes.append("baselines skipped: set OPENROUTER_API_KEY and BASELINE_MODELS, or pass --mock-baselines")
             client = CachedClient(MockClient(), None)
         else:
-            real_client = OpenRouterClient()
+            real_client = OpenRouterClient(max_output_cap=args.max_output_tokens)
             client = CachedClient(real_client, cache_dir / "llm" if cache_dir else None)
             systems += [BaselineSystem(m, client) for m in models]
     for n in notes:
