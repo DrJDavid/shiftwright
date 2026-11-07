@@ -30,7 +30,7 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import equipment, integrations, priorities, readiness
+from .. import equipment, import_flow, integrations, priorities, readiness
 from ..db import ConfigInvalid, Database
 
 
@@ -518,10 +518,25 @@ def ask_events(ctx: ToolContext, args: dict) -> CardRequest:
 
 
 def ask_csv_import(ctx: ToolContext, args: dict) -> CardRequest:
-    props = {"kind": args.get("kind", "roster")}
+    kind = args.get("kind", "roster")
+    props: dict = {"kind": kind}
+    cached = import_flow.cached_preview(ctx.db, ctx.store_id, kind)
+    if cached:
+        props["preview"] = cached
 
     def apply(result: dict) -> ToolResult:
-        # The web commits through POST /import/{kind}/commit; this only reports back.
+        if "mapping" in result and not result.get("committed") and not _cancelled(result):
+            # Result {mapping}: commit the cached upload with that mapping here (attached files, headless).
+            try:
+                cfg, warnings = import_flow.commit(ctx.db, ctx.store_id, kind, result.get("mapping") or {})
+            except import_flow.CommitError as e:
+                return ToolResult({"error": f"Import not committed: {e.detail}"})
+            rows = len(ctx.db.get(ctx.store_id, "import_rows", kind) or [])
+            summary = [f"imported {kind}: {rows} rows"]
+            return ToolResult({"committed": True, "rows": rows, "config_version": cfg.config_version,
+                               "warnings": warnings[:15], "warning_count": len(warnings), "changed": summary},
+                              patch_summary=summary, config_version=cfg.config_version)
+        # The web commits through POST /import/{kind}/commit and reports {committed, rows}.
         return ToolResult({**result, "config_version": ctx.config().config_version})
     return CardRequest("csv_import", props, apply)
 
