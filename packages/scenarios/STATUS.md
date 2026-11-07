@@ -128,6 +128,40 @@
     `food` sectors exist. `tests/test_exports.py` round-trips both sectors × S/M/L × every difficulty,
     the demo restaurant, and checks codes are unique (evals reverse-maps `JOB_CODES`). The realistic eval
     should no longer skip food cases.
+- *(E4, Nov 7.)* **Test-company datasets** (`shiftwright_scenarios.dataset`, exported from the package root):
+  - `make_dataset(sector, size, difficulty, state, city=None, seed=None) -> dict[str, bytes]`, keys in this
+    order (`dataset.FILES`): `roster.csv`, `training.csv`, `availability.csv`, `forecast.csv`, `history.csv`
+    (= `write_exports`), `README.txt`, `ANSWER_KEY.txt`.
+  - `make_dataset_zip(...) -> bytes`: the same files under `<folder>/`; fixed 1980-01-01 timestamps, so the
+    same arguments give byte-identical zips.
+  - `dataset_meta(...) -> dict` (for the API's kickoff): `company_name`, `folder`, `sector`, `size`,
+    `difficulty`, `seed` (resolved), `jurisdiction` {state, city}, `location`, `law_coverage`
+    (full/state_only/federal_fallback), `timezone`, `week_start`, `narrative` (the text to paste into chat),
+    `import_order`, `files`, `leader_setup` (import_packs' `leader_setup.json` shape, derived from the config:
+    hours, slot, pre/post, payroll cap, role gap penalties keyed by the importer's role ids, truck days,
+    `manual_mappings` = forecast `Req HC` → headcount).
+  - CLI `python -m shiftwright_scenarios.make_dataset --sector --size --difficulty --state [--city] [--seed]
+    --out <dir>` writes `<out>/<folder>/` and `<out>/<folder>.zip` and prints the seed. `make_dataset.py`
+    is only the CLI shim; import the functions from the package or `.dataset` (importing the
+    `shiftwright_scenarios.make_dataset` module rebinds the package's `make_dataset` name to the module).
+  - Allowed: sector retail|food, size S|M, difficulty easy|normal|tight|legal_trap|messy; state must have a
+    `data/laws/states` file; seed int 0..999999 or None (random via SystemRandom, recorded in README.txt and
+    meta). Anything else → ValueError. City is optional and normalized with the laws' `city_slug`
+    ("San Francisco" → `san-francisco`); a city with no ordinance file is allowed and the README says
+    state + federal rules apply. Random seed + meta: call `dataset_meta(seed=None)` first and pass
+    `meta["seed"]` to the others.
+  - Company name = generator store name without its "(size/difficulty)" suffix + location, e.g.
+    "Restaurant #526, Chicago, IL"; the same suffix is stripped from the narrative (the retail narrative
+    names the store), otherwise the narrative is the scenario's verbatim.
+  - ANSWER_KEY.txt is rendered only from `Scenario.expected` (traps with names/TM_IDs, minimum and tipped
+    wage, employees below the minimum (always none since the trap was removed), narrative omissions and
+    contradictions, infeasible, narrative facts, demand hours, truck/event/call-out days).
+  - Tests `tests/test_make_dataset.py`: retail+food × all 5 difficulties at S (files, README, answer key);
+    easy for both sectors imports through `import_packs/packs_harness.py` (name-matching mapping + the one
+    manual mapping) to `readiness.ready`; zip determinism; random seed round-trip; bad values; CLI.
+  - **Importer gap (for the API lane, not worked around):** availability windows ending at `2400`
+    (e.g. `1500-2400`) aren't parsed ("could not read avail_mon='1500-2400'; left as available"), so those
+    people import as fully available that day. Readiness is still green.
 
 **In progress:** nothing. Open follow-up below.
 
