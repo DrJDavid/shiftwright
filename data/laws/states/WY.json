@@ -10,8 +10,66 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (Wyo. Stat. \u00a7 27-6-110): looser than federal (federal.json still applies). No Wyoming hour limits for 16-17."
   ],
-  "rules": []
+  "rules": [
+    {
+      "id": "WY.minor_limits.1",
+      "jurisdiction": {
+        "state": "WY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": null,
+        "earliest_start": 300,
+        "latest_end": 1320,
+        "latest_end_summer": null,
+        "latest_end_before_non_school_day": 1440
+      },
+      "summary": "Children under 16 may work at most 8 hours in any 12-hour period, 5 a.m.-10 p.m. on nights before a school day (midnight otherwise).",
+      "citation": {
+        "url": "https://wyoleg.gov/statutes/compress/title27.pdf",
+        "title": "Wyo. Stat. \u00a7 27-6-110 \u2014 Children; hours of labor",
+        "excerpt": "for more than eight (8) hours in any twelve (12) hour period, or before the hour of five (5:00) o'clock a.m. or after the hour of ten (10:00) o'clock p.m. on nights followed by a school day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WY.minor_limits.2",
+      "jurisdiction": {
+        "state": "WY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": null,
+        "earliest_start": 300,
+        "latest_end": 1440,
+        "latest_end_summer": null
+      },
+      "summary": "Children under 16 may work at most 8 hours in any 12-hour period, 5 a.m.-midnight on nights not followed by a school day.",
+      "citation": {
+        "url": "https://wyoleg.gov/statutes/compress/title27.pdf",
+        "title": "Wyo. Stat. \u00a7 27-6-110 \u2014 Children; hours of labor",
+        "excerpt": "for more than eight (8) hours in any twelve (12) hour period, or before the hour of five (5:00) o'clock a.m. or after the hour of ten (10:00) o'clock p.m. on nights followed by a school day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
 }
