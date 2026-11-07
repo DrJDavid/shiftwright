@@ -1,7 +1,7 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B7), branch `cursor/B7-autopilot` = B1 branch + `cursor/A3-generated` +
-main. B1–B6 verified against the real A1 backend (see "Real-backend check"); B7's client logic is tested against the
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B7 + the C3 UI), branch `cursor/C3ui-web` = `cursor/C3-coverage-first`
+(current main + the engine's C3). B1–B6 verified against the real A1 backend (see "Real-backend check"); B7's client logic is tested against the
 mock (no fake-LLM mode exists, so a real agent run isn't possible locally)._
 
 ## How David runs it locally
@@ -58,6 +58,32 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
 - Call-in shifts get a **Call-in** badge in the grid and "Call-in: covering a call-out" in the shift detail. The
   contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
   the mock now uses the same suffix. A contract field would be safer.
+
+## Coverage first, words not dollars (C3 UI, SEMANTICS #25)
+
+- Rule weights and role gap penalties are ranks now, so no dollars are shown for rules or priorities anywhere
+  (`lib/strength.ts`, tested).
+- **Rule card** (`propose_rule`): Firm rule · Strong preference · Preference · Not a rule, with no money field.
+  They send `{decision: "hard"}`, `{decision: "soft", weight_dollars: 50}`, `{decision: "soft", weight_dollars: 25}`
+  and `{decision: "not_a_rule"}` (C3b makes the server/agent use exactly these values).
+- **Existing soft rules are shown by word** (weight ≥ 50 → Strong preference, else Preference) in Team & rules
+  (rulebook + store rules list) and on the Compliance receipt. The receipt's per-rule column is now "Met" /
+  "Not met N times", and its metrics table drops the gap-cost and soft-rule-cost rows.
+- **Role priority** in Team & rules: C3b's fixed tiers 300/200/100 read Must cover / Important / Nice to have;
+  any other values are named by rank ("Covered first (1 of 2)", "2 of 2"). The roles card's "Custom ($x/h)"
+  option is just "Custom".
+- **Gaps are described in hours short, not dollars**: the grid's day headers and gap detail, the coverage view, the
+  gap sheet and the Call-outs "Still uncovered" list. Availability-preference weights are no longer shown.
+- **Schedule header**: "Preferences not met: N" (count of `schedule.soft_violations`) replaces the gap-cost
+  dollar stat. The compliance popover labels soft items "Preference".
+- **Tradeoffs**: when `schedule.solver_stats.tradeoffs` is non-empty, the Schedule tab shows
+  "N decisions waiting", which opens the Ask Shiftwright drawer and focuses the message box. The agent brings
+  them up as `tradeoff` cards. Option costs are real money only: "+$87", "saves $40", "No extra cost".
+- **Mock**: `mockSolve` returns up to 2 `budget_gap` tradeoffs in the #25 shape (the biggest gaps, priced at the
+  trained people's average wage; a shape stand-in, not a re-solve).
+- Tests: `cards/ProposeRuleCard.test.tsx` (four words, mapped values, no `$`), `lib/strength.test.ts`,
+  `components/ScheduleTab.test.tsx` (header count, link present/absent, mock tradeoff shape), App test (link opens
+  and focuses the drawer).
 
 ## Sample business + autopilot (B7)
 
@@ -153,7 +179,8 @@ jurisdiction}` and opens `/w/:id` with the switcher listing it checked; explore 
 accounts + ownership. Plus setup steps, call-in badge, rule names, conflict-menu names, and the setup → workspace
 switch (chat survives). B7: `components/ChatPane.test.tsx` (kickoff with attachments + chips, autopilot submit,
 user interrupt, Pause, decision card never auto), `lib/autopilot.test.ts`, and an App test where one click on
-Restaurant reaches a built schedule with the user answering only the tags decision. 61 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+Restaurant reaches a built schedule with the user answering only the tags decision. C3 UI tests (see above).
+76 tests total; `npm run build`, `npm run lint`, `npm test` clean.
 
 ## Next (Lane B)
 
