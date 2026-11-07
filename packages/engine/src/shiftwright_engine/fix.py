@@ -14,6 +14,7 @@ Ranking (SEMANTICS #16): gap hours the shift can cover per added dollar × est_a
 """
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 
@@ -55,6 +56,9 @@ from .prep import DAY, SCALE, Cand, Prep, _avail_for_day, _round_down, _round_up
 CALL_IN_DISRUPTION_DOLLARS = 15.0  # per call-in, ranking/objective only (not a wage)
 ELASTIC_ALWAYS_DOLLARS_PER_HOUR = 1000.0  # always_staffed during a fix: priced, so a fix always exists
 MAX_ALTERNATES = 5
+# Keep a called-out shift's already-worked part even when it is shorter than the minimum shift.
+# Off until the validator exempts such stubs from shift_length (it reports them as hard today).
+KEEP_SHORT_CALLOUT_STUBS = os.environ.get("ENGINE_KEEP_SHORT_CALLOUT_STUBS", "0") == "1"
 
 
 def _prob(e) -> float:
@@ -95,17 +99,35 @@ class _Fix:
 
         # Schedule after the call-outs: their shifts on the day are removed from `now` on.
         self.base: list[Shift] = []
+        self.reported_at = {c.employee_id: c.reported_at for c in req.callouts if c.day == self.d}
+        self.callout_notes: list[tuple[Shift, Optional[Shift], str]] = []
         self.absent_spans: list[tuple[int, int]] = []  # called-out coworkers' lost time today (day minutes)
         for sh in req.schedule.shifts:
             if sh.employee_id in self.callout_ids and sh.day == self.d and sh.end > self.now:
                 self.absent_spans.append((max(sh.start, self.now), sh.end))
                 lo, _ = p.shift_bounds(sh.employee_id)
-                cut = _round_down(self.now, self.slot)
-                if sh.start < cut and cut - sh.start >= lo:
-                    self.base.append(_clip(sh, cut))
-                elif sh.start < self.now:
-                    self.notes.append(f"{sh.employee_id}'s shift started before the call-out but is dropped "
-                                      f"whole: the part already worked is shorter than the minimum shift.")
+                when = min(self.now, self.reported_at.get(sh.employee_id, self.now))
+                cut = _round_down(when, self.slot)  # never past the call-out (they left)
+                short = cut - sh.start < lo
+                if sh.start < cut and short and not KEEP_SHORT_CALLOUT_STUBS:
+                    self.callout_notes.append((sh, None, (
+                        f"{sh.employee_id} called out at {when // 60:02d}:{when % 60:02d}; the "
+                        f"{sh.start // 60:02d}:{sh.start % 60:02d}–{cut // 60:02d}:{cut % 60:02d} already worked "
+                        f"is shorter than the {lo / 60:g} h minimum shift, so the whole "
+                        f"{sh.start // 60:02d}:{sh.start % 60:02d}–{sh.end // 60:02d}:{sh.end % 60:02d} shift is "
+                        f"removed from this plan; pay the time actually worked outside it.")))
+                elif sh.start < cut:
+                    kept = _clip(sh, cut)
+                    self.base.append(kept)
+                    self.callout_notes.append((sh, kept, (
+                        f"{sh.employee_id} called out at {when // 60:02d}:{when % 60:02d}; keeps "
+                        f"{sh.start // 60:02d}:{sh.start % 60:02d}–{cut // 60:02d}:{cut % 60:02d} already worked"
+                        + (f" (shorter than the {lo / 60:g} h minimum shift: it already happened)." if short else ".")
+                        + f" The rest of the shift to {sh.end // 60:02d}:{sh.end % 60:02d} is uncovered.")))
+                else:
+                    self.callout_notes.append((sh, None, (
+                        f"{sh.employee_id} called out at {when // 60:02d}:{when % 60:02d}; their "
+                        f"{sh.start // 60:02d}:{sh.start % 60:02d}–{sh.end // 60:02d}:{sh.end % 60:02d} shift is removed.")))
                 continue
             self.base.append(sh)
         self.orig = {(s.employee_id, s.day): s for s in self.base}
@@ -452,6 +474,12 @@ def _actions(fx: _Fix, none_shifts: list[Shift], none_sched: Schedule,
                 run = None
         if run:
             out.append(_reassign(sh.employee_id, run, d))
+    for orig, kept, note in fx.callout_notes:
+        start = kept.end if kept is not None else orig.start
+        roles = [g.role_id for g in orig.segments if g.end > start]
+        out.append(FixAction(lever=Lever.drop_coverage, employee_id=orig.employee_id,
+                             role_id=roles[0] if roles else None, start=start, end=orig.end,
+                             added_cost_dollars=0.0, rationale=note))
     if Lever.drop_coverage in fx.levers:
         for g in none_sched.gaps:
             if g.day == d and g.end > fx.now:

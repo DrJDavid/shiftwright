@@ -156,6 +156,26 @@ class Builder:
             fr = self.fixed_roles.get((eid, a))
             if fr is not None and (eid, fr, a) in x:
                 m.add(x[(eid, fr, a)] == 1)
+        # Tipped pay (SEMANTICS #20): wage_units assume the tipped rate; a shift with any untipped
+        # role slot pays the full wage, i.e. + untipped_extra_units when nontip[e,d] is on.
+        tip_terms = []
+        for (eid, d), lst in by_ed.items():
+            if not any(c.untipped_extra_units for c in lst):
+                continue
+            untipped = [r for r in p.allowed_roles[eid] if r not in p.tipped_roles]
+            xs = {x[(eid, r, a)] for c in lst for a in c.work_slots for r in untipped if (eid, r, a) in x}
+            if not xs:
+                continue
+            nt = m.new_bool_var(f"nontip[{eid},{d}]")
+            for v in xs:
+                m.add(nt >= v)
+            for c in lst:
+                if c.untipped_extra_units:
+                    z = m.new_bool_var("")
+                    m.add(z >= y[c.idx] + nt - 1)
+                    tip_terms.append((z, c.untipped_extra_units))
+        self.tip_terms = tip_terms
+
         if self.churn and CHURN_DOLLARS > 0:
             for (eid, r, a), v in x.items():
                 prev = x.get((eid, r, a - slot))
@@ -397,7 +417,7 @@ class Builder:
         all_paid = sum(y[c.idx] * c.paid_min for c in cands) + self._zero
         self.add(all_paid <= max(int(round(cap_h * 60)), self.min_hours_cap_minutes),
                  self.guard("other", "budget.weekly_hours_cap"))
-        wage_expr = sum(y[c.idx] * c.wage_units for c in cands) + self._zero
+        wage_expr = sum(y[c.idx] * c.wage_units for c in cands) + sum(z * u for z, u in self.tip_terms) + self._zero
         ot_expr = 0
         if weekly_ot:
             mult = p.weekly_ot.params["multiplier"]

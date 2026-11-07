@@ -36,8 +36,6 @@ def _rules(p: Prep, e: Employee):
         over = pr.get("applies_if_employees_over")
         if over is not None and count is not None and count <= int(over):
             continue
-        if pr.get("applies_to") == "food":
-            continue  # Shiftwright stores are retail
         wmax = pr.get("covered_wage_max_hourly")
         if wmax is not None and e.wage_per_hour > float(wmax):
             continue

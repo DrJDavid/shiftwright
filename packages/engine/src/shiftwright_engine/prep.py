@@ -62,6 +62,7 @@ class Cand:
     weekend: bool = False
     extra_units: int = 0  # objective-only cost (fixer: call-in disruption + premiums)
     part: dict[int, int] = field(default_factory=dict)  # work slot -> bitmask of sub-intervals on break
+    untipped_extra_units: int = 0  # wage_units assume the tipped rate; add this if any slot is untipped
 
     @property
     def abs_start(self) -> int:
@@ -93,10 +94,25 @@ class Prep:
     notes: list[str]
     sub: list[int] = field(default_factory=lambda: [0])  # sub-interval boundaries within a slot (+ slot)
     bv_cache: dict = field(default_factory=dict)
+    tipped_roles: set = field(default_factory=set)
 
     def sub_bounds(self) -> list[tuple[int, int]]:
         b = self.sub + [self.slot]
         return [(b[i], b[i + 1]) for i in range(len(b) - 1)]
+
+    def tipped_capable(self, e: Employee) -> bool:
+        """SEMANTICS #20: tipped rate possible (tipped wage set, may work a tipped role)."""
+        return e.tipped_wage_per_hour is not None and any(r in self.tipped_roles for r in self.allowed_roles.get(e.id, []))
+
+    def base_rate(self, e: Employee) -> float:
+        return e.tipped_wage_per_hour if self.tipped_capable(e) else e.wage_per_hour
+
+    def shift_rate(self, e: Employee, role_ids) -> float:
+        """Rate for a whole shift: tipped only if every segment is a tipped role (#20)."""
+        rs = list(role_ids)
+        if e.tipped_wage_per_hour is not None and rs and all(r in self.tipped_roles for r in rs):
+            return e.tipped_wage_per_hour
+        return e.wage_per_hour
 
     def law_of(self, t: LawRuleType) -> list[LawRule]:
         return [r for r in self.laws if r.type == t]
@@ -287,7 +303,7 @@ def _pick(laws: list[LawRule], key) -> Optional[LawRule]:
 def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None = None,
                length_step: int | None = None, prune: bool = True) -> Prep:
     slot = cfg.store.slot_minutes
-    laws = list(cfg.law_pack.rules) if cfg.law_pack else []
+    laws = [r for r in (cfg.law_pack.rules if cfg.law_pack else []) if sector_applies(r, cfg.store.sector)]
     constraints = [c for c in cfg.constraints if c.status == RuleStatus.confirmed]
     notes: list[str] = []
     if cfg.law_pack is None:
@@ -317,6 +333,8 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
     durs = [int(r.params["duration"]) for r in p.meal_rules] + ([int(p.rest_rule.params["duration"])] if p.rest_rule else [])
     p.sub = sorted({0} | {break_minutes(p, d) % slot for d in durs})
 
+    p.tipped_roles = {r.id for r in cfg.roles if getattr(r, "tipped", False)}
+
     # Roles each employee may work (training is the hard gate; then age/law).
     roles = {r.id: r for r in cfg.roles}
     prohibited = p.law_of(LawRuleType.minor_prohibited_roles)
@@ -327,7 +345,9 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                 continue
             why = None
             for lr in prohibited:
-                if e.age < lr.params["age_below"] and set(cfg.role_tags.get(rid, [])) & set(lr.params["role_tags"]):
+                lo_age = lr.params.get("age_min")
+                if ((lo_age is None or e.age >= lo_age) and e.age < lr.params["age_below"]
+                        and set(cfg.role_tags.get(rid, [])) & set(lr.params["role_tags"])):
                     why = ("minor_rule", lr.id)
                     break
             if why is None and e.age < roles[rid].min_age:
@@ -438,9 +458,10 @@ def make_cand(p: Prep, e: Employee, day: int, start: int, end: int, brks: list[B
             if strict and not cfg.budget.overtime_allowed:
                 return None
             daily_ot = paid - thr
-    wage = paid / 60 * e.wage_per_hour
+    rate = p.base_rate(e)
+    wage = paid / 60 * rate
     if daily_ot:
-        wage += daily_ot / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)
+        wage += daily_ot / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)  # OT on the full wage (#20)
         dbl = p.daily_ot.params.get("double_threshold_hours")
         if dbl is not None and paid > dbl * 60:
             wage += (paid - dbl * 60) / 60 * e.wage_per_hour * (2 - p.daily_ot.params["multiplier"])
@@ -476,4 +497,19 @@ def make_cand(p: Prep, e: Employee, day: int, start: int, end: int, brks: list[B
         on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
         daily_ot_min=daily_ot, pref_units=money(pref), pref_detail=detail,
         is_open=start < o, is_close=end > c, weekend=day in (5, 6), part=part,
+        untipped_extra_units=money(paid / 60 * (e.wage_per_hour - rate)) if rate != e.wage_per_hour else 0,
     )
+
+
+def sector_applies(rule: LawRule, sector) -> bool:
+    """SEMANTICS #19: `applies_to` "both" or the store's sector; sector None/other => applies."""
+    at = rule.params.get("applies_to")
+    if at is None:
+        return True
+    sec = getattr(sector, "value", sector)
+    vals = at if isinstance(at, list) else [at]
+    if "both" in vals:
+        return True
+    if sec is None or sec == "other":
+        return True
+    return sec in vals

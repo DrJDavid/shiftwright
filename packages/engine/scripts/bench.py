@@ -31,6 +31,9 @@ def run(name, cfg, limit):
           f"coverage={m.coverage_pct if m else None} cands={st.get('num_candidate_shifts')} "
           f"hard_violations={len(hard)} {sorted({v.code.value for v in hard})} stages={st.get('stages')} "
           f"fallback={st.get('fallback')}")
+    mm = [v for v in rep.violations if v.code.value == "metrics_mismatch"]
+    if mm:
+        print("   metrics_mismatch:", [v.message for v in mm])
     for v in hard[:5]:
         print("   ", v.code, v.message)
 
@@ -44,7 +47,7 @@ def main():
     if a.single:
         S.SINGLE_STAGE_MAX_CANDS = 10**9
     cases = {"tiny": tiny_store, "demo": lambda: with_law(load_demo_store()), "like": demo_like_store,
-             **{c: (lambda c=c: with_law(load_demo_store(c))) for c in ("chicago", "seattle", "sf")}}
+             **{c: (lambda c=c: with_law(load_demo_store(c))) for c in ("chicago", "seattle", "sf", "restaurant")}}
     for name, mk in cases.items():
         if a.only and name not in a.only.split(","):
             continue
