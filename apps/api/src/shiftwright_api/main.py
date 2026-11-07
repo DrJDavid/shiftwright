@@ -236,7 +236,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     def solve(store_id: str, req: SolveRequest = Body(default_factory=SolveRequest)) -> dict:
         cfg = with_law(load(store_id))
         try:
-            sched = integrations.solve_week(cfg, time_limit_s=req.time_limit_s or 20)
+            sched = integrations.solve_week(cfg, time_limit_s=req.time_limit_s)  # None: until it stops improving (≤ 90 s)
         except Exception as e:  # noqa: BLE001 - engine crash / MemoryError: say so plainly, keep serving
             raise HTTPException(500, f"Schedule engine failed ({type(e).__name__}: {e}). Nothing was saved.")
         try:

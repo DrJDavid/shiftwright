@@ -179,6 +179,12 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
 
 COARSE_DAY_LNS_CANDS = 150_000
 DAY_LNS_MIN_S = 0.8  # least CP-SAT time worth giving a day model
+PLATEAU_DAY_S = 3.0  # per day model when solving to a plateau (no time limit)
+# A week counts as better (resets the plateau clock) when open tier-weighted demand drops by this
+# share, or, at no less coverage, the guided objective by this share.
+PLATEAU_TOL_OPEN, PLATEAU_TOL_COST = 0.002, 0.005
+PLATEAU_TRADEOFF_S = 20.0  # what-ifs after a plateau solve, inside max_s
+PLATEAU_GAP = 0.01  # CP-SAT stages stop once proven within 1% of their bound
 ELASTIC_ALWAYS_DOLLARS_PER_HOUR = 1000.0  # day LNS: hard always_staffed priced, so any start can be improved
 
 
@@ -196,12 +202,16 @@ def _open_by_day(p, roles: dict) -> dict[int, float]:
     return out
 
 
-def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
+def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict,
+             plateau_s: Optional[float] = None):
     """Improve the greedy week one day at a time: that day's full candidate grid, every other day's
     shifts fixed, hinted with the current week (y and x). Hard always_staffed is priced at
     $1000/h inside the day models so a start with holes can still be repaired.
     Day models use the guided objective (`model.solve` mode "guide") with an hours allotment per
     day; `greedy.repair` then fills what is still open, coverage first.
+    With `plateau_s` (no time limit given), each day model gets `PLATEAU_DAY_S` and rounds go on
+    until a full round is done and nothing better (open tier-weighted demand, then the guided
+    objective) has been found for `plateau_s`, or `until`; `stats["lns_stop"]` says which.
     Returns (chosen, roles, objective units, always_staffed holes left) or None if no day solved."""
     days = sorted(p.windows)
     st8 = {"cur": set(chosen0), "roles": dict(roles0), "obj": None, "holes": None}
@@ -247,6 +257,24 @@ def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
         st8["holes"] = sum(s.value(t.var) for t in b.soft if t.constraint_id in always_ids)
         return True
 
+    best = [None, time.perf_counter()]  # best (open, obj) key, when it was found
+
+    def improved() -> None:
+        key = (sum(_open_by_day(p, st8["roles"]).values()), st8["obj"])
+        b = best[0]
+        if b is None or key[0] < b[0] * (1 - PLATEAU_TOL_OPEN) or (
+                key[0] <= b[0] and key[1] < b[1] - abs(b[1]) * PLATEAU_TOL_COST):
+            best[0], best[1] = key, time.perf_counter()
+
+    def done(reason: Optional[str]):
+        if reason:
+            stats["lns_stop"] = reason
+        stats["stages"].append({"stage": "day_lns", "rounds": rounds, "day_solves": solved,
+                                "s": round(time.perf_counter() - t_start, 2), "holes": st8["holes"]})
+        if st8["obj"] is None:
+            return None
+        return st8["cur"], st8["roles"], st8["obj"], st8["holes"]
+
     while True:
         order = days
         fit = int((until - time.perf_counter()) // (DAY_LNS_MIN_S + 1.0))
@@ -254,26 +282,40 @@ def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
             open_ = _open_by_day(p, st8["roles"])
             order = sorted(sorted(days, key=lambda dd: -open_.get(dd, 0))[:fit])
         for k, d in enumerate(order):
-            per = (until - time.perf_counter()) / max(1, len(order) - k) - 1.0  # ~1 s to build a day model
-            if per < DAY_LNS_MIN_S:
-                stats["stages"].append({"stage": "day_lns", "rounds": rounds, "day_solves": solved,
-                                        "s": round(time.perf_counter() - t_start, 2), "holes": st8["holes"]})
-                if st8["obj"] is None:
-                    return None
-                return st8["cur"], st8["roles"], st8["obj"], st8["holes"]
-            solved += day_solve(d, per, order[k:])
+            if plateau_s is not None:
+                if rounds and time.perf_counter() - best[1] >= plateau_s:
+                    return done("plateau")
+                per = min(PLATEAU_DAY_S, until - time.perf_counter() - 1.0)
+                if per < DAY_LNS_MIN_S:
+                    return done("cap")
+            else:
+                per = (until - time.perf_counter()) / max(1, len(order) - k) - 1.0  # ~1 s to build a day model
+                if per < DAY_LNS_MIN_S:
+                    return done(None)
+            if day_solve(d, per, order[k:]):
+                solved += 1
+                improved()
         rounds += 1
 
 
 
 
-def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional[Schedule] = None) -> Schedule:
-    """Large models start CP-SAT from a greedy schedule (seeded with a small always_staffed model).
+def solve_week(config: StoreConfig, time_limit_s: Optional[float] = 20, previous: Optional[Schedule] = None,
+               plateau_s: float = 8.0, max_s: float = 90.0) -> Schedule:
+    """`time_limit_s=None`: stop when it stops improving instead of on a clock: CP-SAT stages stop
+    within 1% of their bound, day LNS after `plateau_s` without a better week (after one full
+    round), all inside `max_s` including the tradeoff what-ifs. `solver_stats.stop_reason` is
+    "proven_close" | "plateau" | "cap" | "time_limit".
+Large models start CP-SAT from a greedy schedule (seeded with a small always_staffed model).
     Phase 2 re-assigns roles with the churn tiebreak on the chosen shifts. A proven-infeasible
     result is reported only when CP-SAT or the always_staffed bound proves it; if CP-SAT finds
     nothing in time, the greedy schedule is checked against the full model and returned as
     "feasible" when it holds."""
     t0 = time.perf_counter()
+    plateau = time_limit_s is None
+    if plateau:
+        time_limit_s = max(5.0, max_s - PLATEAU_TRADEOFF_S)
+    gap = PLATEAU_GAP if plateau else None
     deadline = t0 + time_limit_s
     reserve = min(6.5, max(1.0, time_limit_s * 0.22))  # repair / phase 2 rounds + output
     p = build_prep(config)
@@ -306,7 +348,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
                                         "s": round(time.perf_counter() - tg, 2)})
     lns = None
     if chosen0 is not None and len(p.cands) > FULL_MODEL_MAX_CANDS:
-        lns = _day_lns(p, chosen0, roles0, deadline - reserve, stats)
+        lns = _day_lns(p, chosen0, roles0, deadline - reserve, stats, plateau_s=plateau_s if plateau else None)
         if lns is not None and lns[3]:  # always_staffed holes left: hand the week to the hard model
             chosen0, roles0 = lns[0], lns[1]
             lns = None
@@ -335,7 +377,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
             for (eid, r, a), v in built.x.items():
                 hint[v] = int(roles0.get((eid, a)) == r)
         stats["phase1_limit_s"] = round(left(1.0), 2)
-        solver, status = solve(built, left(1.0), hint=hint)
+        solver, status = solve(built, left(1.0), hint=hint, gap=gap)
         stats.update({"solver_status": solver.status_name(status), "num_role_vars": len(built.x),
                       "build_and_solve_s": round(time.perf_counter() - t0, 3)})
         if status == cp_model.INFEASIBLE:
@@ -377,7 +419,8 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         tries = ([repaired] if moves else []) + ([chosen] if good is None else [])
         for keep in tries:
             b2 = Builder(p, cand_ok=lambda c, keep=keep: c.idx in keep, churn=True, force_cands=True).build()
-            s2, st2 = solve(b2, max(1.0, deadline - time.perf_counter() - 1.5), mode="lex")
+            p2_limit = max(1.0, deadline - time.perf_counter() - 1.5)
+            s2, st2 = solve(b2, min(p2_limit, 15.0) if plateau else p2_limit, mode="lex", gap=gap)
             if st2 not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and st2 != cp_model.INFEASIBLE:
                 b2 = Builder(p, cand_ok=lambda c, keep=keep: c.idx in keep, force_cands=True).build()  # retry without churn
                 s2, st2 = solve(b2, 2.0, mode="lex")
@@ -414,20 +457,34 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         "relative_gap": None if bound is None else (round((obj - bound) / obj, 6) if obj else 0.0),
         "total_s": round(time.perf_counter() - t0, 3),
     })
+    if not plateau:
+        stats["stop_reason"] = "time_limit"
+    elif "lns_stop" in stats:
+        stats["stop_reason"] = stats["lns_stop"]
+    elif stats.get("solver_status") == "OPTIMAL" or (
+            stats.get("relative_gap") is not None and stats["relative_gap"] <= PLATEAU_GAP):
+        stats["stop_reason"] = "proven_close"
+    else:
+        stats["stop_reason"] = "cap"
+    stats["mode"] = "plateau" if plateau else "time_limit"
+    stats["main_s"] = stats["total_s"]
     sched.solver_stats = stats
     # Tradeoffs for the manager (SEMANTICS #25): short what-if solves after the main solve.
     if os.environ.get("ENGINE_TRADEOFFS", "1") != "0":
         main_s = time.perf_counter() - t0
-        if main_s >= time_limit_s:
+        if not plateau and main_s >= time_limit_s:
             stats["tradeoffs"] = []
             stats["notes"].append("Tradeoffs skipped: the main solve used its whole time limit.")
         else:
             tt = time.perf_counter()
             roles_final = {(e, a): r for (e, r, a), v in built.x.items() if solver.boolean_value(v)}
-            stats["tradeoffs"] = tradeoffs(p, sched, chosen, roles_final,
-                                           limit_s=min(5.0, max(1.0, time_limit_s * 0.1)),
-                                           until=tt + time_limit_s * 0.5)
+            if plateau:
+                lim, until = 4.0, min(tt + PLATEAU_TRADEOFF_S, t0 + max_s - 1.0)
+            else:
+                lim, until = min(5.0, max(1.0, time_limit_s * 0.1)), tt + time_limit_s * 0.5
+            stats["tradeoffs"] = tradeoffs(p, sched, chosen, roles_final, limit_s=lim, until=until)
             stats["tradeoffs_s"] = round(time.perf_counter() - tt, 2)
+    stats["wall_s"] = round(time.perf_counter() - t0, 3)
     return sched
 
 
