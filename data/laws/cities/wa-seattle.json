@@ -49,7 +49,8 @@
           "accepting the hours is voluntary and the employee may decline",
           "accepting does not earn additional compensation for schedule changes"
         ],
-        "exemption_note": "Mass communication: written (email, text, app) to 2+ employees, for hours a scheduled employee cannot work; must say it is \"a mass communication\", accepting is voluntary with right to decline, and no additional compensation is owed."
+        "exemption_note": "Mass communication: written (email, text, app) to 2+ employees, for hours a scheduled employee cannot work; must say it is \"a mass communication\", accepting is voluntary with right to decline, and no additional compensation is owed.",
+        "food_full_service_min_locations": 40
       },
       "summary": "Inside 14 days, Seattle pays 1 hour at the scheduled rate for added hours (pro-rated under 1 h; changes under 15 min exempt) or a moved shift, and half the hours not worked for cuts. Hours accepted from a written 'mass communication' covering an absent coworker are exempt.",
       "citation": {

@@ -44,7 +44,9 @@
         "text_message_counts_as_written": true,
         "coworker_coverage_exempt": true,
         "exemption_requires_group_message": false,
-        "exemption_note": "Exempt: \"A Work Schedule change that is mutually agreed to by the Covered Employee and Employer and is confirmed in writing\"; \"writing\" includes \"text message\" (MCC 6-110-050(d)(3), 6-110-020)."
+        "exemption_note": "Exempt: \"A Work Schedule change that is mutually agreed to by the Covered Employee and Employer and is confirmed in writing\"; \"writing\" includes \"text message\" (MCC 6-110-050(d)(3), 6-110-020).",
+        "food_applies_if_employees_over": 249,
+        "food_min_locations": 30
       },
       "summary": "Inside 14 days, Chicago Fair Workweek pays 1 hour at the regular rate per shift where the employer adds hours, moves the shift, or cuts it with >24 h notice; cuts with <24 h notice pay 50% of the lost hours. Changes the employee agrees to in writing (text counts) are exempt.",
       "citation": {

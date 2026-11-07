@@ -39,7 +39,9 @@
         "text_message_counts_as_written": true,
         "coworker_coverage_exempt": true,
         "exemption_requires_group_message": false,
-        "exemption_note": "Exempt only for \"a mutually agreed upon shift trade or coverage arrangement between Employees\" or an employee-requested change \"confirmed in writing\"; an employer-requested call-in owes predictability pay even if accepted."
+        "exemption_note": "Exempt only for \"a mutually agreed upon shift trade or coverage arrangement between Employees\" or an employee-requested change \"confirmed in writing\"; an employer-requested call-in owes predictability pay even if accepted.",
+        "food_applies_if_employees_over": 199,
+        "food_min_locations": 30
       },
       "summary": "Evanston (100+ employees globally, retail and other industries): inside 14 days, 1 hour at the regular rate per added, moved or changed shift; cuts/cancellations with <24 h notice pay 4 hours or the scheduled shift length, whichever is less.",
       "citation": {
