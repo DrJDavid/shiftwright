@@ -81,10 +81,11 @@ class ToolContext:
         content: dict = {"ok": True, "config_version": cfg.config_version, "changed": summary}
         if tagged:
             equipment.record_auto(self.db, self.store_id, tagged)
-            summary = summary + [f"tagged as powered equipment: {', '.join(n for _, n in tagged)}"]
-            content.update(changed=summary, equipment_tagged=[rid for rid, _ in tagged],
-                           note="These look like powered industrial trucks, so minor-labor rules now apply. "
-                                "Tell the leader and ask them to confirm or reject (review_equipment_role).")
+            summary = summary + [f"tagged: {equipment.describe(tagged)}"]
+            content.update(changed=summary, equipment_tagged={rid: tags for rid, _, tags in tagged},
+                           note="These roles look like hazard/equipment work (tags from a fixed list), so minor-labor "
+                                "rules in the law pack now apply to them. Tell the leader in one sentence and ask "
+                                "them to confirm or reject each (review_equipment_role).")
         return ToolResult(content, patch_summary=summary, config_version=cfg.config_version)
 
 
@@ -943,8 +944,8 @@ TOOLS: list[Tool] = [
                "reason": {"type": "string"}}, ["option_id"]), approve_budget_increase, "mutation"),
     # reads / computes
     Tool("get_config_summary", "Read the current store config.", _obj({}), get_config_summary),
-    Tool("review_equipment_role", "After the LEADER decides: confirm (keep) or reject (remove) the automatic "
-         "powered_industrial_truck tag on a role. Never decide this yourself.",
+    Tool("review_equipment_role", "After the LEADER decides: confirm (keep) or reject (remove) a role's automatic "
+         "hazard/equipment tags (e.g. fryer, meat_slicer, powered_industrial_truck). Never decide this yourself.",
          _obj({"role_id": {"type": "string"}, "decision": {"type": "string", "enum": ["confirm", "reject"]}},
               ["role_id", "decision"]), review_equipment_role, "mutation"),
     Tool("readiness_check", "Check whether the store is ready to schedule; lists what's missing.", _obj({}),

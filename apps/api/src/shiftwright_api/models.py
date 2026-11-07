@@ -39,6 +39,7 @@ class ReadinessCheck(BaseModel):
     label: str
     ok: bool
     detail: str
+    severity: Literal["ok", "warn", "block"] = "ok"  # v1.5 proposal: warn = show amber, never blocks
 
 
 class Readiness(BaseModel):

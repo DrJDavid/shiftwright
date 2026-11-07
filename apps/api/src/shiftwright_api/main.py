@@ -246,8 +246,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         tagged = extra.get("tagged") or []
         equipment.record_auto(db(), store_id, tagged)
         if tagged:
-            warnings.append(f"Tagged as powered industrial truck (minor-labor rules apply; please confirm or reject): "
-                            f"{', '.join(n for _, n in tagged)}.")
+            warnings.append(f"Tagged hazard/equipment roles (minor-labor rules use these; please confirm or reject): "
+                            f"{equipment.describe(tagged)}.")
         db().put(store_id, "import_warnings", kind, warnings)
         response.headers["X-Import-Warning-Count"] = str(len(warnings))
         return cfg
@@ -260,7 +260,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     @app.post("/api/stores/{store_id}/equipment_roles", response_model=StoreConfig)
     def equipment_review(store_id: str, body: dict = Body(...)) -> StoreConfig:
-        """{role_id, decision: "confirm"|"reject"} for an automatically tagged powered-equipment role."""
+        """{role_id, decision: "confirm"|"reject"} for a role's automatic ROLE_TAGS tags."""
         load(store_id)
         try:
             return equipment.decide(db(), store_id, str(body.get("role_id", "")), str(body.get("decision", "")))

@@ -65,7 +65,7 @@ def test_imported_forklift_role_is_tagged_and_reviewable(client):
     assert r.json()["role_tags"]["forklift_operator"] == ["powered_industrial_truck"]
     assert int(r.headers["X-Import-Warning-Count"]) >= 1
     w = client.get(f"/api/stores/{sid}/import/roster/warnings").json()["warnings"]
-    assert any("powered industrial truck" in x for x in w)
+    assert any("powered_industrial_truck" in x for x in w)
     check = next(c for c in client.get(f"/api/stores/{sid}/readiness").json()["checks"] if c["id"] == "equipment_roles")
     assert "Forklift Operator" in check["detail"] and "confirm" in check["detail"]
     r = client.post(f"/api/stores/{sid}/equipment_roles", json={"role_id": "forklift_operator", "decision": "reject"})
@@ -105,3 +105,33 @@ def test_priorities_block_readiness(client):
     rd = client.get(f"/api/stores/{sid}/readiness").json()
     check = next(c for c in rd["checks"] if c["id"] == "priorities")
     assert rd["ready"] is False and not check["ok"] and "Cashier" in check["detail"]
+
+
+
+def test_tags_for_all_role_tags():
+    from shiftwright_api.equipment import tags_for
+    cases = {"Fry Cook": {"fryer", "cooking"}, "Line Cook": {"cooking"}, "Deli Slicer": {"meat_slicer"},
+             "Bartender": {"alcohol_service"}, "Delivery Driver": {"motor_vehicle_driving"},
+             "Bakery Mixer": {"bakery_machine"}, "Baler Operator": {"baler_compactor"}, "Lumber Saw": {"power_saw"},
+             "Ladder Stocker": {"ladder_scaffold"}, "Forklift": {"powered_industrial_truck"},
+             "Server": set(), "Host": set(), "Dishwasher": set(), "Drive Up": set(), "Barista": set(),
+             "Prep": set(), "Cashier": set()}
+    for name, want in cases.items():
+        assert set(tags_for("x", name)) == want, name
+
+
+def test_minors_on_tagged_roles_and_business_type_warn(client):
+    sid = make_store(client)["store"]["id"]
+    cfg = tiny_config().model_copy(deep=True)
+    cfg.store.id = sid
+    cfg.store.sector = None
+    role = cfg.roles[0]
+    cfg.role_tags[role.id] = ["fryer"]
+    kid = cfg.employees[0]
+    kid.age = 15
+    kid.trained_role_ids = list({*kid.trained_role_ids, role.id})
+    client.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json"))
+    rd = client.get(f"/api/stores/{sid}/readiness").json()
+    checks = {c["id"]: c for c in rd["checks"]}
+    assert checks["minors_on_tagged_roles"]["severity"] == "warn" and kid.name in checks["minors_on_tagged_roles"]["detail"]
+    assert checks["business_type"]["severity"] == "warn" and checks["business_type"]["ok"] is True
