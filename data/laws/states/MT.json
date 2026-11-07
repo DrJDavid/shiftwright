@@ -11,7 +11,7 @@
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
-    "Minors (MCA 41-2-115 via Montana DLI guide): parallels federal 14-15 limits; no Montana hour limits for 16-17. The 40 h non-school-week cap is cut off in the guide excerpt ('40 hours in ...'), read as a non-school week like federal."
+    "Minors (MCA 41-2-115 via Montana DLI guide): parallels federal 14-15 limits ('(iv) 40 hours in a week in a nonschool week'); no Montana hour limits for 16-17."
   ],
   "rules": [
     {
