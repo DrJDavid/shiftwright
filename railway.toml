@@ -1,0 +1,10 @@
+# Railway reads this file from the repo root automatically (config as code).
+# Image: FastAPI serving the built React app. See apps/api/deploy/railway.toml for the env vars to set.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/deploy/Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
