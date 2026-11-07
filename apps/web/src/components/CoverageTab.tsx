@@ -8,6 +8,8 @@ type Props = {
   config: StoreConfig
   result: SolveResponse | null
   onGapClick: (g: Gap) => void
+  day: number
+  onDayChange: (d: number) => void
 }
 
 type Cell = { required: number; staffed: number; gaps: Gap[] }
@@ -16,8 +18,7 @@ type Cell = { required: number; staffed: number; gaps: Gap[] }
  * Role × time heatmap for one day. Required headcount comes from the store's demand, staffed from the
  * schedule's role segments, and red cells from the solver's own `gaps` (never recomputed here).
  */
-export function CoverageTab({ config, result, onGapClick }: Props) {
-  const [day, setDay] = useState(0)
+export function CoverageTab({ config, result, onGapClick, day, onDayChange: setDay }: Props) {
   const [hover, setHover] = useState<{ x: number; y: number; role: string; t: number; cell: Cell } | null>(null)
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const slot = config.store.slot_minutes ?? 30
@@ -95,8 +96,8 @@ export function CoverageTab({ config, result, onGapClick }: Props) {
       </div>
 
       {!schedule && <p className="px-4 py-3 text-sm text-muted">Build the schedule to see coverage. Showing required headcount only.</p>}
-      {!view ? (
-        <p className="p-6 text-muted">No demand or hours on this day.</p>
+      {!view || view.roleIds.length === 0 ? (
+        <p className="p-6 text-muted">No demand on this day.</p>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
           {view.gapCount > 0 && (
@@ -104,12 +105,15 @@ export function CoverageTab({ config, result, onGapClick }: Props) {
               {view.gapCount} uncovered {view.gapCount === 1 ? 'stretch' : 'stretches'}, {fmtMoney(view.dayCost)} gap cost. Click a red cell to see why.
             </p>
           )}
-          <table className="border-separate border-spacing-px text-xs">
+          <table className="w-full table-fixed border-separate border-spacing-px text-xs">
+            <colgroup>
+              <col className="w-36" />
+            </colgroup>
             <thead>
               <tr>
                 <th className="sticky left-0 z-10 bg-panel" />
                 {view.times.map((t) => (
-                  <th key={t} className="w-5 min-w-5 px-0 text-left font-normal text-muted">
+                  <th key={t} className="px-0 text-left font-normal text-muted">
                     {t % 120 === 0 ? <span className="block w-0 overflow-visible whitespace-nowrap">{fmtTime(t)}</span> : null}
                   </th>
                 ))}
@@ -118,7 +122,7 @@ export function CoverageTab({ config, result, onGapClick }: Props) {
             <tbody>
               {view.roleIds.map((id) => (
                 <tr key={id}>
-                  <th scope="row" className="sticky left-0 z-10 bg-panel pr-2 text-left font-medium whitespace-nowrap text-ink">
+                  <th scope="row" className="sticky left-0 z-10 truncate bg-panel pr-2 text-left font-medium whitespace-nowrap text-ink">
                     <span className="mr-1.5 inline-block size-2.5 rounded-sm align-middle" style={{ background: colors.get(id) }} />
                     {roleName(id)}
                   </th>
@@ -132,7 +136,7 @@ export function CoverageTab({ config, result, onGapClick }: Props) {
                         <Tag
                           {...(isGap ? { type: 'button' as const, onClick: () => onGapClick(c.gaps[0]) } : {})}
                           aria-label={isGap ? `${roleName(id)} ${fmtTime(t)} gap: why?` : undefined}
-                          className={`block h-6 w-5 ${bg} ${isGap ? 'cursor-pointer hover:outline-2 hover:outline-ink' : ''}`}
+                          className={`block h-6 w-full ${bg} ${isGap ? 'cursor-pointer hover:outline-2 hover:outline-ink' : ''}`}
                           onMouseMove={(ev: React.MouseEvent) => setHover({ x: ev.clientX, y: ev.clientY, role: id, t, cell: c })}
                         >
                           {c.required > 1 && (

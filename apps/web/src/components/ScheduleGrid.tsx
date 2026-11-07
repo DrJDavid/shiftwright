@@ -1,9 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
 
-type Props = { schedule: Schedule; config: StoreConfig; onGapClick?: (g: Gap) => void }
+type Props = { schedule: Schedule; config: StoreConfig; onGapClick?: (g: Gap) => void; onDayClick?: (day: number) => void }
 type Hover = { x: number; y: number; content: ReactNode } | null
 
 function paidHours(s: Shift) {
@@ -11,7 +11,8 @@ function paidHours(s: Shift) {
   return (s.end - s.start - unpaid) / 60
 }
 
-export function ScheduleGrid({ schedule, config, onGapClick }: Props) {
+export function ScheduleGrid({ schedule, config, onGapClick, onDayClick }: Props) {
+  const [groupBy, setGroupBy] = useState<'department' | 'hours'>('department')
   const [hover, setHover] = useState<Hover>(null)
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
@@ -32,14 +33,21 @@ export function ScheduleGrid({ schedule, config, onGapClick }: Props) {
   const pct = (t: number) => `${((t - axisStart) / (axisEnd - axisStart)) * 100}%`
   const width = (a: number, b: number) => `${((b - a) / (axisEnd - axisStart)) * 100}%`
 
-  // Show everyone scheduled, then everyone else, by most hours first.
-  const rows = useMemo(() => {
+  // Grouped by home department (store order), most hours first inside each group; or one list by hours.
+  const groups = useMemo(() => {
     const hours = new Map<string, number>()
     for (const s of shifts) hours.set(s.employee_id, (hours.get(s.employee_id) ?? 0) + paidHours(s))
-    return [...config.employees]
+    const rows = [...config.employees]
       .map((e) => ({ e, hours: hours.get(e.id) ?? 0 }))
       .sort((a, b) => b.hours - a.hours || a.e.name.localeCompare(b.e.name))
-  }, [config.employees, shifts])
+    if (groupBy === 'hours') return [{ id: 'all', name: '', rows }]
+    const out = config.departments.map((d) => ({ id: d.id, name: d.name, rows: rows.filter((r) => r.e.home_department_id === d.id) }))
+    const known = new Set(config.departments.map((d) => d.id))
+    const other = rows.filter((r) => !known.has(r.e.home_department_id))
+    if (other.length) out.push({ id: '_other', name: 'Other', rows: other })
+    return out.filter((g) => g.rows.length > 0)
+  }, [config.employees, config.departments, shifts, groupBy])
+  const rows = groups.flatMap((g) => g.rows)
 
   const byCell = useMemo(() => {
     const m = new Map<string, Shift[]>()
@@ -105,8 +113,20 @@ export function ScheduleGrid({ schedule, config, onGapClick }: Props) {
         <thead className="sticky top-0 z-10 bg-panel">
           <tr>
             <th className="border-b border-rule px-3 py-2 text-left align-bottom font-normal text-muted">
-              <div>{rows.filter((r) => r.hours > 0).length} of {rows.length} scheduled</div>
-              <div className="text-xs">Bars run {fmtRange(axisStart, axisEnd)}</div>
+              <div>
+                {rows.filter((r) => r.hours > 0).length} of {rows.length} scheduled
+              </div>
+              <label className="mt-0.5 flex items-center gap-1 text-xs">
+                Group by
+                <select
+                  className="rounded border border-rule bg-panel px-0.5 text-xs text-ink"
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value as 'department' | 'hours')}
+                >
+                  <option value="department">Dept</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </label>
             </th>
             {days.map((d) => {
               const { weekday, date } = fmtDayDate(schedule.week_start, d)
@@ -118,19 +138,39 @@ export function ScheduleGrid({ schedule, config, onGapClick }: Props) {
                   <div className="truncate">
                     <span className="font-semibold text-ink">{weekday}</span> <span className="text-muted">{date.split(' ')[1]}</span>
                   </div>
-                  <div
-                    className={`truncate text-xs ${dayGaps.length ? 'font-medium text-gap' : 'text-muted'}`}
-                    title={dayGaps.length ? `${dayGaps.length} uncovered stretches, ${fmtMoney(cost)} penalty` : undefined}
-                  >
-                    {dayGaps.length ? `${fmtMoneyShort(cost)} gaps` : closed ? 'Closed' : 'Covered'}
-                  </div>
+                  {dayGaps.length && onDayClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onDayClick(d)}
+                      className="block max-w-full truncate text-xs font-medium text-gap hover:underline"
+                      title={`${dayGaps.length} uncovered stretches, ${fmtMoney(cost)} gap cost. See by role.`}
+                    >
+                      {fmtMoneyShort(cost)} gaps
+                    </button>
+                  ) : (
+                    <div className={`truncate text-xs ${dayGaps.length ? 'font-medium text-gap' : 'text-muted'}`}>
+                      {dayGaps.length ? `${fmtMoneyShort(cost)} gaps` : closed ? 'Closed' : 'Covered'}
+                    </div>
+                  )}
                 </th>
               )
             })}
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ e, hours }) => (
+          {groups.map((g) => (
+            <Fragment key={g.id}>
+              {g.name && (
+                <tr>
+                  <th colSpan={8} className="border-b border-rule bg-paper px-3 py-1 text-left text-xs font-semibold tracking-wide text-ink-2 uppercase">
+                    {g.name}
+                    <span className="ml-2 font-normal normal-case text-muted">
+                      {g.rows.filter((r) => r.hours > 0).length} of {g.rows.length} scheduled · {fmtHours(g.rows.reduce((h, r) => h + r.hours, 0))}
+                    </span>
+                  </th>
+                </tr>
+              )}
+              {g.rows.map(({ e, hours }) => (
             <tr key={e.id} className="group">
               <th
                 scope="row"
@@ -177,6 +217,8 @@ export function ScheduleGrid({ schedule, config, onGapClick }: Props) {
                 )
               })}
             </tr>
+          ))}
+            </Fragment>
           ))}
         </tbody>
         <tfoot className="sticky bottom-0 z-10 bg-panel">

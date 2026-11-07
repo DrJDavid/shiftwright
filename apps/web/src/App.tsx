@@ -9,8 +9,10 @@ import { GapSheet } from './components/GapSheet'
 import { ReadinessRail } from './components/ReadinessRail'
 import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
+import { StoreMenu } from './components/StoreMenu'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
+import { demoFor } from './lib/demoStore'
 
 type Tab = 'schedule' | 'coverage' | 'fix'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
@@ -26,7 +28,28 @@ const NEW_STORE = {
   jurisdiction: { state: 'TX', city: 'austin' },
 }
 
+export type NewStoreKind = 'demo' | 'empty'
+
+/** Creates a store. "demo" loads WS4's demo store (Store #0417, 60 people) into it with a full-config PUT. */
+async function createStore(kind: NewStoreKind): Promise<StoreConfig> {
+  let cfg = await api.createStore(NEW_STORE)
+  if (kind === 'demo') cfg = await api.putConfig(cfg.store.id, demoFor(cfg.store.id))
+  try {
+    localStorage.setItem(STORE_KEY, cfg.store.id)
+  } catch {
+    /* storage unavailable */
+  }
+  return cfg
+}
+
 async function loadOrCreateStore(): Promise<StoreConfig> {
+  // ?demo in the URL: start from a fresh copy of the demo store.
+  const url = new URL(window.location.href)
+  if (url.searchParams.has('demo')) {
+    url.searchParams.delete('demo')
+    window.history.replaceState(null, '', url)
+    return createStore('demo')
+  }
   let saved: string | null = null
   try {
     saved = localStorage.getItem(STORE_KEY)
@@ -40,13 +63,7 @@ async function loadOrCreateStore(): Promise<StoreConfig> {
       if (!(err instanceof ApiError && err.status === 404)) throw err
     }
   }
-  const cfg = await api.createStore(NEW_STORE)
-  try {
-    localStorage.setItem(STORE_KEY, cfg.store.id)
-  } catch {
-    /* storage unavailable */
-  }
-  return cfg
+  return createStore('empty')
 }
 
 export default function App() {
@@ -59,6 +76,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('schedule')
   const [railOpen, setRailOpen] = useState(true)
   const [openGap, setOpenGap] = useState<Gap | null>(null)
+  const [coverageDay, setCoverageDay] = useState(0)
   const [lawPack, setLawPack] = useState<LawPack | null>(null)
   const [lawError, setLawError] = useState<string | null>(null)
   const storeId = config?.store.id
@@ -86,6 +104,19 @@ export default function App() {
       live = false
     }
   }, [embeddedLaw, lawState, lawCity])
+
+  const switchStore = useCallback(async (kind: NewStoreKind) => {
+    try {
+      const cfg = await createStore(kind)
+      setResult(null)
+      setSolve({ status: 'idle' })
+      setOpenGap(null)
+      setReadiness(null)
+      setConfig(cfg)
+    } catch (e) {
+      setLoadError((e as Error).message)
+    }
+  }, [])
 
   useEffect(() => {
     loadOrCreateStore()
@@ -196,18 +227,21 @@ export default function App() {
         <span className="text-white/70">
           Week of {week.date} to {end.date}
         </span>
+        <span className="ml-auto" />
         {apiMode === 'mock' && (
           <span
-            className="ml-auto rounded border border-amber-300/60 bg-amber-300/15 px-2 py-0.5 text-xs font-semibold text-amber-200"
+            className="rounded border border-amber-300/60 bg-amber-300/15 px-2 py-0.5 text-xs font-semibold text-amber-200"
             title="Data comes from the in-browser mock API, not the solver. Open with ?api=live to use the real server."
           >
             Mock API
           </span>
         )}
+        <StoreMenu onNew={switchStore} />
       </header>
 
       <div className={`grid min-h-0 ${railOpen ? 'grid-cols-[minmax(320px,30%)_1fr_19rem]' : 'grid-cols-[minmax(320px,30%)_1fr_3rem]'}`}>
         <ChatPane
+          key={config.store.id}
           api={api}
           storeId={config.store.id}
           mode="onboard"
@@ -235,9 +269,19 @@ export default function App() {
             ))}
           </nav>
           {tab === 'schedule' && (
-            <ScheduleTab config={config} result={result} solve={solve} onSolve={() => void runSolve()} onGapClick={setOpenGap} />
+            <ScheduleTab
+              config={config}
+              result={result}
+              solve={solve}
+              onSolve={() => void runSolve()}
+              onGapClick={setOpenGap}
+              onDayClick={(d) => {
+                setCoverageDay(d)
+                setTab('coverage')
+              }}
+            />
           )}
-          {tab === 'coverage' && <CoverageTab config={config} result={result} onGapClick={setOpenGap} />}
+          {tab === 'coverage' && <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />}
           {openGap && result && (
             <GapSheet
               api={api}
