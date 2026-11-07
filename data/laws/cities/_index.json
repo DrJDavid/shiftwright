@@ -9,6 +9,13 @@
       "source": "https://www.chicago.gov/city/en/depts/bacp/supp_info/fairworkweek.html"
     },
     {
+      "file": "ny-new-york.json",
+      "state": "NY",
+      "city": "new york",
+      "reason": "NYC Fair Workweek Law (retail, 20+ employees); NYC-region state minimum wage",
+      "source": "https://www.nyc.gov/site/dca/workers/workersrights/retail-workers.page"
+    },
+    {
       "file": "tx-austin.json",
       "state": "TX",
       "city": "austin",

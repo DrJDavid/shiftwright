@@ -1,0 +1,64 @@
+{
+  "jurisdiction": {
+    "state": "NY",
+    "city": "new york"
+  },
+  "level": "city",
+  "notes": [
+    "NYC Fair Workweek Law, retail (Admin. Code Title 20 ch. 12): covers businesses with 20+ employees primarily selling consumer goods at stores in NYC. Effective Nov. 26, 2017.",
+    "Retail rules are prohibitions, not premiums: schedules 72 h ahead; no on-call shifts; no cancel/cut of >15 min within 72 h (exceptions); added time within 72 h only with written consent. Encoded as change_premium_hours=0 with extra key changes_restricted_within_notice=true.",
+    "Violation of the 72-hour schedule notice may cost $300 per affected worker (DCWP FAQ).",
+    "No retail rest-between-shifts rule (NYC's clopening rule applies to fast food, out of scope).",
+    "Minimum wage effective date not stated on the source page; rate confirmed in effect as of last_verified (page says it stays the same on Jan 1, 2027)."
+  ],
+  "rules": [
+    {
+      "id": "NY.new_york.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "NY",
+        "city": "new york"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 3,
+        "change_premium_hours": 0,
+        "changes_restricted_within_notice": true,
+        "on_call_prohibited": true,
+        "applies_if_employees_over": 19,
+        "applies_to": "retail"
+      },
+      "summary": "NYC retail employers with 20+ employees must give schedules 72 hours ahead and may not use on-call shifts or cancel or add shifts within 72 hours without consent.",
+      "citation": {
+        "url": "https://www.nyc.gov/assets/dca/downloads/pdf/workers/FAQs-FairWorkweek-Retail.pdf",
+        "title": "NYC DCWP \u2014 Fair Workweek Law in Retail: FAQ",
+        "excerpt": "Retail employers must both post at the workplace AND provide workers with a written work schedule at least 72 hours before the first shift",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NY.new_york.minimum_wage.1",
+      "jurisdiction": {
+        "state": "NY",
+        "city": "new york"
+      },
+      "level": "city",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 17.0,
+        "effective": "2026-11-06"
+      },
+      "summary": "The minimum wage in New York City is $17.00 an hour.",
+      "citation": {
+        "url": "https://dol.ny.gov/minimum-wage-0",
+        "title": "NY Department of Labor \u2014 Minimum Wage",
+        "excerpt": "$17.00 per hour in New York City, Long Island, and Westchester County (stays the same on January 1, 2027)",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}
