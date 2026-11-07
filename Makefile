@@ -23,7 +23,7 @@ eval-mock:
 	uv run python -m shiftwright_evals --quick --mock-baselines
 
 dev-api:
-	uv run uvicorn shiftwright_api.main:app --reload --port 8000
+	set -a; [ -f .env ] && . ./.env; set +a; uv run uvicorn shiftwright_api.main:app --reload --port 8000
 
 dev-web:
 	cd apps/web && npm run dev
