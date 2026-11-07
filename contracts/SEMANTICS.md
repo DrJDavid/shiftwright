@@ -170,6 +170,12 @@ with the v1.1 changes below folded in.
     primary source). Split-shift and spread-of-hours premiums are not modeled yet. An infeasibility
     proof must hold for the store's `max_shifts_per_day`.
 
+24. **Immediate fix actions are in both schedules** (*v1.5 clarification, from WS2 Q2*): every
+    `FixPlan.actions` entry (extend / reassign / drop_coverage) is applied in **both**
+    `schedule_if_all_accept` and `schedule_if_none_accept`; call-ins from `outreach_queue` appear only in
+    `schedule_if_all_accept`. Every employee whose schedule differs from `FixRequest.schedule` must be named
+    by an action or a candidate (validated by `validate_fix`).
+
 ## Minimum wage (*v1.1*)
 
 15. **`below_minimum_wage`** (hard): for every employee with at least one shift, if
