@@ -1,6 +1,7 @@
 """solve_week and find_conflicts."""
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 
@@ -31,7 +32,7 @@ def _base(config: StoreConfig, status: str, **kw) -> Schedule:
 
 
 SINGLE_STAGE_MAX_CANDS = 8_000  # above this, start CP-SAT from a greedy schedule
-FULL_MODEL_MAX_CANDS = 100_000  # above this, CP-SAT gets the hourly grid plus the greedy shifts only
+FULL_MODEL_MAX_CANDS = int(os.environ.get("ENGINE_FULL_MODEL_MAX", "0"))  # above: day-by-day LNS
 
 
 def _hard_always_roles(p) -> set[str]:
@@ -136,33 +137,47 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
     return chosen, roles_at
 
 
+COARSE_DAY_LNS_CANDS = 150_000
+ELASTIC_ALWAYS_DOLLARS_PER_HOUR = 1000.0  # day LNS: hard always_staffed priced, so any start can be improved
+
+
 def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
-    """Large models: improve the greedy week one day at a time (full candidate grid for that day,
-    every other day's shifts fixed, hinted with the current week). Returns (chosen, objective units)
-    or None if the start can't be kept (the caller then solves the restricted week model)."""
+    """Improve the greedy week one day at a time: that day's full candidate grid, every other day's
+    shifts fixed, hinted with the current week (y and x). Hard always_staffed is priced at
+    $1000/h inside the day models so a start with holes can still be repaired.
+    Returns (chosen, roles, objective units, always_staffed holes left) or None if no day solved."""
     days = sorted(p.windows)
-    cur, roles, obj = set(chosen0), dict(roles0), None
-    rounds = 0
+    cur, roles, obj, holes = set(chosen0), dict(roles0), None, None
+    always_ids = {c.id for c in p.constraints
+                  if c.kind == ConstraintKind.always_staffed and c.strength == Strength.hard}
+    rounds, solved = 0, 0
     t_start = time.perf_counter()
+    coarse = len(p.cands) > COARSE_DAY_LNS_CANDS  # day models on the hourly grid (+ current shifts)
+    lo = {eid: p.shift_bounds(eid)[0] for eid in p.emps}
+
+    def on_grid(c) -> bool:
+        return not coarse or (c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0)
     while True:
         for k, d in enumerate(days):
             remaining = until - time.perf_counter()
             per = remaining / max(1, len(days) - k) - 1.0  # ~1 s to build a day model
             if per < 0.8:
-                stats["stages"].append({"stage": "day_lns", "rounds": rounds, "s": round(time.perf_counter() - t_start, 2)})
-                return (cur, obj) if obj is not None or rounds else (cur, obj)
+                stats["stages"].append({"stage": "day_lns", "rounds": rounds, "day_solves": solved,
+                                        "s": round(time.perf_counter() - t_start, 2), "holes": holes})
+                return None if obj is None else (cur, roles, obj, holes)
             forced = {i for i in cur if p.cands[i].day != d}
-            b = Builder(p, cand_ok=lambda c, d=d: c.day == d or c.idx in cur, forced=forced).build()
+            b = Builder(p, cand_ok=lambda c, d=d: (c.day == d and on_grid(c)) or c.idx in cur, forced=forced,
+                        elastic_always=ELASTIC_ALWAYS_DOLLARS_PER_HOUR if always_ids else 0.0).build()
             hint = {v: int(i in cur) for i, v in b.y.items()}
             for (e, r, a), v in b.x.items():
                 hint[v] = int(roles.get((e, a)) == r)
             s, st = solve(b, per, hint=hint)
             if st in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                solved += 1
                 cur = {i for i, v in b.y.items() if s.boolean_value(v)}
                 roles = {(e, a): r for (e, r, a), v in b.x.items() if s.boolean_value(v)}
                 obj = s.objective_value
-            elif obj is None and rounds == 0 and k == 0:
-                return None  # the greedy start breaks a hard rule somewhere
+                holes = sum(s.value(t.var) for t in b.soft if t.constraint_id in always_ids)
         rounds += 1
 
 
@@ -206,8 +221,11 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
     lns = None
     if chosen0 is not None and len(p.cands) > FULL_MODEL_MAX_CANDS:
         lns = _day_lns(p, chosen0, roles0, deadline - reserve, stats)
+        if lns is not None and lns[3]:  # always_staffed holes left: hand the week to the hard model
+            chosen0, roles0 = lns[0], lns[1]
+            lns = None
     if lns is not None:
-        chosen, obj1 = lns
+        chosen, _, obj1, _ = lns
         bound1 = None
         status = cp_model.FEASIBLE
         stats["solver_status"] = "DAY_LNS"

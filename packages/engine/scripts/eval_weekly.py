@@ -24,7 +24,8 @@ for size in sizes:
         wall = time.perf_counter() - t
         hard = [v for v in validate(cfg, s).violations if v.severity == "hard"] if s.shifts else []
         st = s.solver_stats or {}
-        print(f"{size} {diff} {jur}: status={s.status} wall={wall:.1f}s shifts={len(s.shifts)} "
+        obj = s.metrics.objective_dollars if s.metrics else None
+        print(f"{size} {diff} {jur}: status={s.status} wall={wall:.1f}s obj={obj} shifts={len(s.shifts)} "
               f"cands={st.get('num_candidate_shifts')} cov={s.metrics.coverage_pct if s.metrics else None} "
               f"hard={len(hard)} {[v.code.value for v in hard[:5]]} solver={st.get('solver_status')} "
-              f"stages={st.get('stages')} err={st.get('error')}", flush=True)
+              f"err={st.get('error')}", flush=True)
