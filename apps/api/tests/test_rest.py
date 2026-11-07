@@ -79,12 +79,25 @@ def test_readiness(client):
     sid = make_store(client, template="empty")["store"]["id"]
     rd = Readiness.model_validate(client.get(f"/api/stores/{sid}/readiness").json())
     assert rd.ready is False
-    assert [c.id for c in rd.checks][:7] == [
-        "store_basics", "jurisdiction", "roles", "employees", "training", "demand", "budget"]
+    assert [c.id for c in rd.checks] == [
+        "store_basics", "jurisdiction", "roles", "employees", "training", "demand", "budget", "minimum_wage",
+        "provisional_rules"]
 
     sid = _put_tiny(client)
     rd = Readiness.model_validate(client.get(f"/api/stores/{sid}/readiness").json())
     assert rd.ready is True, rd
+
+
+def test_readiness_names_employees_below_minimum_wage(client):
+    sid = _put_tiny(client)
+    cfg = StoreConfig.model_validate(client.get(f"/api/stores/{sid}/config").json())
+    low = cfg.employees[0]
+    low.wage_per_hour = 5.0
+    assert client.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json")).status_code == 200
+    rd = Readiness.model_validate(client.get(f"/api/stores/{sid}/readiness").json())
+    check = next(c for c in rd.checks if c.id == "minimum_wage")
+    assert rd.ready is False and check.ok is False
+    assert low.name in check.detail and "$5.00" in check.detail
 
 
 def test_laws_resolve(client):

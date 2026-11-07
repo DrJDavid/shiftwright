@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, Optional
@@ -14,6 +15,7 @@ from pydantic import ValidationError
 from shiftwright_contracts.models import (
     CONTRACT_VERSION,
     CallOut,
+    FixPlan,
     FixRequest,
     Gap,
     Jurisdiction,
@@ -41,7 +43,7 @@ from .models import (
     Readiness,
     SolveRequest,
 )
-from .outreach import OutreachManager
+from .outreach import OutreachBusy, OutreachManager
 from .settings import Settings
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -73,7 +75,18 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         startup_warnings.append(f"{e} Falling back to MESSENGER=mock.")
         messenger = MockMessenger()
     app.state.messenger = messenger
-    app.state.outreach = OutreachManager(app.state.db, messenger, helper_llm, settings.outreach_timeout_s)
+    app.state.outreach = OutreachManager(app.state.db, messenger, helper_llm, settings.outreach_timeout_s,
+                                         settings.max_texts_per_store_hour)
+
+    if settings.demo_key:
+        @app.middleware("http")
+        async def require_demo_key(request: Request, call_next):
+            path = request.url.path
+            guarded = path.startswith("/api/stores") or path == "/api/sms/mock-reply"
+            if (guarded and request.method not in ("GET", "HEAD", "OPTIONS")
+                    and not hmac.compare_digest(request.headers.get("X-Demo-Key", ""), settings.demo_key)):
+                return JSONResponse({"detail": "Missing or wrong X-Demo-Key header."}, status_code=401)
+            return await call_next(request)
 
     def db() -> Database:
         return app.state.db
@@ -94,6 +107,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             "model": settings.agent_model,
             "llm_configured": bool(settings.openrouter_api_key) or llm is not None,
             "stubs": integrations.active_stubs(),
+            "demo_key_required": bool(settings.demo_key),
             "warnings": startup_warnings,
         }
 
@@ -200,7 +214,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     # ---------------------------------------------------------------- fix + outreach
     @app.post("/api/stores/{store_id}/fix")
-    async def fix(store_id: str, body: dict = Body(...)) -> dict:
+    async def fix(store_id: str, body: dict = Body(...)) -> FixPlan:
         cfg = with_law(load(store_id))
         try:
             sched, _ = db().latest_schedule(store_id)
@@ -215,9 +229,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             plan = await asyncio.to_thread(integrations.fix_day, req)
         except integrations.StubUnavailable as e:
             raise HTTPException(503, str(e))
-        plan_id = app.state.outreach.save_plan(store_id, plan, callouts, req.day, req.now, sched)
-        # FixPlan + plan_id (extra key; see contracts/requests/ws6-fixplan-plan-id.md)
-        return {**plan.model_dump(mode="json"), "plan_id": plan_id}
+        return app.state.outreach.save_plan(store_id, plan, callouts, req.day, req.now, sched)
 
     @app.post("/api/stores/{store_id}/outreach/start", response_model=OutreachState)
     async def outreach_start(store_id: str, body: dict = Body(...)) -> OutreachState:
@@ -226,6 +238,13 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             return await app.state.outreach.start(store_id, body.get("plan_id", ""))
         except KeyError:
             raise HTTPException(404, f"No fix plan {body.get('plan_id')!r}")
+        except OutreachBusy as e:
+            raise HTTPException(409, str(e))
+
+    @app.post("/api/stores/{store_id}/outreach/cancel", response_model=OutreachState)
+    async def outreach_cancel(store_id: str) -> OutreachState:
+        load(store_id)
+        return await app.state.outreach.cancel(store_id)
 
     @app.get("/api/stores/{store_id}/outreach", response_model=OutreachState)
     def outreach_get(store_id: str) -> OutreachState:

@@ -1,4 +1,5 @@
-"""Fix + mock outreach. engine.fix_day and validator.validate are faked here (WS1/WS2 not merged)."""
+"""Fix + mock outreach. engine.solve_week/fix_day and validator.validate are faked here so the test
+is deterministic whether or not the real WS1/WS2 packages are installed."""
 from __future__ import annotations
 
 import time
@@ -40,7 +41,7 @@ def fake_engine(monkeypatch):
 
     def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
         calls.append(req)
-        accepted = {s.employee_id for s in req.schedule.shifts}
+        accepted = {s.employee_id for s in req.schedule.shifts if s.id.startswith("s_")}  # our proposed shifts
         queue = [] if accepted else [_cand(i + 1, e, req.config) for i, e in enumerate(
             [e for e in _cashiers(req.config) if e not in req.declined_employee_ids])]
         s = req.schedule
@@ -52,6 +53,8 @@ def fake_engine(monkeypatch):
         m = schedule.metrics.model_copy(update={"total_hours": hours, "coverage_pct": 100.0 if hours else 0.0})
         return ValidationReport(passed=True, hard_count=0, violations=[], recomputed_metrics=m)
 
+    monkeypatch.setattr(integrations, "solve_week", lambda config, time_limit_s=20, previous=None:
+                        integrations._stub_solve(config))  # empty base schedule, as with the stub engine
     monkeypatch.setattr(integrations, "fix_day", fix_day)
     monkeypatch.setattr(integrations, "validate", validate)
     return calls
@@ -84,7 +87,7 @@ def _start(c, sid):
                                                "day": 5, "now": 364})
     assert r.status_code == 200, r.text
     plan = r.json()
-    FixPlan.model_validate(plan)
+    assert FixPlan.model_validate(plan).plan_id == plan["plan_id"]
     st = OutreachState.model_validate(c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]}).json())
     assert st.status == "texting"
     return st
@@ -147,3 +150,90 @@ def test_twilio_signature():
     sig = base64.b64encode(hmac.new(b"tok", payload.encode(), hashlib.sha1).digest()).decode()
     assert twilio_signature_valid("tok", url, params, sig)
     assert not twilio_signature_valid("tok", url, params, "bad")
+
+
+# --------------------------------------------------------------------------- security / limits
+def test_twilio_only_texts_allowlisted_numbers(monkeypatch):
+    import asyncio
+    from shiftwright_api import messenger as m
+
+    posted = []
+
+    class FakeClient:
+        def __init__(self, *a, **k): ...
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): ...
+        async def post(self, url, auth=None, data=None):
+            posted.append(data["To"])
+            return httpx_resp()
+
+    class httpx_resp:
+        status_code = 201
+        def json(self): return {"sid": "SM1"}
+
+    monkeypatch.setattr(m.httpx, "AsyncClient", FakeClient)
+    tw = m.TwilioMessenger("AC1", "tok", "+15125550000", allowlist=["+1 (512) 555-0101"])
+    cfg = tiny_config()
+    ok = cfg.employees[0].model_copy(update={"phone": "+15125550101"})
+    bad = cfg.employees[1].model_copy(update={"phone": "+15125550199"})
+    asyncio.run(tw.send(ok, "hi"))
+    with pytest.raises(m.RecipientBlocked):
+        asyncio.run(tw.send(bad, "hi"))
+    assert posted == ["+15125550101"]
+
+
+def test_blocked_recipient_is_skipped(oclient):
+    from shiftwright_api.messenger import RecipientBlocked
+    c, sid, cfg = oclient
+    rank1, rank2 = _cashiers(cfg)
+    mgr = c.app.state.outreach
+    real_send = mgr.messenger.send
+
+    async def send(emp, body, outreach_rank=None):
+        if emp.id == rank1:
+            raise RecipientBlocked("not on allowlist")
+        return await real_send(emp, body, outreach_rank)
+
+    mgr.messenger.send = send
+    _start(c, sid)
+    st = _wait(c, sid, lambda s: any(getattr(m, "to_employee_id", None) == rank2 for m in s.messages))
+    assert not any(getattr(m, "to_employee_id", None) == rank1 for m in st.messages)
+    assert st.messages[0].from_phone == "system"
+
+
+def test_one_active_outreach_per_store_and_cancel(oclient):
+    c, sid, _ = oclient
+    _start(c, sid)
+    _wait(c, sid, lambda s: s.current_rank == 1)
+    plan = c.post(f"/api/stores/{sid}/fix", json={"callouts": [], "day": 5, "now": 364}).json()
+    assert c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]}).status_code == 409
+    st = OutreachState.model_validate(c.post(f"/api/stores/{sid}/outreach/cancel").json())
+    assert st.status == "exhausted"
+    assert c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]}).status_code == 200
+
+
+def test_text_rate_limit(oclient):
+    c, sid, _ = oclient
+    c.app.state.outreach.max_texts_per_hour = 1
+    _start(c, sid)
+    st = _wait(c, sid, lambda s: s.current_rank == 1)
+    c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "no"})
+    st = _wait(c, sid, lambda s: s.status == "exhausted")
+    assert sum(1 for m in st.messages if getattr(m, "to_employee_id", None)) == 1
+    assert "text limit" in st.messages[-1].body
+
+
+def test_demo_key_guards_mutations(settings):
+    settings.demo_key = "s3cret"
+    with TestClient(create_app(settings=settings)) as c:
+        assert c.get("/api/health").json()["demo_key_required"] is True
+        body = {"name": "x", "jurisdiction": {"state": "TX"}}
+        assert c.post("/api/stores", json=body).status_code == 401
+        assert c.post("/api/stores", json=body, headers={"X-Demo-Key": "wrong"}).status_code == 401
+        r = c.post("/api/stores", json=body, headers={"X-Demo-Key": "s3cret"})
+        assert r.status_code == 200
+        sid = r.json()["store"]["id"]
+        assert c.get(f"/api/stores/{sid}/config").status_code == 200
+        assert c.post(f"/api/stores/{sid}/solve", json={}).status_code == 401
+        assert c.post("/api/sms/mock-reply", json={"from_phone": "1", "body": "y"}).status_code == 401
+        assert c.post("/api/sms/inbound", data={"From": "1", "Body": "y"}).status_code == 200  # mock: no signature

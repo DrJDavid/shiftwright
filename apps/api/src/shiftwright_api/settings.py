@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-DEFAULT_AGENT_MODEL = "anthropic/claude-sonnet-4.5"  # override with AGENT_MODEL
+DEFAULT_AGENT_MODEL = "anthropic/claude-sonnet-5.5"  # override with AGENT_MODEL
 
 
 @dataclass
@@ -20,6 +20,9 @@ class Settings:
     outreach_timeout_s: float = 90.0
     card_timeout_s: float = 30 * 60
     web_dist: str = ""
+    sms_allowlist: list[str] = field(default_factory=list)  # SMS_ALLOWLIST + DEMO_PHONE_1/2; Twilio texts only these
+    demo_key: str = ""  # DEMO_KEY: if set, mutating /api/stores* routes need header X-Demo-Key
+    max_texts_per_store_hour: int = 20
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -36,6 +39,11 @@ class Settings:
             twilio_from_number=env("TWILIO_FROM_NUMBER") or "",
             outreach_timeout_s=float(env("OUTREACH_TIMEOUT_S") or 90),
             web_dist=env("WEB_DIST") or "",
+            sms_allowlist=[p.strip() for p in ",".join(
+                [env("SMS_ALLOWLIST") or "", env("DEMO_PHONE_1") or "", env("DEMO_PHONE_2") or ""]).split(",")
+                if p.strip()],
+            demo_key=(env("DEMO_KEY") or "").strip(),
+            max_texts_per_store_hour=int(env("MAX_TEXTS_PER_STORE_HOUR") or 20),
         )
 
     @property

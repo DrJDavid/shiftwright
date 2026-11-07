@@ -1,7 +1,9 @@
 """Readiness checks, in the order API.md lists them."""
 from __future__ import annotations
 
-from shiftwright_contracts.models import RuleStatus, StoreConfig
+from datetime import date
+
+from shiftwright_contracts.models import LawPack, LawRuleType, RuleStatus, StoreConfig
 
 from . import integrations
 from .models import Readiness, ReadinessCheck
@@ -21,6 +23,7 @@ def compute(config: StoreConfig) -> Readiness:
         f"{s.name}, {s.jurisdiction.state}{'/' + s.jurisdiction.city if s.jurisdiction.city else ''}, "
         f"{len(open_days)} open days, {s.slot_minutes}-min slots" if open_days else "Store hours not set.")
 
+    pack: LawPack | None = None
     try:
         pack = integrations.resolve_law(s.jurisdiction)
         add("jurisdiction", "Labor law resolved", True,
@@ -48,9 +51,39 @@ def compute(config: StoreConfig) -> Readiness:
     add("budget", "Payroll budget", b.weekly_hours_cap > 0,
         f"{b.weekly_hours_cap:g} hours/week cap" if b.weekly_hours_cap > 0 else "Weekly hours cap not set.")
 
+    floor = minimum_wage(pack, s.week_start) if pack else None
+    if floor is None:
+        add("minimum_wage", "Wages at or above minimum wage", pack is not None,
+            "Labor law not resolved; cannot check wages." if pack is None else "No minimum-wage rule in the law pack.")
+    else:
+        rate, rule_id = floor
+        low = [e for e in config.employees if e.wage_per_hour < rate]
+        add("minimum_wage", "Wages at or above minimum wage", not low,
+            f"All wages ≥ ${rate:.2f}/hr ({rule_id})." if not low else
+            f"Below the ${rate:.2f}/hr minimum ({rule_id}): "
+            + ", ".join(f"{e.name} (${e.wage_per_hour:.2f})" for e in low))
+
     prov = [c.id for c in config.constraints if c.status == RuleStatus.provisional]
     add("provisional_rules", "No unconfirmed rules", not prov,
         "None." if not prov else f"{len(prov)} provisional rule(s) not used until confirmed: {', '.join(prov)}")
 
     ready = all(c.ok for c in checks if c.id not in NON_BLOCKING)
     return Readiness(ready=ready, checks=checks)
+
+
+def minimum_wage(pack: LawPack, on: date) -> tuple[float, str] | None:
+    """Highest minimum_wage rule in effect on `on` (most protective wins), as (rate, rule id)."""
+    best: tuple[float, str] | None = None
+    for r in pack.rules:
+        if r.type != LawRuleType.minimum_wage:
+            continue
+        eff = r.params.get("effective")
+        try:
+            if eff and date.fromisoformat(str(eff)) > on:
+                continue
+            rate = float(r.params["dollars_per_hour"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if best is None or rate > best[0]:
+            best = (rate, r.id)
+    return best

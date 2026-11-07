@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +18,16 @@ from shiftwright_contracts.models import Employee, OutboundMessage
 from .agent.llm import LLMClient
 
 Interpretation = Literal["accept", "decline", "question", "unknown"]
+log = logging.getLogger("shiftwright.messenger")
+
+
+class RecipientBlocked(RuntimeError):
+    """The messenger refused to text this number (not on the SMS allowlist). Nothing was sent."""
+
+
+def _digits(phone: str) -> str:
+    d = "".join(ch for ch in phone if ch.isdigit())
+    return d[1:] if len(d) == 11 and d.startswith("1") else d
 
 
 def _now() -> datetime:
@@ -47,12 +58,19 @@ class MockMessenger:
 class TwilioMessenger:
     name = "twilio"
 
-    def __init__(self, account_sid: str, auth_token: str, from_number: str):
+    def __init__(self, account_sid: str, auth_token: str, from_number: str, allowlist: list[str] | None = None):
         if not (account_sid and auth_token and from_number):
             raise ValueError("MESSENGER=twilio needs TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER.")
         self.sid, self.token, self.from_number = account_sid, auth_token, from_number
+        self.allowlist = {_digits(p) for p in (allowlist or []) if _digits(p)}
+
+    def allowed(self, phone: str) -> bool:
+        return _digits(phone) in self.allowlist
 
     async def send(self, employee: Employee, body: str, outreach_rank: Optional[int] = None) -> OutboundMessage:
+        if not self.allowed(employee.phone):
+            log.warning("SMS to employee %s dropped: number not on SMS_ALLOWLIST / DEMO_PHONE_1/2", employee.id)
+            raise RecipientBlocked(f"{employee.name}'s number is not on the SMS allowlist; not texted.")
         url = f"https://api.twilio.com/2010-04-01/Accounts/{self.sid}/Messages.json"
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.post(url, auth=(self.sid, self.token),
@@ -73,7 +91,8 @@ def twilio_signature_valid(auth_token: str, url: str, params: dict[str, str], si
 
 def make_messenger(settings) -> Messenger:
     if settings.messenger == "twilio":
-        return TwilioMessenger(settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number)
+        return TwilioMessenger(settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number,
+                               allowlist=settings.sms_allowlist)
     return MockMessenger()
 
 
