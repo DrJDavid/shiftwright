@@ -37,6 +37,7 @@ from shiftwright_contracts.models import (
 )
 
 from .explain import explain_with_prep
+from .premium import MODES, Premium, call_in_premium, extension_premium
 from .why import DAYS, annotate, span
 from .model import Builder, solve
 from .output import (
@@ -76,18 +77,6 @@ def _roles_of(sh: Shift, slot: int) -> dict[int, str]:
     return out
 
 
-def _premium(p: Prep, e) -> tuple[float, list[str]]:
-    """Predictive-scheduling change premium for a same-day change (hours × wage), if the pack has one."""
-    for r in p.law_of(LawRuleType.predictive_scheduling):
-        over = r.params.get("applies_if_employees_over")
-        if over is not None and len(p.cfg.employees) <= int(over):
-            continue
-        h = float(r.params.get("change_premium_hours") or 0)
-        if h > 0:
-            return h * e.wage_per_hour, [r.id]
-    return 0.0, []
-
-
 class _Fix:
     def __init__(self, req: FixRequest):
         self.req = req
@@ -105,8 +94,10 @@ class _Fix:
 
         # Schedule after the call-outs: their shifts on the day are removed from `now` on.
         self.base: list[Shift] = []
+        self.absent_spans: list[tuple[int, int]] = []  # called-out coworkers' lost time today (day minutes)
         for sh in req.schedule.shifts:
             if sh.employee_id in self.callout_ids and sh.day == self.d and sh.end > self.now:
+                self.absent_spans.append((max(sh.start, self.now), sh.end))
                 lo, _ = p.shift_bounds(sh.employee_id)
                 cut = _round_down(self.now, self.slot)
                 if sh.start < cut and cut - sh.start >= lo:
@@ -196,6 +187,7 @@ class _Fix:
                         continue
                     c = make_cand(p, e, sh.day, st, en, brks, avail, week_cap, day_cap, charge_preferences=False)
                     if c is not None:
+                        c.extra_units = money(extension_premium(p, e, max(0, c.paid_min - paid_minutes(sh))).dollars)
                         self.ext.add(self._add(c).idx)
 
     def _callins(self, e) -> None:
@@ -207,8 +199,7 @@ class _Fix:
         lo, hi = p.shift_bounds(e.id)
         w0, w1 = p.windows[d]
         useful = {a for (r, a) in p.demand if r in p.allowed_roles[e.id] and a // DAY == d}
-        prem, _ = _premium(p, e)
-        extra = money(CALL_IN_DISRUPTION_DOLLARS + prem)
+        modes = [self.req.outreach_mode] if self.req.outreach_mode else list(MODES)
         for st in range(max(self.now_up, _round_up(w0, s)), w1, s):
             for length in range(lo, hi + 1, s):
                 en = st + length
@@ -222,8 +213,14 @@ class _Fix:
                         continue
                     if length > lo and (c.work_slots[0] not in useful or c.work_slots[-1] not in useful):
                         continue
-                    c.extra_units = extra
+                    # Model price: cheapest allowed mode (the plan's mode is chosen after the solve).
+                    prem = min(self.premium(c, m, 10 ** 6).dollars for m in modes)
+                    c.extra_units = money(CALL_IN_DISRUPTION_DOLLARS + prem)
                     self.callin.add(self._add(c).idx)
+
+    def premium(self, c: Cand, mode: str, n_recipients: int) -> Premium:
+        return call_in_premium(self.p, self.p.emps[c.emp], c.start, c.end, c.paid_min, mode,
+                               self.absent_spans, n_recipients)
 
     # ------------------------------------------------------------------ solving
     def _solve(self, allow: set[int], forced: set[int], time_limit_s: float, churn: bool = True):
@@ -287,7 +284,8 @@ class _Fix:
                 out[sh.id] = [f"Extended from {span(o.start, o.end)} to {span(sh.start, sh.end)} after call-outs by {who}"]
         return out
 
-    def _schedule(self, shifts: list[Shift], b=None, s=None, status: str = "feasible") -> Schedule:
+    def _schedule(self, shifts: list[Shift], b=None, s=None, status: str = "feasible",
+                  premium_pay: float = 0.0) -> Schedule:
         p = self.p
         shifts = annotate(p, shifts, self._why_extra(shifts))
         soft = (soft_from_solution(b, s) if b is not None else []) + availability_violations(p, shifts)
@@ -300,8 +298,17 @@ class _Fix:
         for g in gaps:
             g.reasons = explain_with_prep(p, sched, g)
         sched.gaps = gaps
-        sched.metrics = compute_metrics(p, shifts, soft, gaps)
+        sched.metrics = compute_metrics(p, shifts, soft, gaps, premium_pay=premium_pay)
         return sched
+
+    def extension_premiums(self, shifts: list[Shift]) -> dict[str, Premium]:
+        out = {}
+        for sh in shifts:
+            o = self.orig.get((sh.employee_id, sh.day))
+            if sh.day == self.d and o is not None and (o.start, o.end) != (sh.start, sh.end):
+                out[sh.employee_id] = extension_premium(self.p, self.p.emps[sh.employee_id],
+                                                        max(0, paid_minutes(sh) - paid_minutes(o)))
+        return out
 
     # ------------------------------------------------------------------ outreach
     def _residual(self, shifts: list[Shift]) -> dict[tuple[str, int], int]:
@@ -381,24 +388,27 @@ class _Fix:
                 best = (c, roles, hours, net)
         return best
 
-    def _candidate(self, rank: int, c: Cand, shift: Shift, hours: float) -> OutreachCandidate:
+    def _candidate(self, rank: int, c: Cand, shift: Shift, hours: float, prem: Premium) -> OutreachCandidate:
         e = self.p.emps[c.emp]
-        prem, _ = _premium(self.p, e)
-        cost = round(c.wage_units / SCALE + prem, 2)
+        cost = round(c.wage_units / SCALE + prem.dollars, 2)
         a = e.attendance
         roles = sorted({g.role_id for g in shift.segments})
         why = (f"Can cover {hours:g} h of open {', '.join(roles)} time on {shift.start // 60:02d}:{shift.start % 60:02d}–"
                f"{shift.end // 60:02d}:{shift.end % 60:02d} for ${cost:,.2f}; accepted "
                f"{a.callins_accepted_90d} of {a.callins_offered_90d} call-ins in the last 90 days.")
+        if prem.dollars > 0:
+            why += f" Includes ${prem.dollars:,.2f} predictability pay."
         return OutreachCandidate(rank=rank, employee_id=c.emp, proposed_shift=shift, added_cost_dollars=cost,
-                                 est_accept_prob=round(_prob(e), 4), why=why)
+                                 est_accept_prob=round(_prob(e), 4), why=why, premium_pay_dollars=prem.dollars,
+                                 law_rule_ids=prem.law_rule_ids, premium_note=prem.note)
 
 
 def sh_roles(sh: Shift) -> list[str]:
     return [g.role_id for g in sh.segments]
 
 
-def _actions(fx: _Fix, none_shifts: list[Shift], none_sched: Schedule) -> list[FixAction]:
+def _actions(fx: _Fix, none_shifts: list[Shift], none_sched: Schedule,
+             ext_prem: dict[str, Premium]) -> list[FixAction]:
     p, d, slot = fx.p, fx.d, fx.slot
     out: list[FixAction] = []
     for sh in none_shifts:
@@ -410,17 +420,17 @@ def _actions(fx: _Fix, none_shifts: list[Shift], none_sched: Schedule) -> list[F
         e = p.emps[sh.employee_id]
         if (sh.start, sh.end) != (orig.start, orig.end):
             added = (paid_minutes(sh) - paid_minutes(orig)) / 60 * e.wage_per_hour
-            prem, laws = _premium(p, e)
+            pm = ext_prem.get(sh.employee_id, Premium())
             spans = [(sh.start, orig.start)] if sh.start < orig.start else []
             spans += [(orig.end, sh.end)] if sh.end > orig.end else []
             roles = [g.role_id for g in sh.segments if any(g.start < b and a < g.end for a, b in spans)]
             out.append(FixAction(lever=Lever.extend, employee_id=sh.employee_id, role_id=roles[0] if roles else None,
                                  start=spans[0][0], end=spans[-1][1], added_cost_dollars=round(added, 2),
-                                 premium_pay_dollars=round(prem, 2), law_rule_ids=laws,
+                                 premium_pay_dollars=pm.dollars, law_rule_ids=pm.law_rule_ids,
                                  rationale=f"Extend {sh.employee_id} from {orig.start // 60:02d}:{orig.start % 60:02d}–"
                                            f"{orig.end // 60:02d}:{orig.end % 60:02d} to {sh.start // 60:02d}:"
                                            f"{sh.start % 60:02d}–{sh.end // 60:02d}:{sh.end % 60:02d}; no consent "
-                                           f"text needed since they are already on the schedule today."))
+                                           f"text needed since they are already on the schedule today." + (f" {pm.note}" if pm.note else "")))
         before, after = _roles_of(orig, slot), _roles_of(sh, slot)
         run = None
         for a in sorted(after):
@@ -466,31 +476,30 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
     rN = fx._solve(fx.ext, set(), per)
     if rN is None:
         none_shifts, none_sched = list(fx.base), base_sched
+        ext_N = {}
     else:
         none_shifts = fx._shifts(rN[0], rN[1])
-        none_sched = fx._schedule(none_shifts, rN[0], rN[1], "optimal" if rN[2] == cp_model.OPTIMAL else "feasible")
+        ext_N = fx.extension_premiums(none_shifts)
+        none_sched = fx._schedule(none_shifts, rN[0], rN[1], "optimal" if rN[2] == cp_model.OPTIMAL else "feasible",
+                                  premium_pay=sum(x.dollars for x in ext_N.values()))
 
     # A: every allowed lever.
     picked: list[int] = []
-    all_shifts, all_sched = none_shifts, none_sched
+    all_shifts, rA = none_shifts, None
     if Lever.call_in in fx.levers and fx.callin:
         rA = fx._solve(fx.ext | fx.callin, set(), max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.7))
         if rA is not None:
             picked = [i for i in fx.callin if rA[1].boolean_value(rA[0].y[i])]
             if picked:
                 all_shifts = fx._shifts(rA[0], rA[1])
-                all_sched = fx._schedule(all_shifts, rA[0], rA[1], "optimal" if rA[2] == cp_model.OPTIMAL else "feasible")
 
-    # Outreach queue: A's call-ins, then up to MAX_ALTERNATES alternates against N's remaining gaps.
-    queue_items = []
+    # Outreach pool: A's call-ins, then up to MAX_ALTERNATES alternates against N's remaining gaps.
+    pool = []  # (cand, shift, open hours)
     residual = fx._residual(none_shifts)
     by_emp_shift = {(s.employee_id, s.day): s for s in all_shifts}
     for i in picked:
         c = fx.p.cands[i]
-        sh = by_emp_shift[(c.emp, c.day)]
-        hours = fx._open_hours(c, residual)
-        cost = c.wage_units / SCALE + _premium(fx.p, fx.p.emps[c.emp])[0]
-        queue_items.append((-(hours / max(cost, 0.01)) * _prob(fx.p.emps[c.emp]), c, sh, hours))
+        pool.append((c, by_emp_shift[(c.emp, c.day)], fx._open_hours(c, residual)))
     if picked:
         taken = {fx.p.cands[i].emp for i in picked}
         alts = []
@@ -501,18 +510,38 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
             if best is None:
                 continue
             c, roles, hours, _net = best
-            cost = c.wage_units / SCALE + _premium(fx.p, e)[0]
             alt = make_shift(fx.p, c, roles).model_copy(update={"id": f"sh-{e.id}-d{fx.d}-callin"})
             alt = annotate(fx.p, none_shifts + [alt], fx._why_extra([alt]))[-1]
-            alts.append((-(hours / max(cost, 0.01)) * _prob(e), c, alt, hours))
-        alts.sort(key=lambda t: (t[0], t[1].emp))
-        queue_items += alts[:MAX_ALTERNATES]
-    # One ranking for picked call-ins and alternates (SEMANTICS #16).
-    queue_items.sort(key=lambda t: (t[0], t[1].emp))
-    queue = [fx._candidate(k + 1, c, sh, h) for k, (_, c, sh, h) in enumerate(queue_items)]
+            alts.append((-(hours / max(c.wage_units / SCALE, 0.01)) * _prob(e), c.emp, (c, alt, hours)))
+        alts.sort(key=lambda t: (t[0], t[1]))
+        pool += [t[2] for t in alts[:MAX_ALTERNATES]]
+
+    # Mode: the requested one, else the cheaper total premium over A's call-ins (tie: one_to_one).
+    n = len(pool)
+    if req.outreach_mode:
+        mode = req.outreach_mode
+    else:
+        cost = {m: sum(fx.premium(c, m, n).dollars for c, _, _ in pool[:max(1, len(picked))]) for m in MODES}
+        mode = "group_offer" if cost["group_offer"] < cost["one_to_one"] else "one_to_one"
+    prem = {c.idx: fx.premium(c, mode, n) for c, _, _ in pool}
+
+    # One ranking for picked call-ins and alternates (SEMANTICS #16): open hours / added $ × P(accept).
+    def score(item):
+        c, _, h = item
+        return -(h / max(c.wage_units / SCALE + prem[c.idx].dollars, 0.01)) * _prob(fx.p.emps[c.emp])
+    pool.sort(key=lambda t: (score(t), t[0].emp))
+    queue = [fx._candidate(k + 1, c, sh, h, prem[c.idx]) for k, (c, sh, h) in enumerate(pool)]
+
+    all_sched = none_sched
+    if picked:
+        ext_A = fx.extension_premiums(all_shifts)
+        callin_prem = sum(prem[i].dollars for i in picked)
+        all_sched = fx._schedule(all_shifts, rA[0], rA[1], "optimal" if rA[2] == cp_model.OPTIMAL else "feasible",
+                                 premium_pay=sum(x.dollars for x in ext_A.values()) + callin_prem)
 
     return FixPlan(
-        actions=_actions(fx, none_shifts, none_sched),
+        outreach_mode=mode if pool else (req.outreach_mode or "one_to_one"),
+        actions=_actions(fx, none_shifts, none_sched, ext_N),
         outreach_queue=queue,
         schedule_if_all_accept=all_sched,
         schedule_if_none_accept=none_sched,
