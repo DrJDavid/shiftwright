@@ -20,8 +20,12 @@ type Props = {
   onCallouts?: (c: { employee_id: string; day: number }[]) => void
 }
 
-// The demo scenario's call-outs (packages/scenarios/fixtures/demo_scenario.json): Saturday 06:04.
-const DEMO = { day: 5, now: 364, ids: ['e034', 'e052', 'e053'] }
+// The demo scenarios' call-outs (packages/scenarios/fixtures/demo_scenario*.json): the big-box stores call out
+// Saturday 6:04a; Harbor Grill (demo_scenario_restaurant.json, sector food) Saturday 3:30p.
+const DEMOS = {
+  retail: { day: 5, now: 364, ids: ['e034', 'e052', 'e053'], text: 'three call-outs at 6:04a Saturday' },
+  food: { day: 5, now: 930, ids: ['e005', 'e028'], text: 'two call-outs at 3:30p Saturday' },
+}
 
 const LEVER: Record<FixAction['lever'], string> = {
   call_in: 'Call in',
@@ -35,6 +39,7 @@ const isOut = (m: Msg): m is OutboundMessage => 'to_employee_id' in m
 
 export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }: Props) {
   const storeId = config.store.id
+  const DEMO = config.store.sector === 'food' ? DEMOS.food : DEMOS.retail
   const hasDemo = DEMO.ids.every((id) => config.employees.some((e) => e.id === id))
   const [day, setDay] = useState(hasDemo ? DEMO.day : 0)
   const [now, setNow] = useState(hasDemo ? DEMO.now : 360)
@@ -121,8 +126,25 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
     setError(null)
     lastAccepted.current = 0
     try {
-      watch(await api.outreachStart(storeId, plan.plan_id))
+      const st = await api.outreachStart(storeId, plan.plan_id)
+      // v1.5: starting saves the plan's no-consent changes (call-outs removed, actions applied).
+      if (st.schedule) onSchedule(st.schedule)
+      watch(st)
     } catch (e) {
+      setError({ status: e instanceof ApiError ? e.status : undefined, message: (e as Error).message })
+    }
+  }
+
+  const [applied, setApplied] = useState<string | null>(null)
+  const applyOnly = async () => {
+    if (!plan?.plan_id) return
+    setApplied('Applying…')
+    try {
+      const r = await api.fixApply(storeId, plan.plan_id)
+      onSchedule(r.schedule)
+      setApplied('Applied to the schedule. Nobody was texted.')
+    } catch (e) {
+      setApplied(null)
       setError({ status: e instanceof ApiError ? e.status : undefined, message: (e as Error).message })
     }
   }
@@ -218,7 +240,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
             </div>
             <p className="mt-2 text-xs text-muted">
               {dayShifts.length} people work {WEEKDAY_NAMES[day]}. Tap everyone who called out.
-              {hasDemo && day === DEMO.day ? ' Prefilled with the demo: three call-outs at 6:04a Saturday.' : ''}
+              {hasDemo && day === DEMO.day ? ` Prefilled with the demo: ${DEMO.text}.` : ''}
             </p>
             <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
               {dayShifts.map((s) => {
@@ -302,6 +324,8 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
           outreach={outreach}
           liveCoverage={liveCoverage}
           onStart={() => void startTexting()}
+          onApplyOnly={() => void applyOnly()}
+          applied={applied}
           onStop={() => void stop()}
           nameOf={(id) => emp.get(id)?.name ?? id}
           onOpenPhone={setPhoneOf}
@@ -681,6 +705,8 @@ function Phone({
   outreach,
   liveCoverage,
   onStart,
+  onApplyOnly,
+  applied,
   onStop,
   onReply,
   nameOf,
@@ -692,6 +718,8 @@ function Phone({
   outreach: OutreachState | null
   liveCoverage: number | undefined
   onStart: () => void
+  onApplyOnly: () => void
+  applied: string | null
   onStop: () => void
   onReply: (phone: string, body: string) => Promise<void>
   nameOf: (id: string) => string
@@ -826,6 +854,17 @@ function Phone({
               Stop texting
             </button>
           </>
+        )}
+        {status === 'idle' && (
+          <div className="mt-1.5 text-center text-xs">
+            {applied ? (
+              <span className="text-pine-dark">{applied}</span>
+            ) : (
+              <button type="button" onClick={onApplyOnly} disabled={!plan.plan_id} className="text-ink-2 underline hover:text-ink">
+                Just make today's changes, don't text anyone
+              </button>
+            )}
+          </div>
         )}
       </div>
     </aside>

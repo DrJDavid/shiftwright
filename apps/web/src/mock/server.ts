@@ -209,6 +209,12 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       st.plans.set(planId, saved)
       return ok(saved.plan)
     }
+    if (rest === '/fix/apply' && method === 'POST') {
+      const saved = st.plans.get((body as { plan_id: string }).plan_id)
+      if (!saved) return notFound('No such fix plan')
+      st.latest = { schedule: saved.base, validation: { passed: true, hard_count: 0, violations: [], recomputed_metrics: saved.base.metrics! } }
+      return ok(st.latest)
+    }
     if (rest === '/outreach/start' && method === 'POST') {
       const saved = st.plans.get((body as { plan_id: string }).plan_id)
       if (!saved) return notFound('No such fix plan')
