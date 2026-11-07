@@ -335,8 +335,36 @@ def split_list(s: str) -> list[str]:
 # --------------------------------------------------------------------------- #
 # Commit: apply mapped rows to the config dict (inside Database.mutate)
 # --------------------------------------------------------------------------- #
+AUTO_PRIORITY = "priority: Important, automatic"  # imported roles are priced like chat roles until the leader picks
+_ALIASES = re.compile(r"Also called: ([^.]*)\.")
+
+
+def role_aliases(role: dict) -> list[str]:
+    """Other names a role goes by in the leader's exports (e.g. its job code), kept in its description."""
+    m = _ALIASES.search(role.get("description") or "")
+    return [a.strip() for a in m.group(1).split(",") if a.strip()] if m else []
+
+
+def _abbreviates(code: str, words: list[str]) -> int:
+    """How strongly `code` abbreviates a role name (higher is stronger, 0 = no): exact word, prefix, initials,
+    or a subsequence starting at the first letter (HRDL -> hardlines, FITRM -> fitting room)."""
+    c, joined = code.replace(" ", ""), "".join(words)
+    if len(c) < 2 or not joined or c[0] != joined[0]:
+        return 0
+    if c == joined or c in words:
+        return 5
+    if joined.startswith(c) or words[0].startswith(c):
+        return 4
+    if len(words) > 1 and c == "".join(w[0] for w in words):
+        return 3
+    it = iter(joined)
+    return 2 if all(ch in it for ch in c) else 0
+
+
 class Resolver:
-    """Resolves department / role names to ids, adding unknown ones as flagged defaults."""
+    """Resolves department / role names to ids. Unknown roles are matched to existing ones by the aliases
+    other files taught us (job code <-> title), then by unambiguous abbreviation; only then added as new,
+    flagged roles (priced at the default priority, never $0)."""
 
     def __init__(self, d: dict, warnings: list[str]):
         self.d = d
@@ -351,16 +379,68 @@ class Resolver:
         self.warnings.append(f"Unknown department {name!r} added as {did!r} (default, review).")
         return did
 
-    def role(self, name: str, department_id: Optional[str] = None) -> str:
+    def _exact(self, name: str) -> Optional[str]:
+        n = norm(name)
         for r in self.d["roles"]:
-            if norm(name) in (norm(r["id"]), norm(r["name"])):
+            if n in (norm(r["id"]), norm(r["name"]), *(norm(a) for a in role_aliases(r))):
                 return r["id"]
+        return None
+
+    def _abbreviation(self, name: str) -> Optional[str]:
+        code = norm(name)
+        scored = []
+        for r in self.d["roles"]:
+            best = max(_abbreviates(code, norm(t).split()) for t in (r["id"].replace("_", " "), r["name"]))
+            if best:
+                scored.append((best, r["id"]))
+        if not scored:
+            return None
+        top = max(b for b, _ in scored)
+        winners = [rid for b, rid in scored if b == top]
+        return winners[0] if len(winners) == 1 else None
+
+    def alias(self, rid: str, alt: str) -> None:
+        """Remember that `alt` (e.g. job code GROC, or title GROCERY STOCK) names role `rid`."""
+        alt = (alt or "").strip()
+        r = next((x for x in self.d["roles"] if x["id"] == rid), None)
+        if r is None or not alt or norm(alt) in (norm(r["id"]), norm(r["name"])):
+            return
+        if r["name"].isupper() and len(r["name"]) <= 6 and len(alt) > len(r["name"]):
+            old, r["name"] = r["name"], alt.title()  # a bare job code as the name: use the title instead
+            alt = old
+        known = role_aliases(r)
+        if norm(alt) in (norm(a) for a in known):
+            return
+        desc = _ALIASES.sub("", r.get("description") or "").strip()
+        r["description"] = (desc + f" Also called: {', '.join(known + [alt])}.").strip()
+
+    def role(self, name: str, department_id: Optional[str] = None) -> str:
+        rid = self._exact(name)
+        if rid:
+            return rid
+        rid = self._abbreviation(name)
+        if rid:
+            self.alias(rid, name)
+            self.warnings.append(f"Read role {name!r} as {self._name(rid)!r} (abbreviation; review).")
+            return rid
         rid = slug(name) or "unknown"
         dep = department_id or (self.d["departments"][0]["id"] if self.d["departments"] else self.department("Unassigned"))
         self.d["roles"].append({"id": rid, "department_id": dep, "name": name, "gap_penalty_per_hour": 0.0,
-                                "description": "Added from CSV import: unknown role name (default, provisional) — review."})
-        self.warnings.append(f"Unknown role {name!r} added as {rid!r} with $0/h gap penalty (default, review).")
+                                "description": f"Added from CSV import ({AUTO_PRIORITY}); review."})
+        self.warnings.append(f"Unknown role {name!r} added as {rid!r} (priority Important by default; review).")
         return rid
+
+    def _name(self, rid: str) -> str:
+        return next((r["name"] for r in self.d["roles"] if r["id"] == rid), rid)
+
+
+def price_imported_roles(d: dict) -> None:
+    """Imported roles still on the automatic priority get the default level, priced from current wages."""
+    from . import priorities
+
+    for r in d["roles"]:
+        if AUTO_PRIORITY in (r.get("description") or ""):
+            r["gap_penalty_per_hour"] = priorities.penalty(priorities.DEFAULT_LEVEL, priorities.base_wage(d, r["id"]))
 
 
 def _mapped(row: dict, mapping: dict[str, Optional[str]]) -> dict[str, str]:
@@ -407,6 +487,13 @@ def _key(kind: str, r: dict) -> tuple:
 
 def apply_rows(kind: str, d: dict, mapping: dict[str, Optional[str]], rows: list[dict],
                warnings: list[str], stored: Optional[dict] = None) -> Any:
+    out = _apply_rows(kind, d, mapping, rows, warnings, stored)
+    price_imported_roles(d)
+    return out
+
+
+def _apply_rows(kind: str, d: dict, mapping: dict[str, Optional[str]], rows: list[dict],
+                warnings: list[str], stored: Optional[dict] = None) -> Any:
     res = Resolver(d, warnings)
     week_start = date.fromisoformat(d["store"]["week_start"])
     stored = stored or {}
@@ -443,14 +530,22 @@ def apply_rows(kind: str, d: dict, mapping: dict[str, Optional[str]], rows: list
         return _roster(d, mapping, rows, res, week_start, warnings)
     if kind == "training":
         by_id = {e["id"]: e for e in d["employees"]}
+        # other columns that name the same role (job code next to job title): learn them as aliases, so a
+        # forecast that uses the code and a training file that uses the title land on the same role
+        linked = [c for c, f in mapping.items() if not f and re.search(r"code|desc|title|job|position|name", norm(c))
+                  and not re.search(r"employee|emp|tm|team|full|first|last", norm(c))]
         for i, row in enumerate(rows):
             m = _mapped(row, mapping)
             e = by_id.get(m.get("employee_id", ""))
             if e is None:
                 warnings.append(f"Row {i + 2}: unknown employee {m.get('employee_id')!r}; skipped.")
                 continue
-            for rname in split_list(m.get("role", "")):
+            names = split_list(m.get("role", ""))
+            for rname in names:
                 rid = res.role(rname, e["home_department_id"])
+                if len(names) == 1:
+                    for col in linked:
+                        res.alias(rid, row.get(col, ""))
                 if rid not in e["trained_role_ids"]:
                     e["trained_role_ids"].append(rid)
         return None

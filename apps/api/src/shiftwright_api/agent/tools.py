@@ -12,6 +12,7 @@ the server directly (actor "leader"), so the config never depends on the LLM re-
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -30,7 +31,8 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import equipment, import_flow, integrations, priorities, readiness
+from .. import equipment, import_flow, integrations, priorities, readiness, rules
+from ..imports import AUTO_PRIORITY
 from ..db import ConfigInvalid, Database
 
 
@@ -199,7 +201,9 @@ def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
     levels = priorities.load(ctx.db, ctx.store_id)
     raw = cfg.model_dump(mode="json")
     props = {"departments": [d.model_dump(mode="json") for d in cfg.departments],
-             "roles": [{**r.model_dump(mode="json"), "priority": levels.get(r.id)} for r in cfg.roles]}
+             "roles": [{**r.model_dump(mode="json"),
+                        "priority": levels.get(r.id) or ("important" if AUTO_PRIORITY in r.description else None)}
+                       for r in cfg.roles]}
     for key in ("departments", "roles"):
         for item in args.get(key) or []:
             if key == "roles":
@@ -220,6 +224,9 @@ def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
             lvl = r.pop("priority", None)
             if lvl in priorities.LEVELS:
                 new_levels[r["id"]] = lvl
+                # the leader chose: stop treating it as an automatically priced import
+                r["description"] = (r.get("description") or "").replace(f"({AUTO_PRIORITY}); ", "").replace(
+                    f"({AUTO_PRIORITY})", "")
             else:
                 new_levels.pop(r.get("id"), None)  # custom $ priority from the card
             roles_out.append(r)
@@ -541,12 +548,52 @@ def ask_csv_import(ctx: ToolContext, args: dict) -> CardRequest:
     return CardRequest("csv_import", props, apply)
 
 
+DEFAULT_SOFT_WEIGHT = 25.0  # a "preference": the leader can raise or lower it; never ask them for dollars
+
+
+def _person_id(cfg: StoreConfig, ref: str) -> str:
+    """An employee id from how the leader names them: an id, a full name, a first name, or "Jules C."
+    Returns the ref unchanged if it isn't one unique person (the contract check then reports it)."""
+    ref = (ref or "").strip()
+    if any(e.id == ref for e in cfg.employees):
+        return ref
+    words = [w for w in re.split(r"[\s.]+", ref.lower()) if w]
+    if not words:
+        return ref
+
+    def fits(name: str) -> bool:
+        parts = [w for w in re.split(r"[\s.]+", name.lower()) if w]
+        if not parts or parts[0] != words[0]:
+            return False
+        rest = words[1:]
+        return all(any(p.startswith(w) for p in parts[1:]) for w in rest)
+
+    hits = [e.id for e in cfg.employees if fits(e.name)]
+    return hits[0] if len(hits) == 1 else ref
+
+
+def _resolve_people(cfg: StoreConfig, raw: dict) -> dict:
+    p = dict(raw.get("params") or {})
+    if "employee_ids" in p:
+        p["employee_ids"] = [_person_id(cfg, x) for x in p["employee_ids"]]
+    if "employee_id" in p:
+        p["employee_id"] = _person_id(cfg, p["employee_id"])
+    out = {**raw, "params": p}
+    if raw.get("applies_to_employee_ids"):
+        out["applies_to_employee_ids"] = [_person_id(cfg, x) for x in raw["applies_to_employee_ids"]]
+    return out
+
+
 def propose_rule(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]:
-    raw = dict(args.get("constraint") or {})
+    raw = _resolve_people(ctx.config(), dict(args.get("constraint") or {}))
     raw.setdefault("id", _uid("c"))
     raw.setdefault("status", "provisional")
     raw.setdefault("strength", "soft")
     raw.setdefault("source", "leader")
+    why = rules.problem(raw.get("kind", ""), raw.get("params"))
+    if why:
+        return ToolResult({"error": f"Rule not shown: {why}. Fill in the params from what the leader said "
+                                    "and call propose_rule again."})
     try:
         constraint = Constraint.model_validate(raw)
     except ValidationError as e:
@@ -565,11 +612,8 @@ def propose_rule(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]
             c["status"] = "confirmed"
             c["strength"] = decision
             if decision == "soft":
-                w = result.get("weight_dollars")
-                if not w or float(w) <= 0:
-                    return ToolResult({"error": "A soft rule needs weight_dollars > 0; ask the leader what it is worth.",
-                                       "decision": decision})
-                c["weight_dollars"] = float(w)
+                w = result.get("weight_dollars") or c.get("weight_dollars")
+                c["weight_dollars"] = float(w) if w and float(w) > 0 else DEFAULT_SOFT_WEIGHT
         else:
             return ToolResult({"error": f"Unknown decision {decision!r}"})
 
@@ -753,8 +797,11 @@ def _check_constraint(c: dict) -> None:
             raise ToolError("An inferred constraint needs evidence.")
         if c.get("status") == "confirmed":
             raise ToolError("Inferred rules stay provisional until the leader confirms them on a propose_rule card.")
+    why = rules.problem(c.get("kind", ""), c.get("params"))
+    if why:
+        raise ToolError(f"Rule not saved: {why}. Fill in the params from what the leader said and try again.")
     if c.get("strength") == "soft" and not (c.get("weight_dollars") or 0) > 0:
-        raise ToolError("A soft constraint needs weight_dollars > 0. Ask the leader what it is worth.")
+        c["weight_dollars"] = DEFAULT_SOFT_WEIGHT  # a preference: never ask the leader for dollars
 
 
 def add_constraint(ctx: ToolContext, args: dict) -> ToolResult:
@@ -996,8 +1043,12 @@ TOOLS: list[Tool] = [
                                                     "labor_model", "labor_hours", "labor_standards",
                                                     "sales_forecast", "workload"]}},
               ["kind"]), ask_csv_import, "card"),
-    Tool("propose_rule", "Show a rule card so the leader decides hard / soft (and $ weight) / not a rule. "
-         "Use for every unwritten rule and every mined pattern.",
+    Tool("propose_rule", "Show a rule card so the leader confirms it as a firm rule (strength hard), a preference "
+         "(strength soft) or not a rule. Use for every unwritten rule and every mined pattern. Set `strength` "
+         "yourself from their words: absolutes (never, nobody, always, can't, no more than, at least) are hard; "
+         "'prefer', 'try to', 'when you can' are soft. Leave weight_dollars out unless they gave one (preferences "
+         "get a default). People may be named as the leader names them (id, full name, 'Jules C.'); the tool "
+         "matches them to the roster.",
          _obj({"constraint": {"type": "object", "description": "A Constraint (kind must be a ConstraintKind)."},
                "evidence": {"type": "string"}, "plain_text": {"type": "string"}}, ["constraint", "plain_text"]),
          propose_rule, "card"),
