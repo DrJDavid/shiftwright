@@ -9,8 +9,8 @@
     "Kentucky meal period: reasonable off-duty period, ordinarily 30 minutes, between the 3rd and 5th hour of work (DOL meal table); trigger length not stated, so not encoded.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (803 KAR 1:100 \u00a7 3): 16-17 school-week limits can be raised with written parent permission (6.5 h school day, 32.5 h week, 11 p.m.) and to 40 h/week with parent permission + school certification of a 2.0 GPA; encoded at the base limits. No Kentucky hour limits for 16-17 when school is not in session. KRS 339.230 allows (does not forbid) stricter-than-federal regulations."
   ],
   "rules": [
     {
@@ -78,6 +78,93 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "KY.minor_limits.1",
+      "jurisdiction": {
+        "state": "KY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_hours_non_school_day": 8
+      },
+      "summary": "When school is in session, 14- and 15-year-olds may work outside school hours at most 3 hours on a school day, 8 on a non-school day and 18 a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://apps.legislature.ky.gov/law/kar/titles/803/001/100/",
+        "title": "803 KAR 1:100 \u2014 Child labor (Ky. Dept. of Workplace Standards)",
+        "excerpt": "Not more than eighteen (18) hours in any one (1) work week when school is in session ... Not more than three (3) hours in any one (1) school day, nor more than eight (8) hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "KY.minor_limits.2",
+      "jurisdiction": {
+        "state": "KY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "When school is not in session, 14- and 15-year-olds may work at most 8 hours a day and 40 a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://apps.legislature.ky.gov/law/kar/titles/803/001/100/",
+        "title": "803 KAR 1:100 \u2014 Child labor (Ky. Dept. of Workplace Standards)",
+        "excerpt": "Not more than forty (40) hours in any one (1) work week when school is not in session ... Not more than eight (8) hours in any one (1) day when school is not in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "KY.minor_limits.3",
+      "jurisdiction": {
+        "state": "KY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 6,
+        "max_hours_week": 30,
+        "earliest_start": 360,
+        "latest_end": 1350,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "latest_end_before_non_school_day": 1500
+      },
+      "summary": "When school is in session, 16- and 17-year-olds may work at most 6 hours on a school day, 8 on a non-school day and 30 a week, 6 a.m.-10:30 p.m. before a school day (1 a.m. before a non-school day); parental/school permission allows more.",
+      "citation": {
+        "url": "https://apps.legislature.ky.gov/law/kar/titles/803/001/100/",
+        "title": "803 KAR 1:100 \u2014 Child labor (Ky. Dept. of Workplace Standards)",
+        "excerpt": "Not more than thirty (30) hours in any one (1) work week when school is in session ... Not more than six (6) hours in any one (1) school day, nor more than eight (8) hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
