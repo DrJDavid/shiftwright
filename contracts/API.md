@@ -42,6 +42,8 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | GET | `/api/auth/me` | → `{user}` or 401 | |
 | GET | `/api/workplaces` | → `{workplaces: [{id, name, sector, city, state, updated_at, has_schedule, sample_of}]}` | Mine only, most recently updated first. `sample_of` = demo template id for samples, else `null`. |
 | POST | `/api/workplaces/sample` | `{template}` → `StoreConfig` | A private copy of a demo template (`demo`, `tiny`, `demo_<city>`; see `/api/templates`) named `"Sample: …"`. 422 for other templates. |
+| POST | `/api/workplaces/generated` | `{sector: "retail"\|"food", size?: "S"\|"M", difficulty?: "easy"\|"normal"\|"tight"\|"legal_trap"\|"messy", state?, city?, seed?: int}` → `{store_id, company_name, seed, kickoff: {message, attachments: [{kind, filename, row_count}]}}` | A3. A generated business: an owned `empty` store with only name, sector and location set, plus its CSV exports previewed and cached server-side like `POST /import/{kind}` (roster → training → availability → forecast → history); nothing committed. `message` = the manager's own words, ending "My exports are attached." Send it as the first chat message with `attachments`. Defaults: size S, difficulty easy, TX/austin (retail) or IL/chicago (food), random seed (returned). 400 on any other value; 429 after 5 per user per 10 min; 503 if the generator fails. Listed in `/api/workplaces` with `sample_of: "generated"`. |
+| GET | `/api/workplaces/{id}/sample-data.zip` | → `application/zip` | A3. That company's files (CSVs, README.txt, ANSWER_KEY.txt), regenerated from its seed. 404 unless it's your generated workplace. |
 
 - Session cookie `sw_session`: `HttpOnly`, `SameSite=Lax`, `Secure` when the request is https (incl.
   `X-Forwarded-Proto: https`), 30 days. Browsers send it automatically on same-origin `fetch` / `EventSource`.
@@ -100,7 +102,14 @@ body field `card_script: {card_type: [result, ...]}`. Each card of that type tak
 result, in order; a card with no scripted result left gets `{cancelled: true}`. The SSE stream is the
 same as in interactive mode, but no `POST /chat/card` is needed.
 
-`ChatMessage = {role: "user"|"assistant", content: string, card?: {card_id, card_type, props, result}}`
+`ChatMessage = {role: "user"|"assistant", content: string, card?: {card_id, card_type, props, result},
+               attachments?: {kind: ImportKind}[]}`
+A3: `attachments` on a user message names import previews already cached for the store (from
+`/workplaces/generated` or `POST /import/{kind}`); the server tells the agent which are attached (with row counts),
+and its `csv_import` cards for those kinds carry `props.preview`. A `csv_import` result of `{mapping}` (instead of
+`{committed, rows}`) makes the server commit the cached upload with that mapping (result to the agent:
+`{committed: true, rows, warnings}`); headless `accept_prefill` answers a card that has a preview with its
+`proposed_mapping`. A preview is dropped once that kind is committed.
 The server keeps the canonical transcript; the client sends only new user messages.
 v1.2: a new user message while the previous turn is paused on a card cancels that card (`{cancelled: true}`)
 and starts the new turn; 409 only if the previous turn is mid model call.
@@ -117,7 +126,7 @@ and starts the new turn; 409 only if the previous turn is mid model call.
 | `events` | `{events}` | `{events}` |
 | `confirm_tags` | v1.5. `{roles: [{role_id, name, tags: string[], minors_trained: string[]}], note}` | `{decisions: {role_id: "keep"\|"remove"}}` |
 | `department_staffing` | v1.3. `{department: Department, roles: Role[], day_groups: [{id: string, label: string, days: int[]}], hours: DayHours[], pre_open_minutes, post_close_minutes, suggested: {role_id: RoleStaffing}, rationale?: {role_id: string}}` | `{staffing: {role_id: RoleStaffing}}` |
-| `csv_import` | `{kind, preview?: ImportPreview}` | `{committed: boolean, rows: number}` |
+| `csv_import` | `{kind, preview?: ImportPreview}` | `{committed: boolean, rows: number}` or (A3) `{mapping}` to have the server commit the cached preview |
 | `propose_rule` | `{constraint: Constraint, evidence, plain_text}` | `{decision: "hard"\|"soft"\|"not_a_rule", weight_dollars?}` |
 | `tradeoff` | `{question, options:[{id,label,cost_dollars,effect}]}` | `{option_id}` |
 | `conflict_menu` | `{infeasibility: Infeasibility, options:[{id,label,cost_dollars,patch_summary}]}` | `{option_id}` |

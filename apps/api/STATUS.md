@@ -2,6 +2,31 @@
 
 _Last updated: 2026-11-07 ~04:45 CT (branch cursor/A1-auth, PUNCHLIST Lane A)_
 
+**Done (A3: generated sample businesses; `generated.py`, `import_flow.py`):**
+- `POST /api/workplaces/generated` and `GET /api/workplaces/{id}/sample-data.zip` as documented in API.md.
+  Params validated by hand → 400 (sector required; size S|M default S; difficulty easy|normal|tight|legal_trap|messy
+  default easy; state 2 letters, city needs a state, default TX/austin retail, IL/chicago food; seed int, random
+  when omitted and returned as an extra `seed` field). 5 per user per rolling 10 min (in memory) → 429. Generator
+  exceptions → 503, nothing created. Store = `empty` template + name, sector, jurisdiction; `sample_of="generated"`;
+  kv `generated/params` keeps the params so the zip is regenerated from the seed (404 unless owner + generated).
+- **Dataset adapter (fallback in use):** files come from `shiftwright_scenarios.make_dataset(...)` when it exists
+  (E4), else `generate(...)` + `write_exports(...)` with a minimal README.txt / ANSWER_KEY.txt (the latter is
+  `scenario.expected` as JSON). The zip uses `make_dataset_zip` when present. Company name, location and the
+  narrative always come from `generate(...)` with the same args (the "(S/easy)" generator tag is stripped from
+  the name and narrative). If E4 renames companies, read the name from its output instead.
+- Previews: the five CSVs are previewed concurrently via `import_flow.preview` (same as `POST /import/{kind}`; now
+  also caches the preview itself in kv `import_preview/<kind>`). Commit logic moved from `main.py` into
+  `import_flow.commit` (REST route unchanged); a commit drops that kind's cached preview.
+- Chat: `ChatMessage.attachments: [{kind}]` (ImportKind, else 422). The loop appends to that user message
+  "[Attached exports: roster (27 rows, preview ready); ... Show ask_csv_import for each attached kind, in this
+  order; ...]" (import order). `ask_csv_import` puts the cached preview in `props.preview`; a `{mapping}` result
+  commits it server-side (errors go back to the agent); `accept_prefill` answers with `proposed_mapping`.
+  Prompt onboard v4.5 step 0: the PUNCHLIST line about attached files.
+- Importer fixes found on generated data: forecast header "Req HC" → headcount; HHMM times ("1500-2400") parse.
+- Tests `test_generated.py` (19): auth, 11 bad-value cases, owned/previewed/0 employees/REST commit of the cache,
+  same seed same company, zip, rate limit per user, attachment kind 422, and autopilot (accept_prefill) to
+  `readiness.ready` for easy retail; the easy-restaurant case skips until E1's food export fix is on this branch.
+
 **Done (A2: workplace basics on create):**
 - `POST /api/stores` also takes optional `sector` (retail | food | hospitality | other; 422 otherwise) and
   `business_description` (≤ 500 chars, trimmed), saved on structure templates (`empty`, `bigbox_*`,
