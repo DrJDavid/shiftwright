@@ -210,6 +210,10 @@ class OutreachManager:
         return self.state(store_id)
 
     # ---------------------------------------------------------------- inbound
+    def awaiting(self, from_phone: str) -> bool:
+        """Is a running outreach waiting on a reply from this phone? (Else the message may be a call-out.)"""
+        return any(r.state.status == "texting" and _waiting_key(r, from_phone) for r in self.runs.values())
+
     async def inbound(self, from_phone: str, body: str, manual: bool = False) -> Optional[InboundMessage]:
         """A reply arrived (Twilio webhook, mock-reply endpoint, or the simulated replier).
         `manual=True` (POST /api/sms/mock-reply) cancels any pending simulated reply for that person."""

@@ -26,7 +26,7 @@ from shiftwright_contracts.models import (
     ValidationReport,
 )
 
-from . import auth, equipment, generated, import_flow, integrations, predictive, readiness, templates, tradeoffs
+from . import auth, callout, equipment, generated, import_flow, integrations, predictive, readiness, templates, tradeoffs
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
@@ -407,7 +407,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             if not twilio_signature_valid(settings.twilio_auth_token, url, form,
                                           request.headers.get("X-Twilio-Signature", "")):
                 raise HTTPException(403, "Invalid Twilio signature")
-        await app.state.outreach.inbound(form.get("From", ""), form.get("Body", ""))
+        await on_message(form.get("From", ""), form.get("Body", ""))
         return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml")
 
     @app.post("/api/sms/optin")
@@ -431,11 +431,40 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         return {"ok": True}
 
     @app.post("/api/sms/mock-reply")
-    async def sms_mock_reply(body: dict = Body(...)) -> dict:
+    async def sms_mock_reply(request: Request, body: dict = Body(...)) -> dict:
         if app.state.messenger.name != "mock":
             raise HTTPException(404, "Only available when MESSENGER=mock")
-        msg = await app.state.outreach.inbound(str(body.get("from_phone", "")), str(body.get("body", "")), manual=True)
+        phone, text = str(body.get("from_phone", "")), str(body.get("body", ""))
+        sid = str(body.get("store_id") or "")
+        if not app.state.outreach.awaiting(phone):
+            if not sid:  # a call-out from the employee page names its store
+                return {"ok": True, "interpreted_as": None, "callout": None}
+            load(sid)
+            user = getattr(request.state, "user", None)
+            if settings.auth_required and (user is None or db().store_owner(sid) != user["id"]):
+                raise HTTPException(404, f"Store {sid!r} not found")
+            co = await callout.handle(app.state, phone, text, store_id=sid)
+            return {"ok": True, "interpreted_as": None, "callout": co}
+        msg = await app.state.outreach.inbound(phone, text, manual=True)
         return {"ok": True, "interpreted_as": msg.interpreted_as if msg else None}
+
+    async def on_message(phone: str, text: str) -> None:
+        """A text to the store's number: a reply to an offer, or else maybe a call-out."""
+        if app.state.outreach.awaiting(phone):
+            await app.state.outreach.inbound(phone, text)
+        else:
+            await callout.handle(app.state, phone, text)
+
+    @app.get("/api/stores/{store_id}/callout")
+    def callout_latest(store_id: str) -> dict:
+        """The latest call-out that arrived by message, with its fix plan (for the Fix tab)."""
+        load(store_id)
+        rec = callout.latest(db(), store_id)
+        plan = None
+        if rec and rec.get("plan_id"):
+            saved = db().get(store_id, "fix_plan", rec["plan_id"])
+            plan = saved["plan"] if saved else None
+        return {"callout": rec, "plan": plan}
 
     # ---------------------------------------------------------------- laws
     @app.get("/api/laws/resolve", response_model=LawPack)

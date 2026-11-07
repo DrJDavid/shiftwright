@@ -136,8 +136,14 @@ export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
     outreachCancel: (id: string) => post<OutreachState>(`${s(id)}/outreach/cancel`, {}),
     outreach: (id: string) => json<OutreachState>(`${s(id)}/outreach`),
     /** MESSENGER=mock only: reply as the employee. Same code path as a real inbound SMS. */
-    mockReply: (fromPhone: string, body: string) =>
-      post<{ ok: boolean; interpreted_as: string | null }>('/sms/mock-reply', { from_phone: fromPhone, body }),
+    mockReply: (fromPhone: string, body: string, storeId?: string) =>
+      post<{ ok: boolean; interpreted_as: string | null; callout?: Callout | null }>('/sms/mock-reply', {
+        from_phone: fromPhone,
+        body,
+        ...(storeId ? { store_id: storeId } : {}),
+      }),
+    /** The latest call-out that arrived as a message (employee page or text), with its fix plan. */
+    callout: (id: string) => json<{ callout: Callout | null; plan: FixPlan | null }>(`${s(id)}/callout`),
     /** SSE `state` snapshots until the outreach stops texting. Resolves when the stream closes. */
     async outreachStream(id: string, onState: (st: OutreachState) => void, signal?: AbortSignal) {
       const res = await fetchImpl(`/api${s(id)}/outreach/stream`, { headers: { Accept: 'text/event-stream', ...keyHeader }, signal })
@@ -163,3 +169,21 @@ export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
 }
 
 export type Api = ReturnType<typeof createApi>
+
+/** A call-out read from an employee's message (apps/api callout.py). */
+export type Callout = {
+  id: string
+  employee_id: string
+  employee_name: string
+  body: string
+  at: string
+  status: 'covering' | 'queued' | 'unclear' | 'no_shift' | 'not_a_callout' | 'failed'
+  shift: { id: string; day: number; start: number; end: number; label: string } | null
+  day?: number
+  now?: number
+  plan_id: string | null
+  texting?: boolean
+  note: string
+  reply?: string | null
+  read_by?: 'llm' | 'keywords'
+}

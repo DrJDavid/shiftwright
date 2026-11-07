@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Api } from '../api/client'
+import type { Api, Callout } from '../api/client'
 import { ApiError } from '../api/client'
 import { apiMode } from '../api'
 import type { OutreachState, SolveResponse } from '../api/protocol'
@@ -152,6 +152,47 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
     }
   }
 
+  // Call-outs that arrive as messages (employee page or a text): the API already planned coverage and
+  // started offers. Pick them up here so the manager watches it live.
+  const [incoming, setIncoming] = useState<Callout | null>(null)
+  const seenCallout = useRef<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    const check = async () => {
+      try {
+        const r = await api.callout(storeId)
+        const co = r.callout
+        if (!alive || !co || co.id === seenCallout.current) return
+        const first = seenCallout.current === null
+        seenCallout.current = co.id
+        if (first && Date.now() - new Date(co.at).getTime() > 30 * 60_000) return // old news on load
+        setIncoming(co)
+        if (!r.plan || co.day === undefined) return
+        setDay(co.day)
+        setNow(co.now ?? 0)
+        setPicked([co.employee_id])
+        setSentCallouts([co.employee_id])
+        setPlanBase(result?.schedule ?? null)
+        onCallouts?.([{ employee_id: co.employee_id, day: co.day }])
+        setPlan(r.plan)
+        setError(null)
+        const st = await api.outreach(storeId)
+        if (st.schedule) onSchedule(st.schedule)
+        lastAccepted.current = 0
+        if (st.plan_id === co.plan_id) watch(st)
+      } catch {
+        /* older API without /callout, or offline: the manual flow still works */
+      }
+    }
+    void check()
+    const t = setInterval(() => void check(), 3000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId])
+
   const stop = async () => {
     try {
       setOutreach(await api.outreachCancel(storeId))
@@ -185,6 +226,29 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
   return (
     <div className="flex min-h-0 flex-1">
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {incoming && (
+          <section className="border-b border-rule bg-pine-wash px-4 py-3 text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="font-semibold">
+                  {incoming.employee_name} messaged at {new Date(incoming.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}:
+                </span>{' '}
+                <span className="italic">“{incoming.body}”</span>
+                <div className="mt-1 text-ink-2">
+                  {incoming.status === 'not_a_callout'
+                    ? 'Not a call-out, so nothing changed.'
+                    : incoming.shift
+                      ? `Read as a call-out for ${incoming.shift.label}. ${incoming.note}`
+                      : incoming.note}
+                  {incoming.status === 'covering' && incoming.texting && ' You can stop the offers below.'}
+                </div>
+              </div>
+              <button type="button" className="shrink-0 text-xs text-muted hover:text-ink" onClick={() => setIncoming(null)} aria-label="Dismiss">
+                ×
+              </button>
+            </div>
+          </section>
+        )}
         {/* 1. Report call-outs (frozen to a summary once there's a plan) */}
         {plan ? (
           <section className="flex items-center gap-3 border-b border-rule px-4 py-3">
