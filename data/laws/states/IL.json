@@ -14,7 +14,8 @@
     "Minors: the Child Labor Law of 2024 defines 'minor' as under 16, so Illinois sets no hour limits for 16-17 (federal has none either).",
     "Minors: under-16 may work 8 h on Saturday and Sunday of a school week only if no more than 24 h/week outside school and 6 consecutive days (820 ILCS 206/30(a)); encoded weekly cap 18 h (Sec. 25).",
     "Minors: under-16 need a 30-minute meal period after 5 continuous hours (820 ILCS 206/35(d)), and must be supervised on site by an adult 21+ (206/35(c)); not encoded (no rule type).",
-    "Tipped minimum wage: cash wage $9.00 = $15.00 \u2212 40% ($6.00) (820 ILCS 105/4(c)); the employer must show the tips were actually received."
+    "Tipped minimum wage: cash wage $9.00 = $15.00 \u2212 40% ($6.00) (820 ILCS 105/4(c)); the employer must show the tips were actually received.",
+    "Prohibited work (820 ILCS 206/40; 'minor' = under 16): also bars any occupation prohibited under federal law (so federal HOs apply), work at establishments whose primary activity is selling alcohol or tobacco, and handling products illegal for minors to buy in retail stores (not encoded: no matching role tags). No minimum age for 16-20-year-old alcohol servers was found in the Liquor Control Act of 1934 (235 ILCS 5); local liquor ordinances (e.g. Chicago) not yet checked."
   ],
   "rules": [
     {
@@ -186,6 +187,55 @@
         "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=2400&ChapterID=68",
         "title": "820 ILCS 105/4(c) \u2014 Minimum Wage Law, allowance for gratuities",
         "excerpt": "is entitled to an allowance for gratuities as part of the hourly wage rate provided in Section 4, subsection (a) in an amount not to exceed 40% of the applicable minimum wage rate",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.minor_prohibited_roles.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 16,
+        "role_tags": [
+          "alcohol_service"
+        ]
+      },
+      "summary": "Minors under 16 may not draw, mix, pour or serve alcohol or handle open containers of alcohol (Illinois Child Labor Law of 2024).",
+      "citation": {
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=4524&ChapterID=68",
+        "title": "820 ILCS 206/40(c) \u2014 Child Labor Law of 2024, restrictions on employment of minors",
+        "excerpt": "An employer shall not allow minors to draw, mix, pour, or serve any item containing alcohol or otherwise handle any open containers of alcohol.",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.minor_prohibited_roles.2",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 16,
+        "role_tags": [
+          "ladder_scaffold",
+          "power_saw"
+        ]
+      },
+      "summary": "Minors under 16 may not work on elevated surfaces (ladders, scaffolds) or operate power-driven woodworking machines or off-bear from circular saws.",
+      "citation": {
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=4524&ChapterID=68",
+        "title": "820 ILCS 206/40(a)(10), (24) \u2014 Child Labor Law of 2024",
+        "excerpt": "(10) in the operation of power-driven woodworking machines, or off-bearing from circular saws ... (24) in operations which involve working on an elevated surface, with or without use of equipment, including, but not limited to, ladders and scaffolds",
         "last_verified": "2026-11-07"
       },
       "confidence": "high",
