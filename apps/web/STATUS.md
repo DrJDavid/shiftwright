@@ -1,7 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B7 + the C3 UI), branch `cursor/C3ui-web` = `cursor/C3-coverage-first`
-(current main + the engine's C3). B1–B6 verified against the real A1 backend (see "Real-backend check"); B7's client logic is tested against the
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B7 + the C3 and C4 UI), branch `cursor/C4ui-progress` (from main). B1–B6 verified against the real A1 backend (see "Real-backend check"); B7's client logic is tested against the
 mock (no fake-LLM mode exists, so a real agent run isn't possible locally)._
 
 ## How David runs it locally
@@ -58,6 +57,27 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
 - Call-in shifts get a **Call-in** badge in the grid and "Call-in: covering a call-out" in the shift detail. The
   contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
   the mock now uses the same suffix. A contract field would be safer.
+
+## Build progress (C4 UI)
+
+The engine (C4, `cursor/C4-plateau`) stops when the schedule stops improving (≈8 s without a better one, or proven
+within 1% of the best), with a 90 s cap, and reports `solver_stats.stop_reason`.
+- While a build runs, the Schedule tab overlay and the setup rail show one calm line (`components/BuildProgressLine.tsx`,
+  `lib/buildProgress.ts`): "Building your week… 12 s", then from 10 s "Still improving — stops when the schedule
+  stops getting better (max 90 s) · 14 s". The old fixed "usually 20–30 s" estimate bar is gone (indeterminate bar).
+- `GET /stores/{id}/solve/progress` (optional) is feature-detected (`lib/useSolveProgress.ts`): polled every 2 s while
+  a build runs if it answers; one 404 and it's never asked again in that workspace. `coverage_pct` shows as
+  "Coverage so far: 93%".
+- After the build, a quiet line under the schedule stats: proven_close → "Best schedule found (within 1% of the
+  best possible)", plateau → "Stopped when it stopped improving", cap → "Stopped at the 90 s limit", each with
+  `solver_stats.total_s` seconds; `time_limit` or anything else → nothing.
+- No client-side fetch timeout exists on `/solve`; the Vite dev proxy now has explicit 120 s timeouts.
+  Agent-triggered builds keep the chat's activity line ("Building the week…"); there's no spinner there to change.
+- Mock: `/solve` takes ~4 s (with latency on), updating `/solve/progress` with climbing coverage, and returns
+  `stop_reason: "plateau"` + `total_s`.
+- Tests: `lib/buildProgress.test.tsx` (line states, coverage shown only when reported, stop_reason wording incl.
+  time_limit → nothing, stats line, polling while running, one-and-done after 404, no poll when idle);
+  `mock/mock.test.ts` (mock progress + stop_reason).
 
 ## Coverage first, words not dollars (C3 UI, SEMANTICS #25)
 
@@ -180,7 +200,7 @@ accounts + ownership. Plus setup steps, call-in badge, rule names, conflict-menu
 switch (chat survives). B7: `components/ChatPane.test.tsx` (kickoff with attachments + chips, autopilot submit,
 user interrupt, Pause, decision card never auto), `lib/autopilot.test.ts`, and an App test where one click on
 Restaurant reaches a built schedule with the user answering only the tags decision. C3 UI tests (see above).
-76 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+85 tests total; `npm run build`, `npm run lint`, `npm test` clean.
 
 ## Next (Lane B)
 
