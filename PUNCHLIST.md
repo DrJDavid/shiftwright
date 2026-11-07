@@ -16,7 +16,7 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
   push `main`; tell the other workers to rebase. Never force-push. Update the status board below.
 - No one edits files in the main checkout's working tree except the coordinator.
 
-## Status board (06:40, Cursor coordinator)
+## Status board (08:20, Cursor coordinator)
 
 | Task | State |
 |---|---|
@@ -25,9 +25,11 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
 | A1 auth, A2 basics, A3 generated businesses, B1–B6 web shell + B4 QA bugs | **merged** 06:40, deployed (`DEMO_KEY` removed, `AUTH_SECRET` set) |
 | B7 autopilot sample business | **merged** 06:50, deployed |
 | E2 rescore real-quick-2 (Shiftwright 6/6 clean, S legal_trap CA feasible) | **merged** |
-| C3 coverage-first (`cursor/C3-coverage-first`) | running, deadline 10:00 — **scope revised 07:30, see `briefs/C3-coverage-first.md`** |
+| C3 revised (rules → coverage tiers → preferences → cost, real what-if tradeoffs) | **merged** 08:20 |
+| claude/import-journey (importer aliases, rule capture/validation) | **merged** 07:29 |
+| C3b API tiers + tradeoff cards (`cursor/C3b-api`), C3 UI words + decisions link (`cursor/C3ui-web`), C3c evals wage-cost rescore (`cursor/C3c-evals`) | running, target 09:30 |
 | `claude/import-journey` (Claude Code): importer learns job code ↔ title, abbreviation matching, imported roles priced Important, HHMM times; rule capture (firm vs preference from wording, no $ weights, short names); incomplete rules refused / set aside at solve; journey test `packages/evals/tests/test_journey_import.py` | **READY TO MERGE** `c052006` (API 85 passed, journey 6/6) |
-| C3b, C3c, E3 | not started (E3 needs David's OK) |
+| E3 real realistic eval | not started (needs David's OK) |
 
 ## How to run these with Cursor
 
