@@ -7,7 +7,7 @@ except two things that are expected by contract and listed as `expected` instead
     check; whether infeasible was the right answer is noted separately).
 Dev-only: imports shiftwright_engine / shiftwright_scenarios / shiftwright_laws lazily, so the
 validator itself keeps depending on the contracts alone. Never reads engine source; only calls
-`solve_week` and (once it exists) `fix_day`.
+`solve_week` and `fix_day`.
 """
 from __future__ import annotations
 
@@ -128,9 +128,61 @@ def audit_cases(cases, time_limit_s: float = 30):
                           found, expected, note.strip())
 
 
-def audit_fix_plan(config: StoreConfig, plan) -> list[str]:
-    """Validate both schedules a FixPlan proposes."""
-    found = []
-    for name in ("schedule_if_all_accept", "schedule_if_none_accept"):
-        found.extend(disagreements(config, getattr(plan, name), f"{name}: "))
-    return found
+@dataclass
+class FixAuditResult:
+    name: str
+    mode: str | None
+    plan_mode: str
+    seconds: float
+    callouts: list[str]
+    disagreements: list[str] = field(default_factory=list)
+    expected: list[str] = field(default_factory=list)
+
+    def line(self) -> str:
+        return (f"{self.name:28s} fix mode={self.mode}->{self.plan_mode} {self.seconds:4.1f}s "
+                f"callouts={','.join(self.callouts)} disagreements={len(self.disagreements)} "
+                f"expected={len(self.expected)}")
+
+
+def classify_fix(request, plan) -> tuple[list[str], list[str]]:
+    """(disagreements, expected) for a FixPlan, using validate_fix."""
+    from .fix import validate_fix
+
+    found, expected = [], []
+    for v in validate_fix(request, plan).violations:
+        if v.severity != "hard" and v.code != ViolationCode.metrics_mismatch:
+            continue
+        text = f"{v.code.value}: {v.message}"
+        (expected if v.code in EXPECTED_CODES else found).append(text)
+    return found, expected
+
+
+def audit_fix(case: Case, schedule: Schedule, day: int, n: int = 3, now: int | None = None,
+              modes=(None,), callout_ids: list[str] | None = None, time_limit_s: float = 8):
+    """Call fix_day on `schedule` for a few call-outs and validate each plan."""
+    from shiftwright_contracts.models import CallOut, FixRequest
+    from shiftwright_engine import fix_day
+    from shiftwright_scenarios import pick_callouts
+
+    if callout_ids is not None:
+        callouts = [CallOut(employee_id=e, day=day, reported_at=now if now is not None else 364)
+                    for e in callout_ids]
+    else:
+        kw = {} if now is None else {"now": now}
+        callouts = pick_callouts(case.config, schedule, day, n=n, **kw)
+    if not callouts:
+        return
+    for mode in modes:
+        req = FixRequest(config=case.config, schedule=schedule, callouts=callouts, day=day,
+                         now=callouts[0].reported_at, outreach_mode=mode)
+        t0 = time.time()
+        try:
+            plan = fix_day(req, time_limit_s=time_limit_s)
+        except Exception as exc:  # noqa: BLE001
+            yield FixAuditResult(case.name, mode, "CRASH", time.time() - t0,
+                                 [c.employee_id for c in callouts],
+                                 [f"fix_day raised {type(exc).__name__}: {exc}"])
+            continue
+        found, expected = classify_fix(req, plan)
+        yield FixAuditResult(case.name, mode, plan.outreach_mode, time.time() - t0,
+                             [c.employee_id for c in callouts], found, expected)

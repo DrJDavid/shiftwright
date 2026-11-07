@@ -109,6 +109,7 @@ def golden_unavailable_on_date(config, sched):
 
 
 def golden_double_booked(config, sched):
+    config.store.max_shifts_per_day = 2                 # isolate the overlap from the shift count
     set_simple(shift(sched, "s3"), 540, 840)            # Cam 09:00-14:00
     shift(sched, "s4").employee_id = "e2"               # ...and Cam 13:00-17:00
 
@@ -126,7 +127,39 @@ def golden_shift_too_long(config, sched):
 
 
 def golden_rest(config, sched):
-    shift(sched, "s4").employee_id = "e2"  # Cam 09-13 then 13-17: 0 min rest
+    # The store constraint only spans days (SEMANTICS #23): Cam Mon 09-13, then Tue 09-13 = 20 h rest.
+    config.constraints[2].params = {"minutes": 1260}
+    shift(sched, "s5").employee_id = "e2"
+
+
+def golden_shifts_per_day(config, sched):
+    shift(sched, "s4").employee_id = "e2"  # Cam 09-13 and 13-17 on Monday; the store allows 1 shift
+
+
+def golden_unknown_role_tag(config, sched):
+    config.role_tags["pit_operator"] = ["forklift"]  # typo for powered_industrial_truck
+
+
+def golden_tipped_underpaid(config, sched):
+    from shiftwright_contracts.models import LawRuleType
+
+    # TEST-ONLY values: cashier is tipped; Cam's tipped cash wage $2.00 < made-up $3.00 tipped minimum
+    next(r for r in config.roles if r.id == "cashier").tipped = True
+    config.employees[1].tipped_wage_per_hour = 2.0
+    config.law_pack.rules.append(config.law_pack.rules[0].model_copy(update=dict(
+        id="TEST.tipped_minimum_wage", type=LawRuleType.tipped_minimum_wage,
+        params={"cash_wage_per_hour": 3.0, "max_tip_credit_per_hour": None, "effective": "2026-01-01"})))
+
+
+def golden_minor_on_fryer(config, sched):
+    from shiftwright_contracts.models import LawRuleType
+
+    # TEST-ONLY values: a made-up rule bans 14-15-year-olds from fryer roles; Mia (now 15) is on one
+    config.employees[4].age = 15
+    config.role_tags["cashier"] = ["fryer"]
+    config.law_pack.rules.append(config.law_pack.rules[0].model_copy(update=dict(
+        id="TEST.minor_fryer", type=LawRuleType.minor_prohibited_roles,
+        params={"age_below": 16, "age_min": 14, "role_tags": ["fryer"]})))
 
 
 def golden_days(config, sched):
@@ -221,6 +254,10 @@ GOLDEN = [
     (golden_shift_too_short, V.shift_length),
     (golden_shift_too_long, V.shift_length),
     (golden_rest, V.rest_between_shifts),
+    (golden_shifts_per_day, V.shifts_per_day),
+    (golden_unknown_role_tag, V.malformed),
+    (golden_tipped_underpaid, V.below_minimum_wage),
+    (golden_minor_on_fryer, V.minor_prohibited_role),
     (golden_days, V.days_per_week),
     (golden_consecutive, V.consecutive_days),
     (golden_budget_hours, V.budget_hours),
@@ -298,6 +335,7 @@ def test_rest_premium_instead_of_violation(config, perfect, kit):
         "TEST.rest", LawRuleType.min_rest_between_shifts,
         {"minutes": 600, "premium_multiplier": 1.5, "waivable": False}))
     config.constraints = [c for c in config.constraints if c.id != "c_rest"]
+    config.store.max_shifts_per_day = 2      # split shift; the law rule spans it (SEMANTICS #23)
     shift(perfect, "s4").employee_id = "e2"  # Cam works 09-13 and 13-17 (wage 15)
     report = validate(config, perfect)
     assert report.passed, [v.message for v in report.violations]
@@ -312,6 +350,7 @@ def test_rest_law_without_premium_is_hard(config, perfect, kit):
         "TEST.rest", LawRuleType.min_rest_between_shifts,
         {"minutes": 600, "premium_multiplier": None, "waivable": False}))
     config.constraints = [c for c in config.constraints if c.id != "c_rest"]
+    config.store.max_shifts_per_day = 2
     shift(perfect, "s4").employee_id = "e2"
     report = validate(config, perfect)
     assert codes(report) == {V.rest_between_shifts}

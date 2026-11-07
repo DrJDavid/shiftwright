@@ -6,6 +6,7 @@ from datetime import date
 
 from shiftwright_contracts.models import (
     BREAK_GRANULARITY_MINUTES,
+    ROLE_TAGS,
     ConstraintKind,
     LawRuleType,
     RuleStatus,
@@ -19,6 +20,7 @@ from .common import (
     as_int,
     day_name,
     fmt_time,
+    is_tipped_shift,
     law_rules,
     overlap_minutes,
     shift_interval,
@@ -74,6 +76,12 @@ def check_malformed(ctx: Context, computed: Computed) -> list[Violation]:
     shifts = schedule.shifts if isinstance(schedule.shifts, list) else []
     if not isinstance(schedule.shifts, list):
         out.append(hard(C.malformed, "Schedule shifts is not a list."))
+    # SEMANTICS #21: a role tag outside ROLE_TAGS could silently disable a law, so it's malformed.
+    for role_id, tags in sorted(ctx.config.role_tags.items()):
+        for tag in tags:
+            if tag not in ROLE_TAGS:
+                out.append(hard(C.malformed, f"Role {role_id!r} has unknown tag {tag!r}; tags must come "
+                                             f"from ROLE_TAGS.", role_id=role_id))
 
     seen_ids: set = set()
     for i, shift in enumerate(shifts):
@@ -208,6 +216,18 @@ def check_double_booked(ctx: Context, computed: Computed) -> list[Violation]:
     return out
 
 
+def check_shifts_per_day(ctx: Context, computed: Computed) -> list[Violation]:
+    """SEMANTICS #23: at most Store.max_shifts_per_day shifts per employee per day (by start day)."""
+    limit = ctx.config.store.max_shifts_per_day
+    counts: dict[tuple[str, int], int] = {}
+    for shift in ctx.usable:
+        key = (shift.employee_id, shift.day)
+        counts[key] = counts.get(key, 0) + 1
+    return [hard(C.shifts_per_day, f"{eid} has {n} shifts on {day_name(day)}; the store allows {limit}.",
+                 employee_id=eid, day=day)
+            for (eid, day), n in sorted(counts.items()) if n > limit]
+
+
 def check_outside_store_window(ctx: Context, computed: Computed) -> list[Violation]:
     out = []
     store = ctx.config.store
@@ -253,7 +273,8 @@ def check_rest_between_shifts(ctx: Context, computed: Computed) -> list[Violatio
         minutes = as_int(rule.params.get("minutes"), 0)
         if minutes <= 0:
             continue
-        for f in rest_shortfalls(ctx, minutes):
+        same_day = not rule.params.get("excludes_same_day_split")
+        for f in rest_shortfalls(ctx, minutes, same_day=same_day):
             out.append(hard(C.rest_between_shifts, f.message + f" ({rule.summary})",
                             employee_id=f.employee_id, day=f.day, start=f.start, end=f.end,
                             law_rule_id=rule.id))
@@ -460,7 +481,8 @@ def check_minor_prohibited_role(ctx: Context, computed: Computed) -> list[Violat
             hit = None
             for rule in rules:
                 banned = rule.params.get("role_tags") or []
-                if employee.age < as_int(rule.params.get("age_below"), 0) and tags & set(banned):
+                lowest = as_int(rule.params.get("age_min"), 0)  # v1.5: null = no lower bound
+                if lowest <= employee.age < as_int(rule.params.get("age_below"), 0) and tags & set(banned):
                     hit = rule
                     break
             if hit is not None:
@@ -488,41 +510,54 @@ def _as_date(value) -> date | None:
         return None
 
 
-def minimum_wage_rule(ctx: Context):
-    """The minimum_wage rule in effect on week_start (SEMANTICS #15): per jurisdiction the latest
-    one already effective, then the highest of those. A rule without a readable date counts as
+def wage_floor_rule(ctx: Context, rule_type: LawRuleType, key: str):
+    """The rule of `rule_type` in effect on week_start (SEMANTICS #15): per jurisdiction the latest
+    one already effective, then the highest `key` of those. A rule without a readable date counts as
     in effect. Returns (dollars, rule) or None."""
     week_start = ctx.config.store.week_start
     latest: dict[tuple, tuple] = {}  # jurisdiction key -> (effective, dollars, rule)
-    for rule in law_rules(ctx.config, LawRuleType.minimum_wage):
-        dollars = as_float(rule.params.get("dollars_per_hour"))
+    for rule in law_rules(ctx.config, rule_type):
+        dollars = as_float(rule.params.get(key))
         if dollars is None:
             continue
         effective = _as_date(rule.params.get("effective")) or date.min
         if effective > week_start:
             continue
-        key = (rule.level, rule.jurisdiction.state, rule.jurisdiction.city)
-        if key not in latest or effective > latest[key][0]:
-            latest[key] = (effective, dollars, rule)
+        jkey = (rule.level, rule.jurisdiction.state, rule.jurisdiction.city)
+        if jkey not in latest or effective > latest[jkey][0]:
+            latest[jkey] = (effective, dollars, rule)
     if not latest:
         return None
     _, dollars, rule = max(latest.values(), key=lambda x: x[1])
     return dollars, rule
 
 
+def minimum_wage_rule(ctx: Context):
+    return wage_floor_rule(ctx, LawRuleType.minimum_wage, "dollars_per_hour")
+
+
 def check_below_minimum_wage(ctx: Context, computed: Computed) -> list[Violation]:
-    found = minimum_wage_rule(ctx)
-    if found is None:
-        return []
-    minimum, rule = found
+    full = minimum_wage_rule(ctx)
+    # #15 v1.5: tipped cash wage vs tipped_minimum_wage; without such a rule the full minimum applies.
+    tipped = wage_floor_rule(ctx, LawRuleType.tipped_minimum_wage, "cash_wage_per_hour") or full
     out = []
     scheduled = sorted({s.employee_id for s in ctx.usable})
     for employee_id in scheduled:
-        wage = ctx.employees[employee_id].wage_per_hour
-        if wage < minimum - EPS:
+        employee = ctx.employees[employee_id]
+        if full is not None and employee.wage_per_hour < full[0] - EPS:
             out.append(hard(C.below_minimum_wage,
-                            f"{employee_id} is paid ${wage:,.2f}/h; minimum wage is ${minimum:,.2f}/h. "
-                            f"{rule.summary}", employee_id=employee_id, law_rule_id=rule.id))
+                            f"{employee_id} is paid ${employee.wage_per_hour:,.2f}/h; minimum wage is "
+                            f"${full[0]:,.2f}/h. {full[1].summary}",
+                            employee_id=employee_id, law_rule_id=full[1].id))
+        has_tipped_shift = any(s.employee_id == employee_id and is_tipped_shift(s, employee, ctx.roles)
+                               for s in ctx.usable)
+        if tipped is not None and has_tipped_shift and employee.tipped_wage_per_hour < tipped[0] - EPS:
+            which = "tipped minimum cash wage" if tipped is not full else \
+                "minimum wage (no tip credit in the law pack)"
+            out.append(hard(C.below_minimum_wage,
+                            f"{employee_id}'s tipped cash wage is ${employee.tipped_wage_per_hour:,.2f}/h; "
+                            f"{which} is ${tipped[0]:,.2f}/h. {tipped[1].summary}",
+                            employee_id=employee_id, law_rule_id=tipped[1].id))
     return out
 
 
@@ -559,10 +594,22 @@ def check_metrics_mismatch(ctx: Context, computed: Computed) -> list[Violation]:
     claimed = ctx.schedule.metrics
     if claimed is None:
         return []
+    # Predictive-scheduling premiums are owed for changes to a *posted* schedule, which validate()
+    # isn't given (SEMANTICS #17). Unless validate_fix has added them (premiums_exact), a claimed
+    # premium above the recomputed one is accepted here and verified exactly by validate_fix.
+    unverified = 0.0
+    lower_bound_only = not ctx.premiums_exact and bool(law_rules(ctx.config, LawRuleType.predictive_scheduling))
+    c_prem = getattr(claimed, "premium_pay_dollars", None)
+    if lower_bound_only and isinstance(c_prem, (int, float)) and c_prem == c_prem:
+        unverified = max(0.0, float(c_prem) - computed.metrics.premium_pay_dollars)
     out = []
     for name, kind in METRIC_FIELDS:
         c_val = getattr(claimed, name, None)
         a_val = getattr(computed.metrics, name)
+        if name == "premium_pay_dollars":
+            a_val += unverified
+        elif name == "objective_dollars":
+            a_val = round(a_val + unverified, 2)
         if not isinstance(c_val, (int, float)) or c_val != c_val:  # missing or NaN
             out.append(hard(C.metrics_mismatch, f"Claimed {name} is {c_val!r}; recomputed {a_val:g}."))
         elif mismatch(float(c_val), a_val, kind):
@@ -599,6 +646,7 @@ ALL_CHECKS = [
     check_not_trained,
     check_unavailable,
     check_double_booked,
+    check_shifts_per_day,
     check_outside_store_window,
     check_max_hours_week,
     check_shift_length,

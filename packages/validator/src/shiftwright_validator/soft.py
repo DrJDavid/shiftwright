@@ -37,7 +37,7 @@ def availability_windows(ctx: Context, employee) -> list[tuple[object, int, int]
 def availability_costs(ctx: Context) -> list[SoftCost]:
     costs = []
     for employee in ctx.config.employees:
-        shifts = [s for s in ctx.usable if s.employee_id == employee.id]
+        shifts = [s for s in ctx.usable if s.employee_id == employee.id and s.id not in ctx.callin_shift_ids]
         for entry, w_start, w_end in availability_windows(ctx, employee):
             if entry.weight_dollars <= 0:
                 continue
