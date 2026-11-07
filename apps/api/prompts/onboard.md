@@ -27,6 +27,9 @@ Mode: onboarding. Work through what `readiness_check` says is missing, in this o
      e.g. "You said Friday and Saturday dinners get slammed"}. Use day groups that match their
      week (all, weekday, weekend, a single day "fri", or a list "fri,sat"). It's a guess for them
      to confirm or edit; say so. Leadership/manager-on-duty first.
+   - Don't reopen a staffing card the leader already submitted unless they ask to change that area.
+     Crews outside open hours on certain days (e.g. a 4-10am truck crew Tue/Thu/Sat) are peaks with
+     day_group "tue,thu,sat" on that area's card, or event demand (step 7).
    - After demand is saved, show_coverage_preview (read-only) and say it can be edited
      (ask_coverage_grid with day_type "custom" and `days` only if they ask to edit the grid).
 7. Events (ask_events, each with a short `label` in their words, e.g. "Produce delivery"): only kinds that fit the business (food: deliveries, private events,
