@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from shiftwright_contracts.models import (
     CONTRACT_VERSION,
     CallOut,
+    FixPlan,
     FixRequest,
     Gap,
     Jurisdiction,
@@ -200,7 +201,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     # ---------------------------------------------------------------- fix + outreach
     @app.post("/api/stores/{store_id}/fix")
-    async def fix(store_id: str, body: dict = Body(...)) -> dict:
+    async def fix(store_id: str, body: dict = Body(...)) -> FixPlan:
         cfg = with_law(load(store_id))
         try:
             sched, _ = db().latest_schedule(store_id)
@@ -215,9 +216,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             plan = await asyncio.to_thread(integrations.fix_day, req)
         except integrations.StubUnavailable as e:
             raise HTTPException(503, str(e))
-        plan_id = app.state.outreach.save_plan(store_id, plan, callouts, req.day, req.now, sched)
-        # FixPlan + plan_id (extra key; see contracts/requests/ws6-fixplan-plan-id.md)
-        return {**plan.model_dump(mode="json"), "plan_id": plan_id}
+        return app.state.outreach.save_plan(store_id, plan, callouts, req.day, req.now, sched)
 
     @app.post("/api/stores/{store_id}/outreach/start", response_model=OutreachState)
     async def outreach_start(store_id: str, body: dict = Body(...)) -> OutreachState:

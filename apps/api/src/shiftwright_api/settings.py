@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-DEFAULT_AGENT_MODEL = "anthropic/claude-sonnet-4.5"  # override with AGENT_MODEL
+DEFAULT_AGENT_MODEL = "anthropic/claude-sonnet-5.5"  # override with AGENT_MODEL
 
 
 @dataclass

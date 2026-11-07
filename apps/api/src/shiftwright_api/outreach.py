@@ -62,12 +62,13 @@ class OutreachManager:
 
     # ---------------------------------------------------------------- plans
     def save_plan(self, store_id: str, plan: FixPlan, callouts: list[CallOut], day: int, now: int,
-                  schedule: Schedule) -> str:
+                  schedule: Schedule) -> FixPlan:
         plan_id = "plan_" + uuid.uuid4().hex[:10]
+        plan = plan.model_copy(update={"plan_id": plan_id})
         self.db.put(store_id, "fix_plan", plan_id, {
             "plan": plan.model_dump(mode="json"), "callouts": [c.model_dump(mode="json") for c in callouts],
             "day": day, "now": now, "schedule": schedule.model_dump(mode="json")})
-        return plan_id
+        return plan
 
     def state(self, store_id: str) -> OutreachState:
         run = self.runs.get(store_id)

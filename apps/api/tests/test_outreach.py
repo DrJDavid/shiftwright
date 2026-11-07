@@ -87,7 +87,7 @@ def _start(c, sid):
                                                "day": 5, "now": 364})
     assert r.status_code == 200, r.text
     plan = r.json()
-    FixPlan.model_validate(plan)
+    assert FixPlan.model_validate(plan).plan_id == plan["plan_id"]
     st = OutreachState.model_validate(c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]}).json())
     assert st.status == "texting"
     return st
