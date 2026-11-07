@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, apiMode } from './api'
 import { ApiError } from './api/client'
 import type { Readiness, SolveResponse } from './api/protocol'
-import type { LawPack, StoreConfig } from './contracts'
+import type { Gap, LawPack, StoreConfig } from './contracts'
 import { ChatPane } from './components/ChatPane'
+import { GapSheet } from './components/GapSheet'
 import { ReadinessRail } from './components/ReadinessRail'
 import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
@@ -56,6 +57,7 @@ export default function App() {
   const [solve, setSolve] = useState<SolveState>({ status: 'idle' })
   const [tab, setTab] = useState<Tab>('schedule')
   const [railOpen, setRailOpen] = useState(true)
+  const [openGap, setOpenGap] = useState<Gap | null>(null)
   const [lawPack, setLawPack] = useState<LawPack | null>(null)
   const [lawError, setLawError] = useState<string | null>(null)
   const storeId = config?.store.id
@@ -148,6 +150,7 @@ export default function App() {
     setTab('schedule')
     try {
       setResult(await api.solve(storeId))
+      setOpenGap(null)
       setSolve({ status: 'idle' })
       setRailOpen(false) // give the week grid the room
     } catch (e) {
@@ -211,7 +214,7 @@ export default function App() {
           onScheduleChanged={() => void refreshSchedule(config.store.id)}
         />
 
-        <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
+        <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
           <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
             {TABS.map((t) => (
               <button
@@ -230,7 +233,20 @@ export default function App() {
               </button>
             ))}
           </nav>
-          {tab === 'schedule' && <ScheduleTab config={config} result={result} solve={solve} onSolve={() => void runSolve()} />}
+          {tab === 'schedule' && (
+            <ScheduleTab config={config} result={result} solve={solve} onSolve={() => void runSolve()} onGapClick={setOpenGap} />
+          )}
+          {openGap && result && (
+            <GapSheet
+              api={api}
+              storeId={config.store.id}
+              gap={openGap}
+              weekStart={result.schedule.week_start}
+              config={config}
+              lawPack={lawPack}
+              onClose={() => setOpenGap(null)}
+            />
+          )}
         </main>
 
         <ReadinessRail

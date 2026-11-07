@@ -149,6 +149,11 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       return ok(st.latest)
     }
     if (rest === '/schedule') return st.latest ? ok(st.latest) : notFound('No schedule yet')
+    if (rest === '/gaps/explain' && method === 'POST') {
+      // Mock: echo the gap's own reasons; no phrasing model.
+      const gap = (body as { gap: { reasons?: unknown[] } }).gap
+      return ok({ text: 'Mock API: reasons below come from the mock solver.', reasons: gap.reasons ?? [] })
+    }
     if (rest === '/chat' && method === 'POST') return chatStream(st, body as ChatRequest, init?.signal)
     if (rest === '/chat/card' && method === 'POST') {
       const sub = body as CardSubmission
