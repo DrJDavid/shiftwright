@@ -9,7 +9,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors (CDLE INFO #22A summarizing C.R.S. \u00a7 8-12-105; statute text is LexisNexis-hosted): all minors under 18 are capped at 8 h/24 h and 40 h/week (seasonal piece-rate harvest exceptions). Under-16 state-only limits: 6 h on a school day, no work 9:30 p.m.-5 a.m. before school days (CO.minor_limits.1 enforces 9:30 p.m. every night of a school week, stricter). 7 CCR 1103-20 (youth rules) has no hour limits.",
-    "Minimum wage: CDLE INFO #22A confirms $15.16 for 2026; effective date left at the date first seen (the source gives no start date)."
+    "Minimum wage: CDLE INFO #22A confirms $15.16 for 2026; effective date left at the date first seen (the source gives no start date).",
+    "Tipped minimum wage: cash wage = $15.16 \u2212 $3.02 tip credit (CDLE INFO #22A states the $3.02 credit; the adult tip rules are in INFO #3, not fetched). Denver and other cities set higher local wages (no city files)."
   ],
   "rules": [
     {
@@ -236,6 +237,29 @@
         "title": "CDLE INFO #22A \u2014 Employment of Minors, Minimum Wages, Hours (C.R.S. \u00a7 8-12-105), June 3, 2026",
         "excerpt": "Minors of Any Age: At most 40 hours per week, and 8 hours in any 24 hours.",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CO.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 12.14,
+        "max_tip_credit_per_hour": 3.02,
+        "effective": "2026-11-05"
+      },
+      "summary": "Colorado allows a tip credit of up to $3.02, so the 2026 tipped cash wage is $12.14 (on the $15.16 minimum).",
+      "citation": {
+        "url": "https://cdle.colorado.gov/sites/cdle/files/info_%2322a_employment_of_minors%2C_minimum_wages%2C_hours%2C_fines%2C_and_procedures_6.3.2026.pdf",
+        "title": "CDLE INFO #22A (June 3, 2026) \u2014 tip credit",
+        "excerpt": "A tip credit of up to $3.02 per hour may be applied to the minor's minimum wage ... if all tip requirements are met (see the INFO #3 series).",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

@@ -11,7 +11,8 @@
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
-    "Minors (A.R.S. \u00a7 23-233): Arizona's night limits (9:30 p.m. before a school day, 11 p.m. otherwise, from 6 a.m.) are looser than federal 7 a.m.-7 p.m. (9 p.m. summer); federal.json still applies to FLSA-covered employers. No Arizona hour limits for 16-17."
+    "Minors (A.R.S. \u00a7 23-233): Arizona's night limits (9:30 p.m. before a school day, 11 p.m. otherwise, from 6 a.m.) are looser than federal 7 a.m.-7 p.m. (9 p.m. summer); federal.json still applies to FLSA-covered employers. No Arizona hour limits for 16-17.",
+    "Tipped minimum wage: cash wage = minimum wage \u2212 $3.00 (A.R.S. \u00a7 23-363(C)); computed from the AZ.minimum_wage.1 rate (medium confidence)."
   ],
   "rules": [
     {
@@ -92,6 +93,29 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "AZ.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "AZ",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 12.15,
+        "max_tip_credit_per_hour": 3.0,
+        "effective": "2026-11-05"
+      },
+      "summary": "Arizona employers may pay tipped employees up to $3.00 less than the $15.15 minimum wage (cash wage $12.15) if wages plus tips reach the minimum.",
+      "citation": {
+        "url": "https://www.azleg.gov/ars/23/00363.htm",
+        "title": "A.R.S. \u00a7 23-363(C) \u2014 Minimum wage, tipped employees",
+        "excerpt": "For any employee who customarily and regularly receives tips or gratuities ... the employer may pay a wage up to $3.00 per hour less than the minimum wage",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "medium",
       "verified": false
     }
   ]

@@ -11,7 +11,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors: NC 16-17 11 p.m.-5 a.m. restriction applies only before a school day and can be lifted with written parent + principal approval; enforced every night of a school week (stricter). No NC hour limits for 16-17 outside the school term.",
-    "Minors: under-16 may not work more than 5 consecutive hours without a 30-minute rest interval (G.S. 95-25.5(e)); not encoded (no minor-break rule type)."
+    "Minors: under-16 may not work more than 5 consecutive hours without a 30-minute rest interval (G.S. 95-25.5(e)); not encoded (no minor-break rule type).",
+    "Tipped minimum wage: G.S. 95-25.3(f) caps the tip credit at the FLSA 3(m) amount ($2.13 cash wage, federal.json citation); tips must be certified and the employee may keep all tips (pools capped at 15%)."
   ],
   "rules": [
     {
@@ -139,6 +140,29 @@
         "title": "N.C. Gen. Stat. \u00a7 95-25.5 \u2014 Youth employment",
         "excerpt": "no youth under 18 years of age who is enrolled in school in grade 12 or lower may be employed between 11 P.M. and 5 A.M. when there is school for the youth the next day",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NC.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "NC",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 2.13,
+        "max_tip_credit_per_hour": 5.12,
+        "effective": "2009-07-24"
+      },
+      "summary": "North Carolina allows the FLSA tip credit: $2.13 cash wage, up to $5.12 of tips toward $7.25.",
+      "citation": {
+        "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_95/GS_95-25.3.html",
+        "title": "N.C. Gen. Stat. \u00a7 95-25.3(f) \u2014 Minimum wage, tips",
+        "excerpt": "Tips earned by a tipped employee may be counted as wages only up to the amount permitted in section 3(m) of the Fair Labor Standards Act, 29 U.S.C. 203(m), if the tipped employee is notified in advance",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

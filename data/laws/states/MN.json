@@ -11,7 +11,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors (Minn. Stat. \u00a7 181A.04): the under-16 limits are the same in school and non-school weeks (identical school_week true/false rules); federal 3 h / 18 h / 7 p.m. school-week limits (federal.json) also apply to FLSA-covered employers.",
-    "Minors: the 16-17 high-school 11 p.m. / 5 a.m. limit applies only around school days; enforced every day of a school week (stricter). No other MN hour limits for 16-17."
+    "Minors: the 16-17 high-school 11 p.m. / 5 a.m. limit applies only around school days; enforced every day of a school week (stricter). No other MN hour limits for 16-17.",
+    "No tip credit: 'No employer may directly or indirectly credit, apply, or utilize gratuities towards payment of the minimum wage set by this section or federal law' (Minn. Stat. \u00a7 177.24 subd. 2, https://www.revisor.mn.gov/statutes/cite/177.24). No tipped_minimum_wage rule."
   ],
   "rules": [
     {

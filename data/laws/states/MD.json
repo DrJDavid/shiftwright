@@ -10,7 +10,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors: Maryland's 4 h school-day / 23 h school-week / 8 p.m. limits are looser than federal (3 h / 18 h / 7 p.m.); federal.json still applies to FLSA-covered employers.",
-    "Minors (Md. Lab. & Empl. \u00a7 3-210, https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gle&section=3-210&enactments=false): every minor under 18 needs a 30-minute break after 5 consecutive hours, total school + work hours may not exceed 12 in a day, and 8 consecutive hours off; not encoded (needs school hours / no minor-break type)."
+    "Minors (Md. Lab. & Empl. \u00a7 3-210, https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gle&section=3-210&enactments=false): every minor under 18 needs a 30-minute break after 5 consecutive hours, total school + work hours may not exceed 12 in a day, and 8 consecutive hours off; not encoded (needs school hours / no minor-break type).",
+    "Tipped minimum wage: cash wage $3.63 (Lab. & Empl. \u00a7 3-419(c)); applies to employees who customarily receive more than $30/month in tips, were informed, and keep their tips; max_tip_credit = MD minimum wage \u2212 $3.63."
   ],
   "rules": [
     {
@@ -162,6 +163,29 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MD.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "MD",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 3.63,
+        "max_tip_credit_per_hour": 11.37,
+        "effective": "2026-11-05"
+      },
+      "summary": "Maryland's tipped cash wage is $3.63 an hour; the tip credit may not exceed the minimum wage less $3.63.",
+      "citation": {
+        "url": "https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gle&section=3-419&enactments=false",
+        "title": "Md. Code, Lab. & Empl. \u00a7 3-419(c) \u2014 Tip credit",
+        "excerpt": "The tip credit amount that the employer may include under subsection (b) of this section may not exceed the minimum wage established under \u00a7 3\u2013413 of this subtitle for the employee less $3.63.",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "medium",
       "verified": false
     }
   ]

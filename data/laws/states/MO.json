@@ -11,7 +11,8 @@
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
-    "Minors (RSMo \u00a7 294.030): 'child' means under 16 (\u00a7 294.011); no Missouri hour limits for 16-17. Missouri's weekly cap is 40 h even in school weeks; the federal 18 h school-week cap (federal.json) still applies. Limits may be waived in writing by the director. Extra param key max_days_week."
+    "Minors (RSMo \u00a7 294.030): 'child' means under 16 (\u00a7 294.011); no Missouri hour limits for 16-17. Missouri's weekly cap is 40 h even in school weeks; the federal 18 h school-week cap (federal.json) still applies. Limits may be waived in writing by the director. Extra param key max_days_week.",
+    "Tipped minimum wage: 50% of the minimum wage (RSMo 290.512), computed from MO.minimum_wage.1 (medium)."
   ],
   "rules": [
     {
@@ -115,6 +116,29 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MO.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "MO",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 7.5,
+        "max_tip_credit_per_hour": 7.5,
+        "effective": "2026-11-05"
+      },
+      "summary": "Missouri employers need pay tipped employees only 50% of the minimum wage in cash ($7.50), making up any shortfall after tips.",
+      "citation": {
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=290.512",
+        "title": "RSMo \u00a7 290.512 \u2014 Gratuities as part of wages",
+        "excerpt": "No employer of any employee who receives and retains compensation in the form of gratuities in addition to wages is required to pay wages in excess of fifty percent of the minimum wage rate",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "medium",
       "verified": false
     }
   ]
