@@ -2,7 +2,7 @@
 
     uv run python packages/engine/scripts/tiers.py [--limit 30] [--only demo,chicago,...] [--json out.json]
 
-One line per store: status, wall time, coverage, wage cost, hard violations, metrics_mismatch,
+One line per store: status, wall time (main solve and tradeoff what-ifs), tradeoffs, coverage, wage cost, hard violations, metrics_mismatch,
 `cheaper_to_leave_gap` reasons, and missing headcount-hours per tier (highest tier first).
 """
 from __future__ import annotations
@@ -44,6 +44,12 @@ def run(name: str, limit: float) -> dict:
     m = sched.metrics
     out = {
         "store": name, "status": sched.status, "wall_s": round(wall, 1),
+        "main_s": sched.solver_stats.get("total_s"), "tradeoffs_s": sched.solver_stats.get("tradeoffs_s"),
+        "tradeoffs": [(t["kind"], t.get("role_id") or t.get("rule_id"), t.get("day"), t.get("extra_hours"),
+                       round(t["if_dropped"]["wage_cost"] - t["if_kept"]["wage_cost"], 2),
+                       round(t["if_dropped"]["coverage_pct"] - t["if_kept"]["coverage_pct"], 2))
+                      for t in sched.solver_stats.get("tradeoffs", [])],
+        "soft_violations": len(sched.soft_violations),
         "coverage_pct": m.coverage_pct if m else None,
         "wage_cost": m.total_wage_cost if m else None,
         "objective": m.objective_dollars if m else None,

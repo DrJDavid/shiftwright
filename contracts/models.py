@@ -324,7 +324,7 @@ class Constraint(BaseModel):
     kind: ConstraintKind
     params: dict[str, Any] = {}
     strength: Strength
-    weight_dollars: float = 0.0  # required > 0 when strength == soft
+    weight_dollars: float = 0.0  # required > 0 when strength == soft; the engine reads it as a rank (tier), not a price (SEMANTICS #25)
     applies_to_employee_ids: Optional[list[str]] = None
     source: Source
     status: RuleStatus

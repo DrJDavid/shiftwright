@@ -176,19 +176,31 @@ with the v1.1 changes below folded in.
     `schedule_if_all_accept`. Every employee whose schedule differs from `FixRequest.schedule` must be named
     by an action or a candidate (validated by `validate_fix`).
 
-25. **Coverage first, then cost** (*PUNCHLIST C3, approved by David*). The engine's objective is
-    lexicographic. First it maximizes covered demand headcount-minutes **tier by tier**: roles are
-    ranked by `Role.gap_penalty_per_hour` (higher = higher tier; roles with equal values share a tier),
-    and no amount of lower-tier coverage outweighs higher-tier coverage. Only among schedules that tie
-    on coverage does it minimize cost (wages, overtime, premiums, soft penalties, churn).
-    `gap_penalty_per_hour` therefore **orders tiers; it is not a price** traded against wages. Hard
-    rules (including the hours budget) are unchanged, and `fix_day` follows the same ordering.
-    `cheaper_to_leave_gap` must not appear for a gap that someone legal, available, trained and within
-    budget could fill. Reported metrics keep their formulas (#13: `gap_penalty_dollars` and
-    `objective_dollars` are still computed with `gap_penalty_per_hour` as dollars). Implementation
-    note: when a strict tier ordering doesn't fit CP-SAT's integer range, adjacent tiers are weighted
-    geometrically (each tier's minute worth at least ~12× the next on the demo stores), and the
-    search is time-limited, so the ordering is the solver's target, not a proof.
+25. **Rules and coverage first, real dollars only for real money** (*`briefs/C3-coverage-first.md`,
+    approved by David*). The engine optimizes in strict order; each step only breaks ties of the one above:
+    1. hard rules and the law (unchanged; the hours / dollar budget stays a hard cap);
+    2. covered demand headcount-minutes **by priority tier**: roles ranked by `Role.gap_penalty_per_hour`
+       (higher = higher tier; equal values share a tier);
+    3. preferences (soft rules) **by tier**: ranked by `Constraint.weight_dollars` (equal values share a
+       tier); within a tier, the total amount broken in each rule's own unit (hours, occurrences);
+    4. cost: wages, overtime, premiums (plus availability preferences and the role-churn tiebreak).
+    `gap_penalty_per_hour` and `weight_dollars` are **ranks, not prices**: no amount of a lower step
+    outweighs a higher one. `fix_day` follows the same order. `cheaper_to_leave_gap` must not appear
+    for a gap that someone legal, available, trained and within budget could fill. Reported metrics
+    keep their formulas (#13: `gap_penalty_dollars`, `soft_penalty_dollars` and `objective_dollars`
+    still use those fields as dollars), so the validator's recompute is unchanged.
+    **Tradeoffs.** After the main solve, `solve_week` runs up to 5 what-if solves (≤ 5 s each; skipped
+    with a note in `solver_stats.notes` if the main solve used its whole time limit) and returns
+    `solver_stats.tradeoffs`, ≤ 5 items, biggest wage difference first, each from an actual solve:
+    `{id, kind: "budget_gap" | "preference_cost", rule_id?, role_id?, day, window?: [start, end],
+    extra_hours? (budget_gap), if_kept: {wage_cost, hours, coverage_pct}, if_dropped: {...}}`.
+    `if_kept` is the week with the budget / rule as it is; `if_dropped` the week with the cap raised
+    (`budget_gap`: a gap left open by the hours budget; recorded only if that gap gets covered) or
+    the rule removed (`preference_cost`: a kept soft rule naming ≤ 3 employees; both sides re-solved
+    on the same neighbourhood; recorded only if dropping it lowers wage cost by ≥ $1).
+    Implementation note: tiers that don't fit CP-SAT's integer range strictly are weighted
+    geometrically (each coverage tier's minute ≥ ~12× the next on the demo stores), and the search is
+    time-limited, so the order is the solver's target, not a proof of optimality.
 
 ## Minimum wage (*v1.1*)
 
