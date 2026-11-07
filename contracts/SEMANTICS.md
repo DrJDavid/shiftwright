@@ -1,4 +1,4 @@
-# Shiftwright contract semantics — v1.2
+# Shiftwright contract semantics — v1.3
 
 Owner: David. These rules are part of the contract. The engine (WS1) and the validator (WS2)
 must both follow them, so that a disagreement means a bug, not a different reading.
@@ -7,6 +7,9 @@ with the v1.1 changes below folded in.
 
 ## Changelog
 
+- **1.3.0** (Sat Nov 7, ~01:30): predictive-scheduling premiums in call-out repair (#17);
+  `Store.employer_employee_count`, `Store.schedule_posted_on`; new `predictive_scheduling` param keys
+  that WS3 fills from primary sources (#17). No other schema change.
 - **1.2.0** (Sat Nov 7, ~01:00):
   - `Shift.why: list[str]` — engine-generated, factual reasons for each assignment (headline first).
     Must only state facts derivable from the config and the schedule. The validator ignores it.
@@ -80,6 +83,35 @@ with the v1.1 changes below folded in.
     needs the employee's consent by text, so the preference is respected when they answer.
     Outreach ranking = coverage gained per added dollar × `est_accept_prob`, where
     `est_accept_prob = (callins_accepted_90d + 1) / (callins_offered_90d + 2)`.
+
+## Predictive scheduling in call-out repair (*v1.3*)
+
+17. When the store's law pack has `predictive_scheduling` rules (city or state Fair Workweek laws),
+    `fix_day` prices every change to the posted schedule:
+    - **Applies** only if `Store.employer_employee_count` is None or exceeds `applies_if_employees_over`
+      (null threshold = always), and the change happens inside the rule's notice window
+      (`notice_days` before the shift; the posted schedule is `FixRequest.schedule`, assumed posted on
+      time unless `Store.schedule_posted_on` says otherwise).
+    - **Kinds of change** (per affected employee and shift): *added hours / new shift*, *shift moved or
+      extended*, *hours reduced or shift cancelled*. The employee who called out is never charged: an
+      employee-initiated absence is not an employer change.
+    - **Amount** comes only from the rule's params (WS3 encodes them with citations; examples of keys:
+      `change_premium_hours`, `change_premium_hours_under_24h`, `reduced_hours_fraction`,
+      `premium_multiplier`, `premium_flat_dollars`). If a param the formula needs is missing, the
+      engine charges nothing for that rule and adds a `FixAction.rationale` note "premium not
+      computed: <rule id> lacks <param>" — never a guessed amount.
+    - **Exemptions** come only from params: `voluntary_additional_hours_exempt: bool` (true when the
+      ordinance exempts extra hours an employee accepts voluntarily), `consent_must_be_written: bool`,
+      and `exemption_note: str` (what the consent must look like, quoted from the source). A `call_in`
+      accepted by text counts as voluntary and written consent when both flags say so; the outreach
+      message then states that accepting is voluntary. Absent flags ⇒ not exempt (charge the premium).
+    - **Output:** each `FixAction.premium_pay_dollars` / `OutreachCandidate.added_cost_dollars`
+      includes the premium; `FixAction.law_rule_ids` names the rule; the rationale says why
+      ("Chicago predictability pay: +1 h at $17.50 (shift extended < 14 days' notice)" or
+      "No predictability pay: voluntary call-in accepted in writing, exempt under <rule id>").
+      `schedule_if_*_accept.metrics.premium_pay_dollars` include these premiums.
+    - The validator checks this via a fix-plan check that recomputes premiums from the same params
+      (WS2), not by reading engine code.
 
 ## Minimum wage (*v1.1*)
 

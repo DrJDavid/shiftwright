@@ -225,7 +225,7 @@ def test_messy_readiness_blocks(messy):
     fails = h.failing_checks(rd)
     assert not rd["ready"]
     assert set(fails) == {"training", "minimum_wage"}, fails
-    assert "beauty" in fails["training"]
+    assert "beauty" in fails["training"].lower()
     assert "$16.90" in fails["minimum_wage"] and "$15.50" in fails["minimum_wage"]
 
 

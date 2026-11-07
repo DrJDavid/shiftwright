@@ -269,6 +269,14 @@ export type PostCloseMinutes = number;
  * v1.1. Is the schedule week a school week for minors? None = unknown: enforce every matching minor_limits rule (strictest). True = only rules with school_week=true. False = only rules with school_week=false. See SEMANTICS.md #8.
  */
 export type SchoolWeek = boolean | null;
+/**
+ * v1.3. Employees of the whole employer (chain), not this store. Used for law applicability thresholds such as predictive_scheduling.applies_if_employees_over. None = assume the law applies.
+ */
+export type EmployerEmployeeCount = number | null;
+/**
+ * v1.3. When this week's schedule was posted to employees. None = assume it was posted on time (notice_days before week_start), so changes are measured from the posted schedule. See SEMANTICS.md #17.
+ */
+export type SchedulePostedOn = string | null;
 export type Departments = Department[];
 export type Id8 = string;
 export type DepartmentId = string;
@@ -786,6 +794,8 @@ export interface Store {
   pre_open_minutes?: PreOpenMinutes;
   post_close_minutes?: PostCloseMinutes;
   school_week?: SchoolWeek;
+  employer_employee_count?: EmployerEmployeeCount;
+  schedule_posted_on?: SchedulePostedOn;
   [k: string]: unknown;
 }
 /**
