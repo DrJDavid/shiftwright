@@ -159,3 +159,15 @@ def test_locality_demo_templates(client):
         assert StoreConfig.model_validate(r.json()).store.id.startswith("st_")
     assert client.post("/api/stores", json={"template": "demo_nowhere"}).status_code == 422
     assert client.post("/api/stores", json={"template": "../etc"}).status_code == 422
+
+
+def test_templates_list(client):
+    t = client.get("/api/templates").json()["templates"]
+    ids = [x["id"] for x in t]
+    assert ids[:3] == ["empty", "bigbox_small", "bigbox_mid"] and "demo" in ids and "tiny" in ids
+    demo = next(x for x in t if x["id"] == "demo")
+    assert demo["jurisdiction"]["state"] == "TX" and "Store #0417" in demo["label"]
+    for x in t:  # every listed template can be created
+        body = {"template": x["id"]} if x["jurisdiction"] else {"template": x["id"], "name": "x",
+                                                                  "jurisdiction": {"state": "TX"}}
+        assert client.post("/api/stores", json=body).status_code == 200, x

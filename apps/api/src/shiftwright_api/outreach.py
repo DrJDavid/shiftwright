@@ -159,13 +159,15 @@ class OutreachManager:
                   callouts=[CallOut.model_validate(c) for c in saved["callouts"]], day=saved["day"],
                   now=saved["now"], schedule=schedule,
                   state=OutreachState(plan_id=plan_id, status="texting", schedule=schedule))
+        mode = plan.outreach_mode or "one_to_one"  # SEMANTICS #17: send in the plan's mode
         try:
             cfg = self.db.get_config(store_id)
-            run.policy = predictive.policy(cfg, integrations.resolve_law(cfg.store.jurisdiction))
-        except Exception as e:  # noqa: BLE001 - law lookup failed: sequential, premium unknown
-            run.policy = predictive.Policy(premium_status="owed", note=f"Law pack unavailable ({e}); premium may be owed.")
+            run.policy = predictive.policy(cfg, integrations.resolve_law(cfg.store.jurisdiction), mode)
+        except Exception as e:  # noqa: BLE001 - law lookup failed: plan's mode, premium unknown
+            run.policy = predictive.Policy(mode=mode, min_recipients=2 if mode == "group_offer" else 1,
+                                           premium_status="owed", note=f"Law pack unavailable ({e}); premium may be owed.")
         run.state.mode = run.policy.mode
-        run.state.premium = run.policy.premium()
+        run.state.premium = {**run.policy.premium(), "by_employee": premium_breakdown(plan)}
         self.runs[store_id] = run
         run.task = asyncio.create_task(self._run(run))
         await asyncio.sleep(0)  # let the first text go out
@@ -234,8 +236,8 @@ class OutreachManager:
                 if not cands:
                     run.state.status, run.state.current_rank = "exhausted", None
                     break
-                wave = cands[:pol.min_recipients] if pol.mode == "group" else cands[:1]
-                if pol.mode == "group" and len(wave) < pol.min_recipients:
+                wave = cands[:pol.min_recipients] if pol.mode == "group_offer" else cands[:1]
+                if pol.mode == "group_offer" and len(wave) < pol.min_recipients:
                     run.state.premium = {**pol.premium(), "status": "owed",
                                          "note": f"Only {len(wave)} candidate(s) left: not a mass communication "
                                                  f"(needs {pol.min_recipients}+), so the premium is owed."}
@@ -385,10 +387,25 @@ class OutreachManager:
         return sched, report
 
     async def _refix(self, run: Run, config: StoreConfig) -> list[OutreachCandidate]:
-        req = FixRequest(config=config, schedule=run.schedule, callouts=run.callouts, day=run.day, now=run.now,
-                         declined_employee_ids=list(run.declined))
+        req = FixRequest(config=with_law_pack(config), schedule=run.schedule, callouts=run.callouts, day=run.day,
+                         now=run.now, declined_employee_ids=list(run.declined),
+                         outreach_mode=(run.policy.mode if run.policy else None))
         plan = await asyncio.to_thread(integrations.fix_day, req)
         return [c for c in plan.outreach_queue if c.employee_id not in run.state.accepted_employee_ids]
+
+
+def premium_breakdown(plan: FixPlan) -> list[dict]:
+    """Per-candidate predictive-scheduling premium as the engine priced it (receipt line items)."""
+    return [{"employee_id": c.employee_id, "premium_pay_dollars": c.premium_pay_dollars,
+             "law_rule_ids": list(c.law_rule_ids), "note": c.premium_note} for c in plan.outreach_queue]
+
+
+def with_law_pack(config: StoreConfig) -> StoreConfig:
+    if config.law_pack is not None:
+        return config
+    cfg = config.model_copy(deep=True)
+    cfg.law_pack = integrations.resolve_law(cfg.store.jurisdiction)
+    return cfg
 
 
 def _waiting_key(run: Run, phone: str) -> Optional[str]:

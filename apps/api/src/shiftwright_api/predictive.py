@@ -25,7 +25,7 @@ _STATEMENTS = [  # (keyword in the law-pack statement, sentence we send)
 
 @dataclass
 class Policy:
-    mode: str = "sequential"  # sequential | group
+    mode: str = "one_to_one"  # one_to_one | group_offer (contract literals, FixPlan.outreach_mode)
     min_recipients: int = 1
     sentences: list[str] = field(default_factory=list)
     premium_status: str = "not_applicable"  # not_applicable | exempt | owed
@@ -58,28 +58,48 @@ def render(statements: list[str]) -> Optional[list[str]]:
     return out
 
 
-def policy(config: StoreConfig, pack: Optional[LawPack]) -> Policy:
-    rules = [r for r in (pack.rules if pack else []) if r.type == LawRuleType.predictive_scheduling
-             and _applies(r.params, config.store.employer_employee_count)]
+def _rules(config: StoreConfig, pack: Optional[LawPack]):
+    return [r for r in (pack.rules if pack else []) if r.type == LawRuleType.predictive_scheduling
+            and _applies(r.params, config.store.employer_employee_count)]
+
+
+def preferred_mode(config: StoreConfig, pack: Optional[LawPack]) -> str:
+    """FixRequest.outreach_mode: group_offer when an applicable rule needs a group message for the exemption
+    (and we can word its required statements), else one_to_one."""
+    for r in _rules(config, pack):
+        p = r.params
+        if (p.get("exemption_requires_group_message") and p.get("voluntary_additional_hours_exempt")
+                and render(p.get("exemption_message_must_state") or []) is not None):
+            return "group_offer"
+    return "one_to_one"
+
+
+def policy(config: StoreConfig, pack: Optional[LawPack], mode: Optional[str] = None) -> Policy:
+    """How to send outreach in `mode` (default: preferred_mode) and whether a premium is owed."""
+    mode = mode or preferred_mode(config, pack)
+    rules = _rules(config, pack)
     if not rules:
-        return Policy()
+        return Policy(mode=mode, min_recipients=2 if mode == "group_offer" else 1)
     ids = [r.id for r in rules]
     group = next((r for r in rules if r.params.get("exemption_requires_group_message")), None)
     if group is not None:
         p = group.params
         sentences = render(p.get("exemption_message_must_state") or [])
-        if p.get("voluntary_additional_hours_exempt") and sentences is not None:
-            return Policy(mode="group", min_recipients=max(2, int(p.get("exemption_min_recipients") or 2)),
-                          sentences=sentences, premium_status="exempt", law_rule_ids=ids,
+        n = max(2, int(p.get("exemption_min_recipients") or 2))
+        if mode == "group_offer" and p.get("voluntary_additional_hours_exempt") and sentences is not None:
+            return Policy(mode=mode, min_recipients=n, sentences=sentences, premium_status="exempt", law_rule_ids=ids,
                           note=f"Group offer (mass communication) under {group.id}: exempt if accepted. "
                                + (p.get("exemption_note") or ""))
-        return Policy(premium_status="owed", law_rule_ids=ids,
-                      note=f"{group.id} needs a group message we can't word from the dataset; premium owed.")
+        why = ("one-to-one texts are not exempt" if mode == "one_to_one"
+               else "the dataset's required statements can't be worded")
+        return Policy(mode=mode, min_recipients=n if mode == "group_offer" else 1, premium_status="owed",
+                      law_rule_ids=ids, note=f"{group.id}: {why}; the plan's cost includes the premium.")
     p = rules[0].params
     written_ok = not p.get("consent_must_be_written") or p.get("text_message_counts_as_written")
+    n = 2 if mode == "group_offer" else 1
     if all(r.params.get("voluntary_additional_hours_exempt") for r in rules) and written_ok:
-        return Policy(sentences=[VOLUNTARY], premium_status="exempt", law_rule_ids=ids,
+        return Policy(mode=mode, min_recipients=n, sentences=[VOLUNTARY], premium_status="exempt", law_rule_ids=ids,
                       note=f"Voluntary call-in accepted by text: exempt under {', '.join(ids)}. "
                            + (p.get("exemption_note") or ""))
-    return Policy(premium_status="owed", law_rule_ids=ids,
+    return Policy(mode=mode, min_recipients=n, premium_status="owed", law_rule_ids=ids,
                   note=f"No exemption for call-ins in {', '.join(ids)}; the plan's cost includes the premium.")
