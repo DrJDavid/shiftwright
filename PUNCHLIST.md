@@ -24,7 +24,7 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
 | Plain-language role priorities, chat setup fixes (Claude Code) | **merged** (`7304274`, `80e21fc`) |
 | A1 auth + A2 basics + A3 generated businesses (`cursor/A3-generated`) | ready; merges **together with** Lane B (old web breaks once auth is on) |
 | B1–B6 web shell (`cursor/B1-web-shell`, includes A1) | built; being wired to the real A1 backend |
-| E2 rescore (`cursor/E2-rescore`) | running |
+| E2 rescore real-quick-2 (Shiftwright 6/6 clean, S legal_trap CA feasible) | **merged** |
 | C3 coverage-first (`cursor/C3-coverage-first`) | running, deadline 10:00 |
 | B7 + B4 QA bugs, C3b, C3c, E3 | not started (E3 needs David's OK) |
 
