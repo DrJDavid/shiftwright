@@ -6,6 +6,8 @@ import type {
   CreateStoreRequest,
   CsvImportKind,
   FixRequestBody,
+  GeneratedRequest,
+  GeneratedWorkplace,
   OutreachState,
   TemplateInfo,
   Health,
@@ -78,6 +80,10 @@ export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
     workplaces: () => json<{ workplaces: WorkplaceSummary[] }>('/workplaces'),
     /** A copy of a demo store, owned by the caller, named "Sample: …" (listed with `sample_of` set). */
     sampleWorkplace: (template: string) => post<StoreConfig>('/workplaces/sample', { template }),
+    /** A3: a generated business: an owned empty store with its CSV exports previewed server-side. */
+    generatedWorkplace: (req: GeneratedRequest) => post<GeneratedWorkplace>('/workplaces/generated', req),
+    /** A3: that company's files (zip). A plain link; the session cookie rides along. */
+    sampleDataUrl: (id: string) => `/api/workplaces/${encodeURIComponent(id)}/sample-data.zip`,
     createStore: (req: CreateStoreRequest) => post<StoreConfig>('/stores', req),
     getConfig: (id: string) => json<StoreConfig>(`${s(id)}/config`),
     putConfig: (id: string, cfg: StoreConfig) =>

@@ -1,7 +1,8 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B6 + B4 QA bugs), branch `cursor/B1-web-shell`, which now
-includes `cursor/A1-auth` (051b0c6) and main. Verified against the real A1 backend (see "Real-backend check")._
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B7), branch `cursor/B7-autopilot` = B1 branch + `cursor/A3-generated` +
+main. B1–B6 verified against the real A1 backend (see "Real-backend check"); B7's client logic is tested against the
+mock (no fake-LLM mode exists, so a real agent run isn't possible locally)._
 
 ## How David runs it locally
 
@@ -57,6 +58,36 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
 - Call-in shifts get a **Call-in** badge in the grid and "Call-in: covering a call-out" in the shift detail. The
   contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
   the mock now uses the same suffix. A contract field would be safer.
+
+## Sample business + autopilot (B7)
+
+- `/workplaces/new` (now two columns): the create form, and **Try it with a sample business** with Restaurant /
+  Retail store cards and **More options** (city, state, size S/M, difficulty Clean · Tight budget · Legal traps ·
+  Messy exports → `easy` / `tight` / `legal_trap` / `messy`, seed). One click → `POST /api/workplaces/generated`
+  → `/w/:id` with the kickoff in the navigation state (taken once, then cleared so a reload doesn't resend).
+  429 → a plain "try again in a little while"; other errors show the server's detail.
+- The chat sends the kickoff once on open (deferred a tick so StrictMode doesn't double-send or abort it) as the
+  user message with `attachments: [{kind}]`, and shows the files as chips ("roster.csv · 18 rows").
+- `csv_import` cards that carry the server's `preview` answer `{mapping}` (the server commits the cached upload);
+  choosing another file falls back to the old upload + commit.
+- New `confirm_tags` card (Keep / Remove per role, nothing preselected; minors trained there are listed).
+- **Autopilot** (`lib/autopilot.ts`, `components/AutopilotFrame.tsx`): on by default for generated workplaces
+  (kickoff present, or `sample_of: "generated"` in `/workplaces`), off for real ones; toggle "Autopilot on ·
+  Pause" / "Autopilot off · Turn on" in a thin chat header. Routine cards (`csv_import`, `store_basics`,
+  `payroll`, `roles`, `training_matrix`, `department_staffing`, `events`) get a ring and a "Looks right,
+  continuing… 2" countdown, then autopilot clicks the card's own submit button (so each card's validation and
+  result shape apply unchanged). A disabled submit stops it there ("this card needs your input"). Any pointer
+  down, click or key press inside the card hands it back for good. `confirm_tags`, `propose_rule`, `tradeoff`,
+  `conflict_menu` (and `coverage_grid`, `employee_availability`) never auto-submit.
+- When setup mode's readiness is `ready` and the chat is idle, the chat ends with "Setup is done. Build the week
+  now?" + **Build my schedule** (one click → schedule).
+- **Download this company's files** (the A3 zip) in the chat header for generated workplaces (hidden in mock mode).
+- Mock: `POST /workplaces/generated` (400 on bad values) makes an empty store whose cached roster / training /
+  forecast previews commit the tiny fixture's employees, training and demand; chat imports attached kinds first,
+  then a `confirm_tags` decision (generated stores only), then the usual basics → payroll → staffing. The mock
+  has no law data, so its `jurisdiction` check now warns instead of blocking (the real API still blocks).
+- Checked against the real A3 route (curl): response keys, kickoff attachments (all five kinds), `sample_of:
+  "generated"`, 400 on a bad sector all match.
 
 ## Real-backend check (A1 merged)
 
@@ -120,11 +151,15 @@ copies the Austin fixture (`demo`/`tiny` only) as "Sample: …". Stores created 
 email; wrong password; create-workplace required fields; create posts `{template: empty, name, sector, business_description,
 jurisdiction}` and opens `/w/:id` with the switcher listing it checked; explore a sample. `src/mock/mock.test.ts`: mock
 accounts + ownership. Plus setup steps, call-in badge, rule names, conflict-menu names, and the setup → workspace
-switch (chat survives). 53 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+switch (chat survives). B7: `components/ChatPane.test.tsx` (kickoff with attachments + chips, autopilot submit,
+user interrupt, Pause, decision card never auto), `lib/autopilot.test.ts`, and an App test where one click on
+Restaurant reaches a built schedule with the user answering only the tags decision. 61 tests total; `npm run build`, `npm run lint`, `npm test` clean.
 
 ## Next (Lane B)
 
 - A contract field for call-in shifts (today keyed off the `-callin` id suffix).
+- B7 with a real agent: rehearse on the deployed URL (needs the OpenRouter key); watch that the agent's card
+  order matches the kickoff's import order and that it offers the build at the end.
 
 ## Running it (details)
 

@@ -61,12 +61,18 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once for a dropped file
   }, [initialFile])
 
+  // A3: the agent's card carries the server's cached upload; answering {mapping} has the server commit all of it.
+  const cached = !!props?.preview && !file && kind === props.kind
   const missing = preview ? missingFields(kind, preview, mapping) : []
   const canCommit = !!preview && !busy && missing.length === 0
 
   const commit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!preview || !canCommit) return
+    if (cached) {
+      onSubmit({ mapping })
+      return
+    }
     setBusy('Saving…')
     setError(null)
     try {
@@ -84,7 +90,7 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
   const summary =
     status === 'submitted' && result ? (
       <>
-        {KIND_LABEL[kind]}: imported {result.rows} rows{file ? ` from ${file.name}` : ''}.
+        {KIND_LABEL[kind]}: imported {'rows' in result ? result.rows : (preview?.row_count ?? 0)} rows{file ? ` from ${file.name}` : ''}.
         {commitWarnings.length > 0 && (
           <details className="mt-1 text-xs text-warn">
             <summary className="cursor-pointer font-semibold">
@@ -125,7 +131,7 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
             ))}
           </select>
           <button type="button" onClick={() => inputRef.current?.click()} className="min-w-0 flex-1 truncate rounded-md border border-dashed border-ink/40 px-3 text-sm font-medium hover:border-ink">
-            {file ? file.name : 'Choose a CSV file'}
+            {file ? file.name : cached ? 'Attached file (choose another)' : 'Choose a CSV file'}
           </button>
           <input
             ref={inputRef}
