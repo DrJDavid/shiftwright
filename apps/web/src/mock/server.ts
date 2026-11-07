@@ -121,7 +121,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       const req = body as CreateStoreRequest
       const id = `mock-${stores.size + 1}`
       const st: StoreState = {
-        config: mockStoreConfig(id, req.name, req.jurisdiction.state, req.jurisdiction.city ?? null),
+        config: mockStoreConfig(id, req.template ?? 'bigbox_mid', req.name, req.jurisdiction.state, req.jurisdiction.city ?? null),
         latest: null,
         basicsDone: false,
         payrollDone: false,

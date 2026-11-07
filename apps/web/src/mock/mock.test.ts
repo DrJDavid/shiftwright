@@ -22,6 +22,20 @@ describe('mock API follows contracts/API.md', () => {
     expect(validation.hard_count).toBe(0)
   })
 
+  it('seeds from the WS4 fixture and respects its min_age and min shift length', async () => {
+    const a = api()
+    const cfg = await a.createStore({ template: 'bigbox_small', name: 'Store #0417', jurisdiction: { state: 'TX', city: 'austin' } })
+    expect(cfg.employees.map((e) => e.name)).toContain('Jordan Patel')
+    const { schedule } = await a.solve(cfg.store.id)
+    const age = new Map(cfg.employees.map((e) => [e.id, e.age]))
+    const minAge = new Map(cfg.roles.map((r) => [r.id, r.min_age ?? 0]))
+    for (const s of schedule.shifts ?? []) {
+      expect(s.end - s.start).toBeGreaterThanOrEqual(240)
+      for (const g of s.segments) expect(age.get(s.employee_id)!).toBeGreaterThanOrEqual(minAge.get(g.role_id)!)
+    }
+    expect(schedule.produced_by).toMatch(/^mock/)
+  })
+
   it('chat turn pauses on a card and resumes after the card is submitted', async () => {
     const a = api()
     const cfg = await a.createStore({ template: 'bigbox_small', name: 'X', jurisdiction: { state: 'TX' } })

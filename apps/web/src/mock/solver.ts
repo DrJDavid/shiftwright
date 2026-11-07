@@ -3,11 +3,22 @@
 // never shows a hand-typed number. Replace by switching the client to the live API.
 import type { Gap, GapReason, Schedule, ScheduleMetrics, Shift, StoreConfig, ValidationReport } from '../contracts'
 
-const MAX_SPAN = 8.5 * 60
 const BREAK_AFTER = 6 * 60
 
 export function mockSolve(cfg: StoreConfig): { schedule: Schedule; validation: ValidationReport } {
   const slot = cfg.store.slot_minutes ?? 30
+  // Respect the store's own data (not law): shift-length constraints and Role.min_age.
+  const hardParam = (kind: string) => {
+    const c = (cfg.constraints ?? []).find((x) => x.kind === kind && x.strength === 'hard' && x.status === 'confirmed')
+    const v = c?.params?.minutes
+    return typeof v === 'number' ? v : undefined
+  }
+  const minShift = hardParam('min_shift_length') ?? 0
+  const MAX_SPAN = Math.min(hardParam('max_shift_length') ?? 510, 510)
+  const windowOf = (day: number) => {
+    const h = cfg.store.hours.find((x) => x.day === day)
+    return h ? [h.open - (cfg.store.pre_open_minutes ?? 60), h.close + (cfg.store.post_close_minutes ?? 60)] : null
+  }
   const roleById = new Map(cfg.roles.map((r) => [r.id, r]))
   const hoursUsed = new Map<string, number>()
   const daysWorked = new Map<string, Set<number>>()
@@ -30,12 +41,18 @@ export function mockSolve(cfg: StoreConfig): { schedule: Schedule; validation: V
     const raw = Math.ceil(len / pieces / slot) * slot
     for (let unit = 0; unit < req.headcount; unit++) {
       for (let p = 0; p < pieces; p++) {
-        const start = req.start + p * raw
-        const end = Math.min(req.end, start + raw)
+        let start = req.start + p * raw
+        let end = Math.min(req.end, start + raw)
+        const win = windowOf(req.day)
+        if (end - start < minShift && win) {
+          end = Math.min(win[1], start + minShift)
+          start = Math.max(win[0], end - minShift)
+        }
         const paidH = paidMinutes(end - start) / 60
         if (budgetUsed + paidH > cap) continue
         const candidates = cfg.employees
           .filter((e) => e.trained_role_ids.includes(req.role_id))
+          .filter((e) => e.age >= (roleById.get(req.role_id)?.min_age ?? 0))
           .filter((e) => !(daysWorked.get(e.id)?.has(req.day)))
           .filter((e) => (daysWorked.get(e.id)?.size ?? 0) < 5)
           .filter((e) => (hoursUsed.get(e.id) ?? 0) + paidH <= (e.max_hours_week ?? 40))

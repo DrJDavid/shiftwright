@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Fri Nov 6, ~22:00 CT._
+_Updated Fri Nov 6, ~22:20 CT. Rebased on main afa0323._
 
 **Done (M1):**
 - Three-pane shell at 1280×720: Chat (35%) · Main tabs (Schedule live; Coverage, Fix disabled) · Rulebook rail
@@ -19,6 +19,10 @@ _Updated Fri Nov 6, ~22:00 CT._
 - Mock API (`src/mock/`): in-browser, returns real `Response`s (so the real client/parser run), scripted
   onboarding chat with the card pause/resume protocol, a greedy mock solver whose metrics are all
   computed from its own shifts. UI shows a "Mock API" pill whenever it's on.
+- Mock is seeded from WS4's fixtures via `import.meta.glob` on `packages/scenarios/fixtures/*.json`
+  (read-only): `bigbox_mid` -> `demo_store.json` when it exists, else `tiny_store.json`; `empty` strips
+  employees/demand. The mock respects the fixture's own `Role.min_age` and hard min/max shift-length
+  constraints (store data, not law). Mock schedules show "Not validated" instead of a validator verdict.
 - Tests (vitest, `npm test`): formatting, SSE parsing, mock solve metric consistency, chat pause/resume.
   `npm run build` and `npm run lint` clean.
 
@@ -39,6 +43,6 @@ CSV drop → `csv_import`.
 - Raised `tsconfig.app.json` target/lib to ES2022 (for `Array.at`); eslint now ignores generated
   `src/contracts.ts` (its `eslint-disable` header triggered an unused-directive warning).
 - Added dev dep `vitest` and `npm test` script (apps/web only).
-- Mock fixture names/wages/demand are invented placeholders, used only in mock mode and labeled as such.
+- `vite.config.ts` `server.fs.allow` includes `../../packages/scenarios/fixtures` so the dev server can read them.
 - Questions for WS6: (1) `/chat/card` is assumed to return 200 immediately while the original SSE stream
   resumes; (2) `GET /schedule` 404 when none exists is treated as "no schedule yet".

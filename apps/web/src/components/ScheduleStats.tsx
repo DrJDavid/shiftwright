@@ -12,6 +12,8 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
   const cap = m.budget_hours_cap
   const frac = cap > 0 ? Math.min(1, used / cap) : 0
   const over = used > cap
+  // The in-browser mock never runs the real validator; don't let the badge claim it did.
+  const mock = schedule.produced_by.startsWith('mock')
 
   return (
     <div className="relative flex items-stretch gap-px border-b border-rule bg-rule">
@@ -41,12 +43,14 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={`rounded-md border px-3 py-2 text-sm font-semibold ${
-            validation.passed
+            mock
+              ? 'border-warn/40 bg-warn-wash text-warn hover:border-warn'
+              : validation.passed
               ? 'border-pine/30 bg-pine-wash text-pine-dark hover:border-pine'
               : 'border-gap/30 bg-gap-wash text-gap hover:border-gap'
           }`}
         >
-          {validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violations`}
+          {mock ? 'Not validated' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violations`}
         </button>
       </div>
       {open && (
@@ -57,11 +61,16 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
               Close
             </button>
           </div>
+          {mock && (
+            <p className="mb-2 text-sm font-medium text-warn">
+              This schedule came from the in-browser mock, not the solver. The validator has not checked it.
+            </p>
+          )}
           <p className="text-sm text-ink-2">
             The validator re-checks every shift independently of the solver.{' '}
             {validation.passed ? 'This schedule passed.' : 'This schedule did not pass.'}
           </p>
-          {validation.violations.length === 0 ? (
+          {mock ? null : validation.violations.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No violations, hard or soft.</p>
           ) : (
             <ul className="mt-2 max-h-64 space-y-1.5 overflow-auto text-sm">

@@ -110,6 +110,7 @@ export function ScheduleGrid({ schedule, config }: Props) {
             {days.map((d) => {
               const { weekday, date } = fmtDayDate(schedule.week_start, d)
               const dayGaps = gapsByDay[d]
+              const closed = !config.store.hours.some((h) => h.day === d)
               const cost = dayGaps.reduce((c, g) => c + g.penalty_dollars, 0)
               return (
                 <th key={d} className="border-b border-l border-rule px-2 py-2 text-left align-bottom font-normal">
@@ -120,7 +121,7 @@ export function ScheduleGrid({ schedule, config }: Props) {
                     className={`truncate text-xs ${dayGaps.length ? 'font-medium text-gap' : 'text-muted'}`}
                     title={dayGaps.length ? `${dayGaps.length} uncovered stretches, ${fmtMoney(cost)} penalty` : undefined}
                   >
-                    {dayGaps.length ? `${fmtMoney(cost)} gaps` : 'Covered'}
+                    {dayGaps.length ? `${fmtMoney(cost)} gaps` : closed ? 'Closed' : 'Covered'}
                   </div>
                 </th>
               )
