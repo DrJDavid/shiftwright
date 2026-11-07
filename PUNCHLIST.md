@@ -28,7 +28,6 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
 | C3 revised (rules → coverage tiers → preferences → cost, real what-if tradeoffs) | **merged** 08:20 |
 | claude/import-journey (importer aliases, rule capture/validation) | **merged** 07:29 |
 | C3b API tiers + tradeoff cards (`cursor/C3b-api`), C3 UI words + decisions link (`cursor/C3ui-web`), C3c evals wage-cost rescore (`cursor/C3c-evals`) | running, target 09:30 |
-| `claude/import-journey` (Claude Code): importer learns job code ↔ title, abbreviation matching, imported roles priced Important, HHMM times; rule capture (firm vs preference from wording, no $ weights, short names); incomplete rules refused / set aside at solve; journey test `packages/evals/tests/test_journey_import.py` | **READY TO MERGE** `c052006` (API 85 passed, journey 6/6) |
 | E3 real realistic eval | not started (needs David's OK) |
 
 ## How to run these with Cursor
