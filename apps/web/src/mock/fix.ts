@@ -63,7 +63,7 @@ export function mockFix(cfg: StoreConfig, schedule: Schedule, req: FixRequestBod
       .slice(0, 3)
     cands.forEach((e) => used.add(e.id))
     const queue = cands.map((e): OutreachCandidate => {
-      const shift: Shift = { ...proposedBase, id: `fix-${e.id}-${lost.day}`, employee_id: e.id }
+      const shift: Shift = { ...proposedBase, id: `fix-${e.id}-${lost.day}-callin`, employee_id: e.id }
       const a = e.attendance
       return {
         rank: ++rank,

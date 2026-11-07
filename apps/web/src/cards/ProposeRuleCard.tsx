@@ -39,7 +39,7 @@ export function ProposeRuleCard({ props, status, result, onSubmit, onCancel }: C
         }}
         className="space-y-3"
       >
-        <p className="text-base font-medium">{props?.plain_text || c?.note || c?.kind}</p>
+        <p className="text-base font-medium">{props?.plain_text || c?.note || c?.kind.replace(/_/g, ' ')}</p>
         {props?.evidence && (
           <p className="rounded-md bg-paper px-3 py-2 text-sm text-ink-2">
             <span className="font-semibold">Why I think so: </span>

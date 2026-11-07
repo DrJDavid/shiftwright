@@ -32,6 +32,26 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | GET | `/api/templates` | → `{templates: {id, label, jurisdiction}[]}` | v1.4. Store templates available on this server (e.g. `demo`, `demo_chicago`, `demo_seattle`, `demo_sf`, `tiny`, `empty`). |
 | GET | `/api/health` | → `{ok, contract_version, messenger, model}` | |
 
+## Accounts and workplaces (v1.6, PUNCHLIST A1)
+
+| Method | Path | Body → Response | Notes |
+|---|---|---|---|
+| POST | `/api/auth/signup` | `{email, password, name}` → `{user: {id, email, name}}` + session cookie | 409 if the email exists (case-insensitive). 422: password < 8 chars, malformed email, blank name. |
+| POST | `/api/auth/login` | `{email, password}` → `{user}` + cookie | 401 `"Wrong email or password."` for a wrong password and for an unknown email alike. |
+| POST | `/api/auth/logout` | → 204 | Ends the session server-side and clears the cookie. |
+| GET | `/api/auth/me` | → `{user}` or 401 | |
+| GET | `/api/workplaces` | → `{workplaces: [{id, name, sector, city, state, updated_at, has_schedule, sample_of}]}` | Mine only, most recently updated first. `sample_of` = demo template id for samples, else `null`. |
+| POST | `/api/workplaces/sample` | `{template}` → `StoreConfig` | A private copy of a demo template (`demo`, `tiny`, `demo_<city>`; see `/api/templates`) named `"Sample: …"`. 422 for other templates. |
+
+- Session cookie `sw_session`: `HttpOnly`, `SameSite=Lax`, `Secure` when the request is https (incl.
+  `X-Forwarded-Proto: https`), 30 days. Browsers send it automatically on same-origin `fetch` / `EventSource`.
+- With `AUTH_REQUIRED=true` (default) every `/api/*` route needs a session (401 `{"detail": "Sign in first."}`)
+  except `/api/health`, `/api/auth/*`, `/api/templates` and `/api/sms/inbound`; static web files are public.
+- `POST /api/stores` makes the caller the owner. Every `/api/stores/{id}/...` route answers **404** (same as a
+  missing store) when the store belongs to someone else.
+- Signup + login together: at most 10 attempts per client IP per 10 minutes (429 after that).
+- `DEMO_KEY` applies only when `AUTH_REQUIRED=false`. `/api/health` adds `auth_required`.
+
 Helper shapes (defined in `apps/api`, mirrored in TS by hand only for these):
 
 ```ts
@@ -153,7 +173,9 @@ TWILIO_ACCOUNT_SID= TWILIO_AUTH_TOKEN= TWILIO_FROM_NUMBER=
 PUBLIC_BASE_URL=          # for the Twilio webhook
 DATABASE_URL=sqlite:///./shiftwright.db
 SMS_ALLOWLIST=            # v1.1: Twilio only texts these + DEMO_PHONE_1/2
-DEMO_KEY=                 # v1.1: if set, mutating /api/stores/* routes need header X-Demo-Key (401 otherwise)
+DEMO_KEY=                 # v1.1: if set, mutating /api/stores/* routes need header X-Demo-Key (401 otherwise); only when AUTH_REQUIRED=false
+AUTH_REQUIRED=true        # v1.6: accounts + sessions; false = the old open API
+AUTH_SECRET=              # v1.6: random 32+ chars; HMAC key for stored session digests (changing it signs everyone out)
 MAX_TEXTS_PER_STORE_HOUR=20
 MOCK_AUTOREPLY=script     # v1.2, mock only: script (rank 1 declines; rank 2 asks a question, then accepts; rest accept) | prob (seeded draw on est_accept_prob) | off
 MOCK_REPLY_DELAY_S=4

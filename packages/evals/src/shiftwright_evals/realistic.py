@@ -501,7 +501,7 @@ class ShiftwrightIntake:
         csvs = export_texts(case)
         with tempfile.TemporaryDirectory() as tmp:
             settings = dataclasses.replace(Settings.from_env(), database_url=f"sqlite:///{tmp}/sw.db",
-                                           demo_key="", messenger="mock")
+                                           demo_key="", messenger="mock", auth_required=False)
             if self.agent == "real":
                 llm = OpenRouterClient(settings.openrouter_api_key, settings.agent_model)
                 helper = llm

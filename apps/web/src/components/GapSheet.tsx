@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Api } from '../api/client'
 import type { Gap, GapReason, GapReasonCode, LawPack, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtMoney, fmtRange } from '../lib/format'
+import { describeConstraint } from '../lib/ruleNames'
 
 type Props = {
   api: Api
@@ -79,7 +80,7 @@ export function GapSheet({ api, storeId, gap, weekStart, config, lawPack, onClos
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm">
-        {state.status === 'loading' && <p className="text-muted">Asking the solver why…</p>}
+        {state.status === 'loading' && <p className="text-muted">Finding out why…</p>}
         {state.status === 'error' && <p className="text-gap">Couldn't load the explanation: {state.message}</p>}
         {state.status === 'ok' && (
           <>
@@ -108,7 +109,7 @@ export function GapSheet({ api, storeId, gap, weekStart, config, lawPack, onClos
                             ) : r.law_rule_id ? (
                               <span className="block text-xs text-muted">{r.law_rule_id}</span>
                             ) : null}
-                            {rule && <span className="block text-xs text-muted">{rule.note || rule.kind}</span>}
+                            {rule && <span className="block text-xs text-muted">{describeConstraint(rule, config)}</span>}
                           </li>
                         )
                       })}

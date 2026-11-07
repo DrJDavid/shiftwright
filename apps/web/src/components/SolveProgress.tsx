@@ -29,7 +29,7 @@ export function SolveProgress({ startedAt }: { startedAt: number }) {
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-pine-wash">
           <div className="h-full bg-pine transition-[width] duration-300" style={{ width: `${frac * 100}%` }} />
         </div>
-        <p className="mt-2 text-xs text-muted">Usually 20–30 seconds for a store this size. The validator checks the result before you see it.</p>
+        <p className="mt-2 text-xs text-muted">Usually 20–30 seconds for a store this size. A separate compliance check reviews it before you see it.</p>
       </div>
     </div>
   )

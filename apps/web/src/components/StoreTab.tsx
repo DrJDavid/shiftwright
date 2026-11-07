@@ -3,6 +3,7 @@ import type { AvailabilityEntry, Employee, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
 import { eventName, SECTOR_LABEL, tagLabel } from '../lib/vocab'
+import { describeConstraint } from '../lib/ruleNames'
 
 type Section = 'people' | 'roles' | 'training' | 'demand' | 'availability' | 'budget'
 const SECTIONS: { id: Section; label: string }[] = [
@@ -257,7 +258,7 @@ function Roles({ config, colors }: { config: StoreConfig; colors: Map<string, st
         )
       })}
       <p className="col-span-2 text-xs text-muted">
-        Gap cost is what one uncovered hour of the role is worth. The solver leaves a gap only when filling it costs more than this.
+        Gap cost is what one uncovered hour of the role is worth. Shiftwright leaves a gap only when filling it costs more than this.
       </p>
     </div>
   )
@@ -435,7 +436,7 @@ function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, s
         </table>
       )}
       <p className="mt-2 text-xs text-muted">
-        Each cell is how many people the role needs in that {slot}-minute slot.
+        Each cell is how many people the role needs in that {slot}-minute time block.
         {config.demand.some((d) => d.source === 'estimate') && (
           <span className="ml-1 font-semibold text-warn">Amber dashed cells are a draft estimate: confirm them in the chat before relying on them.</span>
         )}
@@ -576,7 +577,7 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
         </dl>
         {b.weekly_hours_cap > 0 && demandHours > b.weekly_hours_cap && (
           <p className="mt-2 text-sm text-warn">
-            Demand is {fmtHours(demandHours - b.weekly_hours_cap)} more than the cap, so some gaps are expected. The solver picks which
+            Demand is {fmtHours(demandHours - b.weekly_hours_cap)} more than the cap, so some gaps are expected. Shiftwright picks which
             to leave by each role's gap cost.
           </p>
         )}
@@ -608,7 +609,7 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
                 {c.strength === 'hard' ? 'Hard' : 'Soft'}
               </span>
               <span className={c.status === 'provisional' ? 'text-muted' : 'text-ink-2'}>
-                {c.note || c.kind}
+                {describeConstraint(c, config)}
                 {c.strength === 'soft' && c.weight_dollars ? <span className="text-muted"> · {fmtMoney(c.weight_dollars)}</span> : null}
                 {c.status === 'provisional' && <span className="text-warn"> · unconfirmed</span>}
               </span>
@@ -637,7 +638,7 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
         <p className="mt-2 text-xs text-muted">
           Staff can start up to {fmtMinutes(config.store.pre_open_minutes ?? 0)} before open and stay {fmtMinutes(config.store.post_close_minutes ?? 0)} after
           close.
-          Schedules use {config.store.slot_minutes}-minute slots.{' '}
+          Schedules use {config.store.slot_minutes}-minute time blocks.{' '}
           {(config.store.max_shifts_per_day ?? 1) > 1
             ? `Split shifts allowed: up to ${config.store.max_shifts_per_day} shifts per person per day.`
             : 'One shift per person per day (no split shifts).'}

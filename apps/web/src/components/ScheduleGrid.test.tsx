@@ -25,3 +25,24 @@ describe('ScheduleGrid', () => {
     expect(html.match(/cursor-pointer/g)?.length).toBeGreaterThanOrEqual(2)
   })
 })
+
+describe('ScheduleGrid call-in badge (B5)', () => {
+  it('badges shifts the engine added for a call-out (id ends in -callin)', () => {
+    const cfg = mockStoreConfig('t', 'bigbox_small', 'S', 'TX', null)
+    const [a, b] = cfg.employees
+    const seg = (e: typeof a) => [{ role_id: e.trained_role_ids[0], start: 600, end: 900 }]
+    const schedule: Schedule = {
+      store_id: 't',
+      week_start: cfg.store.week_start,
+      produced_by: 'test',
+      config_version: 1,
+      status: 'feasible',
+      shifts: [
+        { id: 'sh-1', employee_id: a.id, day: 1, start: 600, end: 900, segments: seg(a) },
+        { id: `sh-${b.id}-d1-callin`, employee_id: b.id, day: 1, start: 600, end: 900, segments: seg(b) },
+      ],
+    }
+    const text = renderToStaticMarkup(<ScheduleGrid schedule={schedule} config={cfg} />).replace(/<[^>]+>/g, ' ')
+    expect(text.match(/Call-in/g)?.length).toBe(1)
+  })
+})

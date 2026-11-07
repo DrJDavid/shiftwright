@@ -29,8 +29,8 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
         <div className="max-w-md">
           <h2 className="text-xl font-semibold">No schedule for this week yet</h2>
           <p className="mt-2 text-ink-2">
-            Confirm the store details and payroll budget in the chat, then build the week. The solver creates every
-            shift; the validator checks it before you see it.
+            Confirm the store details and payroll budget in the chat, then build the week. Shiftwright builds every
+            shift; a separate compliance check reviews it before you see it.
           </p>
           <div className="mt-5">
             <SolveButton state={solve} onSolve={onSolve} />
@@ -46,7 +46,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {solve.status === 'running' && <SolveProgress startedAt={solve.startedAt} />}
-      <ScheduleStats schedule={schedule} validation={validation} employeeName={(id) => names.get(id) ?? id} />
+      <ScheduleStats schedule={schedule} validation={validation} employeeName={(id) => names.get(id) ?? id} demand={config.demand} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule bg-panel px-4 py-2 text-xs text-ink-2">
         {config.roles.map((r) => (
           <span key={r.id} className="flex items-center gap-1.5">
@@ -66,7 +66,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
       </div>
       {schedule.status === 'infeasible' && schedule.infeasibility && (
         <div className="border-b border-gap/30 bg-gap-wash px-4 py-2 text-sm text-gap">
-          No legal schedule exists with the current hard rules. {schedule.infeasibility.summary}
+          This week can't be fully covered under your rules: {schedule.infeasibility.summary}
         </div>
       )}
       <ScheduleGrid schedule={schedule} config={config} onGapClick={onGapClick} onDayClick={onDayClick} callouts={callouts} lawRules={lawRules} />

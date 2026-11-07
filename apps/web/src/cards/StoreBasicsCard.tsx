@@ -106,7 +106,7 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
           <Field label="Week starts on Monday">
             <input type="date" className={inputCls} value={weekStart} onChange={(e) => setWeekStart(e.target.value)} required />
           </Field>
-          <Field label="Time slots">
+          <Field label="Time blocks">
             <select className={inputCls} value={slot} onChange={(e) => setSlot(Number(e.target.value) as 15 | 30 | 60)}>
               <option value={15}>15 min</option>
               <option value={30}>30 min</option>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtDayDate, fmtHours, fmtMoney, fmtRange, fmtTime } from './format'
+import { fmtCoverage, fmtDayDate, fmtHours, fmtMoney, fmtRange, fmtTime } from './format'
 
 describe('fmtTime (12-hour local, never raw minutes)', () => {
   it('formats on-the-hour and half-hour times', () => {
@@ -45,5 +45,13 @@ describe('humanizer', () => {
     expect(h('Extend e004 from 12:30–22:00 as leader_on_duty; IL.chicago.predictive_scheduling.1')).toBe(
       'Extend Val Martin from 12:30p–10p as Leader on Duty; IL.chicago.predictive_scheduling.1',
     )
+  })
+})
+
+describe('fmtCoverage', () => {
+  it('shows "—" when nothing is demanded, not a vacuous 100%', () => {
+    expect(fmtCoverage(100, [])).toBe('—')
+    expect(fmtCoverage(100, [{ headcount: 0 }])).toBe('—')
+    expect(fmtCoverage(87.5, [{ headcount: 2 }])).toBe('87.5%')
   })
 })

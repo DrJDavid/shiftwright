@@ -2,6 +2,7 @@ import { useId, useState, type ReactNode } from 'react'
 import type { ConflictMenuProps, OptionResult, TradeoffProps } from '../api/protocol'
 import { fmtMoney } from '../lib/format'
 import { CardFrame, type CardProps } from './CardFrame'
+import { useOptionalCardEnv } from './context'
 
 type Opt = { id: string; label: string; cost_dollars: number; detail: string }
 
@@ -77,6 +78,8 @@ export function TradeoffCard({ props, status, result, onSubmit, onCancel }: Card
 export function ConflictMenuCard({ props, status, result, onSubmit, onCancel }: CardProps<ConflictMenuProps, OptionResult>) {
   const formId = useId()
   const inf = props?.infeasibility ?? {}
+  const env = useOptionalCardEnv()
+  const name = env?.ruleNames?.name ?? ((id: string) => id.replace(/_/g, ' '))
   const ids = [...(inf.conflicting_law_rule_ids ?? []), ...(inf.conflicting_constraint_ids ?? []), ...(inf.conflicting_other ?? [])]
   return (
     <OptionList
@@ -85,7 +88,16 @@ export function ConflictMenuCard({ props, status, result, onSubmit, onCancel }: 
       intro={
         <div className="rounded-md border border-gap/30 bg-gap-wash px-3 py-2 text-sm text-ink">
           {inf.summary ?? 'No legal schedule satisfies every hard rule.'}
-          {ids.length > 0 && <div className="mt-1 text-xs text-ink-2">Involved: {ids.join(', ')}</div>}
+          {ids.length > 0 && (
+            <div className="mt-1 text-xs text-ink-2">
+              Involved:
+              <ul className="mt-0.5 list-disc pl-4">
+                {ids.map((id) => (
+                  <li key={id}>{name(id)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       }
       options={(props?.options ?? []).map((o) => ({ ...o, detail: o.patch_summary }))}

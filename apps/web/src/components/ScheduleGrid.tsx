@@ -19,6 +19,9 @@ type Props = {
 }
 type Hover = { x: number; y: number; content: ReactNode } | null
 
+/** The engine's fix_day names shifts it adds for a call-out `…-callin` (packages/engine fix.py). */
+const isCallIn = (s: Shift) => s.id.endsWith('-callin')
+
 function paidHours(s: Shift) {
   const unpaid = (s.breaks ?? []).filter((b) => !b.paid).reduce((m, b) => m + b.end - b.start, 0)
   return (s.end - s.start - unpaid) / 60
@@ -95,7 +98,10 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
 
   const shiftDetail = (e: Employee, s: Shift, full = false) => (
     <div className="space-y-1">
-      <div className="font-semibold">{e.name}</div>
+      <div className="font-semibold">
+        {e.name}
+        {isCallIn(s) && <span className="ml-1.5 text-xs font-semibold text-pine-dark">Call-in: covering a call-out</span>}
+      </div>
       {/* v1.2 Shift.why: engine one-liners, headline first. Hover shows the headline; click shows all. */}
       {(s.why ?? []).length > 0 &&
         (full ? (
@@ -298,6 +304,11 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
                                   {i > 0 ? ', ' : ''}
                                   {isOut(s) ? <span className="line-through">{fmtRange(s.start, s.end)}</span> : fmtRange(s.start, s.end)}
                                   {isOut(s) && ' called out'}
+                                  {isCallIn(s) && (
+                                    <span className="ml-1 rounded bg-pine-wash px-1 text-[10px] font-semibold tracking-wide text-pine-dark uppercase">
+                                      Call-in
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </div>
@@ -350,7 +361,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
           >
             {shiftDetail(pinned.e, pinned.s, true)}
             {(pinned.s.why ?? []).length === 0 && (
-              <p className="mt-1 text-xs text-muted">The solver didn't record reasons for this shift.</p>
+              <p className="mt-1 text-xs text-muted">No reasons were recorded for this shift.</p>
             )}
             <button type="button" onClick={() => setPinned(null)} className="mt-2 text-xs text-muted hover:text-ink">
               Close

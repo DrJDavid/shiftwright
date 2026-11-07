@@ -14,6 +14,7 @@ import type {
   Jurisdiction,
   OutboundMessage,
   Schedule,
+  Sector,
   Store,
   ValidationReport,
 } from '../contracts'
@@ -115,6 +116,25 @@ export type CreateStoreRequest = {
   template?: 'bigbox_small' | 'bigbox_mid' | 'empty' | 'demo' | 'tiny' | `demo_${string}`
   name?: string
   jurisdiction?: Jurisdiction
+  // PUNCHLIST A2: saved on create with template `empty`, so the chat doesn't re-ask.
+  sector?: Sector
+  business_description?: string
+}
+
+// PUNCHLIST A1 (accounts). Session is the `sw_session` cookie.
+export type User = { id: string; email: string; name: string }
+export type SignupRequest = { email: string; password: string; name: string }
+export type LoginRequest = { email: string; password: string }
+export type WorkplaceSummary = {
+  id: string
+  name: string
+  sector: Sector | null
+  city: string | null
+  state: string | null
+  updated_at: string
+  has_schedule: boolean
+  /** Demo template id this is a private copy of; null for your own workplaces. */
+  sample_of: string | null
 }
 
 /** `validation` is null when GET /schedule has a stored schedule that was never validated. */
@@ -122,7 +142,8 @@ export type SolveResponse = { schedule: Schedule; validation: ValidationReport |
 
 export type Readiness = {
   ready: boolean
-  checks: { id: string; label: string; ok: boolean; detail: string }[]
+  /** v1.5 `severity`: warnings keep `ok: true`. */
+  checks: { id: string; label: string; ok: boolean; detail: string; severity?: 'ok' | 'warn' | 'block' }[]
 }
 
 export type ImportPreview = {
