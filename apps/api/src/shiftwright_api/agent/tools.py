@@ -989,7 +989,7 @@ def with_law(cfg: StoreConfig) -> StoreConfig:
 
 async def dry_run_solve(ctx: ToolContext, args: dict) -> dict:
     cfg = with_law(ctx.config())
-    t = float(args.get("time_limit_s") or 10)
+    t = float(args["time_limit_s"]) if args.get("time_limit_s") else None  # None: until it stops improving
     sched = await asyncio.to_thread(integrations.solve_week, cfg, t)
     try:
         val = await asyncio.to_thread(integrations.validate, cfg, sched)

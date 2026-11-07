@@ -596,8 +596,11 @@ GUIDE_SHARE, COVER_SHARE = (float(x) for x in os.environ.get("ENGINE_LEX_SHARES"
 GUIDE = os.environ.get("ENGINE_GUIDE", "scale:2")
 
 
-def _solver(time_limit_s: float, workers: Optional[int], light_presolve: bool) -> cp_model.CpSolver:
+def _solver(time_limit_s: float, workers: Optional[int], light_presolve: bool,
+            gap: Optional[float] = None) -> cp_model.CpSolver:
     solver = cp_model.CpSolver()
+    if gap is not None:
+        solver.parameters.relative_gap_limit = gap
     solver.parameters.max_time_in_seconds = float(max(0.05, time_limit_s))
     solver.parameters.num_workers = workers or default_workers()
     solver.parameters.log_search_progress = os.environ.get("ENGINE_LOG") == "1"
@@ -663,7 +666,7 @@ def _priced(built: Built, guide: Optional[str]):
 
 
 def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint: Optional[dict] = None,
-          light_presolve: bool = True, mode: str = "full"):
+          light_presolve: bool = True, mode: str = "full", gap: Optional[float] = None):
     """Lexicographic (SEMANTICS #25), up to three CP-SAT runs on the same model, each hinted with the last:
       1. guided search: a priced objective (gap minutes × (gap_penalty_per_hour + 2× top wage) +
          cost), so the search sees wages and idle time; it only seeds stage 2;
@@ -674,6 +677,8 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
     Returns the last stage's (solver, status); OPTIMAL only if stages 2 and 3 both proved it. An
     unproven result is polished (shifts and roles fixed, cost minimized) so soft-penalty values
     match the schedule.
+    `gap`: the priced guide and cost stages stop once within this relative gap (coverage and
+    preference stages always run to their limit or proof).
     `built.cover_stats` records the stages."""
     t0 = time.perf_counter()
     m = built.model
@@ -681,21 +686,21 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
         for v, val in hint.items():
             m.add_hint(v, val)
     if not built.cover or built.cost_obj is None:
-        solver = _solver(time_limit_s, workers, light_presolve)
+        solver = _solver(time_limit_s, workers, light_presolve, gap)
         return solver, solver.solve(m)
     if not LEX:
         m.minimize(_priced(built, None))
-        solver = _solver(time_limit_s, workers, light_presolve)
+        solver = _solver(time_limit_s, workers, light_presolve, gap)
         return solver, solver.solve(m)
     stats = built.cover_stats = {"mode": mode}
     if mode == "guide":
         m.minimize(_priced(built, GUIDE))
-        solver = _solver(time_limit_s, workers, light_presolve)
+        solver = _solver(time_limit_s, workers, light_presolve, gap)
         return solver, solver.solve(m)
     s0 = None
     if mode == "full":
         m.minimize(_priced(built, GUIDE))
-        s0 = _solver(time_limit_s * GUIDE_SHARE, workers, light_presolve)
+        s0 = _solver(time_limit_s * GUIDE_SHARE, workers, light_presolve, gap)
         st0 = s0.solve(m)
         stats["guide"] = s0.status_name(st0)
         if st0 not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
@@ -747,7 +752,7 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
             m.add(cp_model.LinearExpr.weighted_sum([v for v, _c, _u in terms], [c for _v, c, _u in terms])
                   <= sum(c * int(s1.value(v)) for v, c, _u in terms))
     m.minimize(built.cost_obj)
-    s2 = _solver(max(0.5, time_limit_s - (time.perf_counter() - t0)), workers, light_presolve)
+    s2 = _solver(max(0.5, time_limit_s - (time.perf_counter() - t0)), workers, light_presolve, gap)
     st2 = s2.solve(m)
     stats["cost"] = s2.status_name(st2)
     stats["s"] = round(time.perf_counter() - t0, 2)

@@ -2,6 +2,15 @@
 
 _Last updated: 2026-11-07 ~08:45 CT (branch cursor/C3b-api, briefs/C3-coverage-first.md "API")_
 
+**Done (C4: solve until it stops improving; branch cursor/C4-plateau):**
+- `POST /api/stores/{id}/solve {}` and the agent's `dry_run_solve` without `time_limit_s` call
+  `integrations.solve_week(cfg, time_limit_s=None)` → engine plateau mode with `max_s=SOLVE_MAX_S`
+  (90 s, tradeoff what-ifs included). An explicit `time_limit_s` (≤ 120 by `SolveRequest`) still wins.
+  `solver_stats.stop_reason` ∈ proven_close | plateau | cap | time_limit; `main_s`, `wall_s`.
+  No server-side timeout in the request path (uvicorn has none; the 10/15 s waits in main.py are the
+  chat lock and SMS). Clients must allow ~90 s. Tests: `tests/test_solve_plateau.py`.
+- No progress endpoint (not added: the engine has no progress callback yet).
+
 **Done (C3b: API side of coverage-first; SEMANTICS #25):**
 - **Priority tiers** (`priorities.py`): Must cover 300 · Important 200 · Nice to have 100, fixed (no wage
   multiples; `base_wage`/`FALLBACK_WAGE` removed). Imported roles on `imports.AUTO_PRIORITY` get the Important

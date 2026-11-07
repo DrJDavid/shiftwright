@@ -70,12 +70,22 @@ def active_stubs() -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
-def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Schedule | None = None) -> Schedule:
+SOLVE_MAX_S = 90.0  # plateau mode's safety cap, tradeoff what-ifs included
+
+
+def solve_week(config: StoreConfig, time_limit_s: float | None = 20, previous: Schedule | None = None) -> Schedule:
+    """`time_limit_s=None`: the engine stops when the schedule stops improving (or is proven
+    close), within `SOLVE_MAX_S`."""
     from .rules import usable
 
     config, notes = usable(config)  # an incomplete rule is set aside with a note, never a failed build
     fn = _lookup(_SOLVE)
-    sched = fn(config, time_limit_s=time_limit_s, previous=previous) if fn else _stub_solve(config)
+    if not fn:
+        sched = _stub_solve(config)
+    elif time_limit_s is None:
+        sched = fn(config, time_limit_s=None, previous=previous, max_s=SOLVE_MAX_S)
+    else:
+        sched = fn(config, time_limit_s=time_limit_s, previous=previous)
     if notes:
         stats = dict(sched.solver_stats or {})
         stats["notes"] = list(stats.get("notes") or []) + notes
