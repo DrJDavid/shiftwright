@@ -11,7 +11,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "Minimum wage indexed to inflation from Jan. 1, 2028 (MCL 408.934(2)); not encoded.",
     "Minors: any minor needs a 30-minute meal and rest period after 5 continuous hours (MCL 409.112); not encoded (no minor-break rule type). Extra param keys max_days_week (6), max_avg_hours_day (8) for 16-17.",
-    "Minors: 16-17 may work until 11:30 p.m. on Fridays, Saturdays and school vacation (MCL 409.111(2)); encoded via latest_end_before_non_school_day (Fri/Sat nights)."
+    "Minors: 16-17 may work until 11:30 p.m. on Fridays, Saturdays and school vacation (MCL 409.111(2)); encoded via latest_end_before_non_school_day (Fri/Sat nights).",
+    "Tipped minimum wage (MCL 408.934d): 40% of the minimum wage in 2026 (13.73 \u00d7 0.40 = 5.492, rounded to $5.49), 42% in 2027 ($6.30), rising 2 points a year to 50% in 2031. Conditions: proven tips covering the difference, tips retained (voluntary pooling in the chain of service), and the employee informed in writing at hire and gave written consent."
   ],
   "rules": [
     {
@@ -193,6 +194,52 @@
         "title": "MCL 409.111 \u2014 Youth Employment Standards Act, minors 16 and older",
         "excerpt": "(a) Six days in 1 week. (b) An average of 8 hours per day in 1 week. (c) Ten hours in 1 day. (d) ... 48 hours in 1 week ... until 11:30 p.m. ... (b) During school vacation periods",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 5.49,
+        "max_tip_credit_per_hour": 8.24,
+        "effective": "2026-01-01"
+      },
+      "summary": "Michigan's tipped cash wage is 40% of the $13.73 minimum wage ($5.49) in 2026, if tips make up the difference and the employee consented in writing.",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-408-934d",
+        "title": "MCL 408.934d \u2014 Minimum hourly wage of tipped employees",
+        "excerpt": "(b) Beginning January 1, 2026, 40% of the minimum hourly wage rate established under section 4. (c) Beginning January 1, 2027, 42% of the minimum hourly wage rate",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "MI.tipped_minimum_wage.2",
+      "jurisdiction": {
+        "state": "MI",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 6.3,
+        "max_tip_credit_per_hour": 8.7,
+        "effective": "2027-01-01"
+      },
+      "summary": "From January 1, 2027 Michigan's tipped cash wage is 42% of the $15.00 minimum wage ($6.30).",
+      "citation": {
+        "url": "https://www.legislature.mi.gov/Laws/MCL?objectName=mcl-408-934d",
+        "title": "MCL 408.934d \u2014 Minimum hourly wage of tipped employees",
+        "excerpt": "(c) Beginning January 1, 2027, 42% of the minimum hourly wage rate established under section 4.",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
