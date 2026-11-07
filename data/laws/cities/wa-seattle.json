@@ -5,10 +5,13 @@
   },
   "level": "city",
   "notes": [
-    "Secure Scheduling (SMC 14.22) covers hourly employees of retail and food-service establishments with 500+ employees worldwide.",
-    "Predictability pay: 1 hour of pay for hours added or a shift date/time changed after posting; half the hours not worked when sent home early (extra key reduced_hours_fraction).",
     "Employees may decline hours not on the originally posted schedule.",
-    "Right to rest premium is 1.5x for hours worked within the <10 h gap between a closing and the next opening shift."
+    "Right to rest premium is 1.5x for hours worked within the <10 h gap between a closing and the next opening shift.",
+    "Coverage (OLS Q&A \u00a7 C.1): retail or food-service employers with 500 or more employees worldwide (franchise networks aggregated); full-service restaurants also need 40+ full-service locations worldwide. Applies to hourly employees working in Seattle.",
+    "Additional compensation (OLS Q&A \u00a7 H): added hours (any amount) = 1 h at the scheduled rate, pro-rated for additions under 1 h; date/time change with no loss of hours = 1 h; subtraction of hours (incl. sent home early) or on-call not called in = 1/2 x hours not worked at the scheduled rate. Changes under 15 minutes are a grace period; multiple changes to one shift are netted. Premiums are not part of the regular rate for overtime.",
+    "Exceptions (OLS Q&A \u00a7 I.1): employee-requested change documented in writing; employee shift swaps or coverage; voluntary acceptance of a written 'mass communication' (2+ employees) for hours another employee cannot work; voluntary acceptance of an 'in-person group communication' to 2+ currently working employees for unanticipated customer needs (consecutive hours, i.e. extensions); Access to Hours offers; documented discipline; emergencies.",
+    "Call-out repair: a one-on-one call or text to a single employee is NOT exempt (Q&A \u00a7 I.10 Example 1: 1 hour owed). The mass-communication exception does not cover open shifts or hours other than the absent employee's actual hours, and never applies to sending someone home early. Engine keys: exemption_requires_group_message, exemption_min_recipients, exemption_only_for_absent_coworker_hours, exemption_message_must_state.",
+    "Employees may decline any hours not on the originally posted schedule."
   ],
   "rules": [
     {
@@ -21,17 +24,37 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
-        "reduced_hours_fraction": 0.5,
+        "applies_to": "both",
         "applies_if_employees_over": 499,
-        "applies_to": "both"
+        "employee_count_scope": "global",
+        "premium_basis": "scheduled_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "prorate_added_under_1h": true,
+        "grace_minutes": 15,
+        "reduced_hours_fraction": 0.5,
+        "reduced_fraction_notice_hours": null,
+        "voluntary_additional_hours_exempt": true,
+        "consent_must_be_written": true,
+        "text_message_counts_as_written": true,
+        "coworker_coverage_exempt": true,
+        "exemption_requires_group_message": true,
+        "exemption_min_recipients": 2,
+        "exemption_only_for_absent_coworker_hours": true,
+        "exemption_message_must_state": [
+          "describes itself as a mass communication",
+          "accepting the hours is voluntary and the employee may decline",
+          "accepting does not earn additional compensation for schedule changes"
+        ],
+        "exemption_note": "Mass communication: written (email, text, app) to 2+ employees, for hours a scheduled employee cannot work; must say it is \"a mass communication\", accepting is voluntary with right to decline, and no additional compensation is owed."
       },
-      "summary": "Covered retail employers (500+ employees worldwide) must post schedules 14 days ahead and pay predictability pay for later employer changes.",
+      "summary": "Inside 14 days, Seattle pays 1 hour at the scheduled rate for added hours (pro-rated under 1 h; changes under 15 min exempt) or a moved shift, and half the hours not worked for cuts. Hours accepted from a written 'mass communication' covering an absent coworker are exempt.",
       "citation": {
-        "url": "https://www.seattle.gov/laborstandards/ordinances/secure-scheduling",
-        "title": "Seattle Office of Labor Standards \u2014 Secure Scheduling Ordinance",
-        "excerpt": "Covers hourly employees at retail and food services establishments with 500+ employees worldwide ... at least 14 days in advance",
-        "last_verified": "2026-11-06"
+        "url": "https://www.seattle.gov/documents/Departments/LaborStandards/SS_QA_FINAL_082025v2.pdf",
+        "title": "Seattle OLS \u2014 Secure Scheduling Comprehensive Q&A (Aug. 2025), \u00a7\u00a7 H-I (SMC 14.22)",
+        "excerpt": "Addition of hours (any amount) 1 hour of pay at scheduled rate ... Change of start/end time or day with no loss of hours 1 hour ... Subtraction of hours Half of the hours not worked",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

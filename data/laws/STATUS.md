@@ -32,7 +32,14 @@
 - `minor_limits.max_hours_non_school_day` — cap on a non-school day inside a school week (federal, CA). Without it, `max_hours_day` in a school-week rule is the school-day cap.
 - `minor_limits.latest_end_before_non_school_day` — CA 16–17 may work to 12:30 a.m. (1470) before a non-school day.
 - `rest_break.not_required_under_minutes` (CA: 210), `reporting_time_pay.max_paid_hours` (CA: 4).
-- `predictive_scheduling`: `reduced_hours_fraction` (pay for cut hours, e.g. 0.5), `change_premium_hours_max`, `change_premium_hours_under_24h`, `change_premium_window_days`, `changes_restricted_within_notice` + `on_call_prohibited` (NYC: prohibitions, no premium), `min_locations`.
+- `predictive_scheduling` (premium keys, SEMANTICS #17; `rate` = `premium_basis` rate: `regular_rate` | `scheduled_rate`). Per affected employee and shift, for a change made inside `notice_days` of the shift:
+  - added hours / new shift / extension: `change_premium_hours` × rate (`change_premium_hours_under_24h` when notice < 24 h). If `prorate_added_under_1h`: `min(change_premium_hours, added_hours)` × rate.
+  - moved (date/time changed, no loss of hours): `moved_premium_hours` × rate.
+  - reduced / cancelled: if `reduced_fraction_notice_hours` is null, or notice < it: `reduced_hours_fraction` × hours not worked × rate; else `reduced_premium_hours` × rate.
+  - `premium_flat_dollars` (when set) replaces the hourly amount; `grace_minutes`: changes shorter than this cost nothing (Seattle 15).
+  - coverage: `applies_if_employees_over` counted per `employee_count_scope` (`global`); `min_covered_employees` (Chicago 50); `covered_wage_max_hourly` / `covered_salary_max_annual` (Chicago: employees paid above are not covered).
+  - exemptions: `voluntary_additional_hours_exempt`, `consent_must_be_written`, `text_message_counts_as_written`, `coworker_coverage_exempt` (shift trades/coverage between employees), `exemption_note`; Seattle-style conditions: `exemption_requires_group_message` (offer must go to `exemption_min_recipients`+ employees at once, not one-on-one), `exemption_only_for_absent_coworker_hours` (only the hours the absent employee can't work; not open shifts), `exemption_message_must_state` (list of statements the message must contain).
+  - older keys: `change_premium_hours_max`, `change_premium_window_days`, `changes_restricted_within_notice` + `on_call_prohibited` (NYC: prohibitions, no premium), `min_locations`.
 - `min_rest_between_shifts`: `premium_applies_to: "shift"` = whole next shift at the premium (Chicago, LA); absent = only hours inside the rest window. `premium_flat_dollars` (Philadelphia $40, `premium_multiplier: null`).
 - `minor_limits.max_days_week` (NY, FL, PA, MI, NJ, WA, MA, MO, WI: 6) and `minor_limits.max_avg_hours_day` (MI 16-17: 8) — informational; the validator does not check them yet.
 - `minor_limits.latest_end_before_non_school_day` is also used by WA, MI, AZ, MA, TN, KY, CT, ME, RI, AR, WY (Fri/Sat nights).
