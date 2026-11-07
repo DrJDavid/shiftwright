@@ -262,7 +262,9 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             chosen = {c.idx for c in p.cands if c.idx in built.y and solver.boolean_value(built.y[c.idx])}
             obj1, bound1 = solver.objective_value, solver.best_objective_bound
-        elif chosen0:
+        elif chosen0 or len(p.cands) <= SINGLE_STAGE_MAX_CANDS:
+            if chosen0 is None:  # small model timed out (e.g. a loaded machine): greedy start as fallback
+                chosen0, roles0 = greedy(p)
             chosen, obj1, bound1 = chosen0, None, solver.best_objective_bound
             stats["fallback"] = "greedy"
         else:
