@@ -10,9 +10,9 @@
     "Oregon has a statewide predictive-scheduling law for large retail employers \u2014 encoded from Oregon BOLI (confidence=high).",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
-    "Oregon predictability pay: 1 hour for >30 min added, a moved shift without lost hours, or an added shift; 0.5x regular rate per lost scheduled hour for cuts, cancellations or unused on-call shifts (BOLI)."
+    "Oregon predictability pay: 1 hour for >30 min added, a moved shift without lost hours, or an added shift; 0.5x regular rate per lost scheduled hour for cuts, cancellations or unused on-call shifts (BOLI).",
+    "Minors (BOLI): minors must get a 30-minute meal break when working 6+ hours and a paid 15-minute rest break per 4 hours (or major portion) \u2014 longer than the adult 10 minutes; not encoded (rest_break has no age scope). Employers need a BOLI certificate to employ minors."
   ],
   "rules": [
     {
@@ -151,6 +151,119 @@
         "url": "https://www.oregon.gov/boli/workers/pages/predictive-scheduling.aspx",
         "title": "Oregon BOLI \u2014 Predictive Scheduling (ORS 653.412-653.490, OAR 839-026)",
         "excerpt": "can't be scheduled during the 10 hours after a previous day's shift ends ... the employer pays time-and-a-half",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "OR.minor_limits.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8
+      },
+      "summary": "When school is in session, 14- and 15-year-olds may work at most 3 hours a day (8 on non-school days) and 18 hours a week, 7 a.m.-7 p.m., not during school hours.",
+      "citation": {
+        "url": "https://www.oregon.gov/boli/employers/Pages/minor-workers.aspx",
+        "title": "Oregon BOLI \u2014 Minor Workers (working hours)",
+        "excerpt": "When school is in session: Maximum work 3 hours per day Maximum 8 hours on non-school days 18 hours per week maximum Hours limited to only between 7:00 am and 7:00 pm",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "OR.minor_limits.2",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "When school is not in session, 14- and 15-year-olds may work at most 8 hours a day and 40 a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://www.oregon.gov/boli/employers/Pages/minor-workers.aspx",
+        "title": "Oregon BOLI \u2014 Minor Workers (working hours)",
+        "excerpt": "When school is not in session 8 hours per day, 40 hours per week maximum From June 1 through Labor Day: 7:00 am to 9:00 pm",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "OR.minor_limits.3",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": 44,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "16- and 17-year-olds may work any hours of the day, up to 44 hours a week.",
+      "citation": {
+        "url": "https://www.oregon.gov/boli/employers/Pages/minor-workers.aspx",
+        "title": "Oregon BOLI \u2014 Minor Workers (working hours)",
+        "excerpt": "For 16 and 17 year olds Any hours 44 hours per week maximum",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "OR.minor_limits.4",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": null,
+        "max_hours_week": 44,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "16- and 17-year-olds may work any hours of the day, up to 44 hours a week.",
+      "citation": {
+        "url": "https://www.oregon.gov/boli/employers/Pages/minor-workers.aspx",
+        "title": "Oregon BOLI \u2014 Minor Workers (working hours)",
+        "excerpt": "For 16 and 17 year olds Any hours 44 hours per week maximum",
         "last_verified": "2026-11-06"
       },
       "confidence": "high",

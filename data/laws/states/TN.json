@@ -10,9 +10,9 @@
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
-    "Minors: source is the TDLWD summary page (Tenn. Code Ann. \u00a7 50-5-105 itself not fetchable: official code is hosted by LexisNexis). The page states 3 h/day for 14-15 while school is in session without a separate non-school-day cap, so a school-week Saturday is also capped at 3 h here; federal allows 8 h on non-school days \u2014 verify \u00a7 50-5-105 before relying on the Saturday cap.",
     "Minors: 16-17 10 p.m. limit applies only Sun-Thu nights before a school day; enforced every night of a school week (stricter). No TN hour limits for 16-17 outside school weeks.",
-    "Minors: any minor scheduled 6 consecutive hours must get a 30-minute unpaid break, not during or before the first hour (Tenn. Code Ann. \u00a7 50-5-115); not encoded (no minor-break rule type)."
+    "Minors: any minor scheduled 6 consecutive hours must get a 30-minute unpaid break, not during or before the first hour (Tenn. Code Ann. \u00a7 50-5-115); not encoded (no minor-break rule type).",
+    "Minors: 14-15 limits re-checked against the TDLWD required poster quoting T.C.A. \u00a7 50-5-104 (3 h on school days, 8 h on non-school days, 7 p.m. before a school day, 9 p.m. otherwise); TN.minor_limits.1 now caps school-week Saturdays/Sundays at 8 h. The statute text itself (LexisNexis-hosted) was not fetchable."
   ],
   "rules": [
     {
@@ -42,6 +42,34 @@
       "verified": false
     },
     {
+      "id": "TN.minor_limits.3",
+      "jurisdiction": {
+        "state": "TN",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": null,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null
+      },
+      "summary": "16- and 17-year-olds may not work during required class hours or between 10 p.m. and 6 a.m. Sunday-Thursday before a school day (until midnight up to 3 nights a week with a parental consent form).",
+      "citation": {
+        "url": "https://www.tn.gov/workforce/employees/labor-laws/labor-laws-redirect/child-labor.html",
+        "title": "TN Dept. of Labor & Workforce Development \u2014 Child Labor Act (working hours)",
+        "excerpt": "Minors 16 and 17 years of age may not be employed between the hours of 10:00 pm and 6:00 am, Sunday through Thursday, preceding a school day. Tenn. Code Ann. \u00a750-5-105(b)(2).",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
       "id": "TN.minor_limits.1",
       "jurisdiction": {
         "state": "TN",
@@ -57,13 +85,15 @@
         "max_hours_week": 18,
         "earliest_start": 420,
         "latest_end": 1140,
-        "latest_end_summer": null
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "latest_end_before_non_school_day": 1260
       },
-      "summary": "While school is in session, 14- and 15-year-olds may work at most 3 hours a day and 18 hours a week, between 7 a.m. and 7 p.m.",
+      "summary": "During school weeks, 14- and 15-year-olds may work at most 3 hours on a school day, 8 on a non-school day and 18 a week; not 7 p.m.-7 a.m. before a school day or 9 p.m.-6 a.m. before a non-school day.",
       "citation": {
-        "url": "https://www.tn.gov/workforce/employees/labor-laws/labor-laws-redirect/child-labor.html",
-        "title": "TN Dept. of Labor & Workforce Development \u2014 Child Labor Act (working hours)",
-        "excerpt": "While School is in Session ... No more than 3 hours per day \u2022 No earlier than 7:00 am and no later than 7:00 pm \u2022 No more than 18 hours per week",
+        "url": "https://www.tn.gov/content/dam/tn/workforce/documents/majorpublications/requiredposters/Wage_Poster.pdf",
+        "title": "TDLWD required poster \u2014 Child Labor Act (T.C.A. \u00a7\u00a7 50-5-104, -105), May 2024",
+        "excerpt": "Between 7:00 pm and 7:00 am if the next day is a school day; 3. Between 9:00 pm and 6:00 am if the next day is not a school day; 4. More than 3 hours a day on school days",
         "last_verified": "2026-11-06"
       },
       "confidence": "high",
@@ -87,39 +117,11 @@
         "latest_end": 1260,
         "latest_end_summer": null
       },
-      "summary": "While school is not in session, 14- and 15-year-olds may work at most 8 hours a day and 40 hours a week, between 6 a.m. and 9 p.m.",
+      "summary": "During non-school weeks, 14- and 15-year-olds may work at most 8 hours a day and 40 a week, between 6 a.m. and 9 p.m.",
       "citation": {
-        "url": "https://www.tn.gov/workforce/employees/labor-laws/labor-laws-redirect/child-labor.html",
-        "title": "TN Dept. of Labor & Workforce Development \u2014 Child Labor Act (working hours)",
-        "excerpt": "While School is Not in Session ... No more than 8 hours per day \u2022 No earlier than 6:00 am and no later than 9:00 pm \u2022 No more than 40 hours per week",
-        "last_verified": "2026-11-06"
-      },
-      "confidence": "high",
-      "verified": false
-    },
-    {
-      "id": "TN.minor_limits.3",
-      "jurisdiction": {
-        "state": "TN",
-        "city": null
-      },
-      "level": "state",
-      "type": "minor_limits",
-      "params": {
-        "age_min": 16,
-        "age_max": 17,
-        "school_week": true,
-        "max_hours_day": null,
-        "max_hours_week": null,
-        "earliest_start": 360,
-        "latest_end": 1320,
-        "latest_end_summer": null
-      },
-      "summary": "16- and 17-year-olds may not work during required class hours or between 10 p.m. and 6 a.m. Sunday-Thursday before a school day (until midnight up to 3 nights a week with a parental consent form).",
-      "citation": {
-        "url": "https://www.tn.gov/workforce/employees/labor-laws/labor-laws-redirect/child-labor.html",
-        "title": "TN Dept. of Labor & Workforce Development \u2014 Child Labor Act (working hours)",
-        "excerpt": "Minors 16 and 17 years of age may not be employed between the hours of 10:00 pm and 6:00 am, Sunday through Thursday, preceding a school day. Tenn. Code Ann. \u00a750-5-105(b)(2).",
+        "url": "https://www.tn.gov/content/dam/tn/workforce/documents/majorpublications/requiredposters/Wage_Poster.pdf",
+        "title": "TDLWD required poster \u2014 Child Labor Act (T.C.A. \u00a7\u00a7 50-5-104, -105), May 2024",
+        "excerpt": "6. More than 8 hours a day on non-school days; 7. More than 40 hours a week during non-school weeks.",
         "last_verified": "2026-11-06"
       },
       "confidence": "high",

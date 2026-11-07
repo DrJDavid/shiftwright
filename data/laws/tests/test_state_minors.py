@@ -8,9 +8,9 @@ from shiftwright_contracts.models import Jurisdiction, LawRuleType as T
 from shiftwright_laws import resolve
 
 STATES_DIR = Path(__file__).resolve().parents[1] / "states"
-MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC", "MI", "NJ", "WA", "AZ", "MA", "TN", "MD", "MO", "WI", "MN"]
+MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC", "MI", "NJ", "WA", "AZ", "MA", "TN", "MD", "MO", "WI", "MN", "CO", "AL", "LA", "KY", "OR", "OK", "CT", "UT", "IA", "NV", "AR", "KS", "NE", "ID", "NH", "ME", "RI", "DE", "SD", "WV", "DC", "WY", "ND", "AK", "HI", "MT"]
 # (state, age_min) bands whose law only limits school weeks (non-school weeks: federal floor only)
-SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16), ("NC", 16), ("TN", 16), ("MN", 16)}
+SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16), ("NC", 16), ("TN", 16), ("MN", 16), ("AL", 16), ("LA", 16), ("LA", 17), ("KY", 16), ("NV", 16), ("RI", 16)}
 
 
 def minor_rules(state):
@@ -47,7 +47,7 @@ def test_ny_16_17_school_week_is_28_hours():
 
 
 # States researched where state law adds no hour limits beyond federal; they say so in notes.
-NO_EXTRA_STATE_LIMITS = ["GA", "VA", "IN"]
+NO_EXTRA_STATE_LIMITS = ["GA", "VA", "IN", "SC"]
 
 
 @pytest.mark.parametrize("state", NO_EXTRA_STATE_LIMITS)

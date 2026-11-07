@@ -15,7 +15,10 @@
 - Researched, no state hour limits beyond federal (note only, starts `Minors researched`): GA (GDOL), VA (§ 40.1-80.1 incorporates FLSA), IN (Indiana DOL, mirrors federal since 2025).
 - Wage/OT/meal upgraded to primary sources with statutory effective dates: NY + NYC (§ 652(1-a), eff. 2026-01-01), FL ($15 eff. 2026-09-30, Fla. Const. art. X § 24), IL (wage, OT, 2 meal periods, ILCS), MI ($13.73 eff. 2026-01-01 + $15 eff. 2027-01-01), VA ($12.77 eff. 2026-01-01 + $13.75 eff. 2027-01-01), NJ ($16.48 eff. 2027-01-01 added; 2026 rate still DOL). Future-dated rates are ignored by the resolver until in effect (test in `test_state_minors.py`).
 
-**In progress / next:** CO minors (CDLE youth page links to INFO #22 / 7 CCR 1103-20, neither fetched; C.R.S. is Lexis-hosted) — not done. Remaining DOL-drafted wage effective dates (OH page is a JS portal; PA = $7.25 federal; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; GA/WA/MD prohibited lists noted in notes). Remaining 30 states' minor limits.
+- **Second slice (2026-11-06, all `high`):** CO (CDLE INFO #22A, C.R.S. § 8-12-105; 7 CCR 1103-20 has no hour limits), AL (Dept. of Workforce poster), LA (R.S. 23:211-215), KY (803 KAR 1:100), OR (BOLI), OK (OK DOL brochure), CT (§§ 31-13/14/23, mercantile; under-16 retail essentially barred), UT (§ 34-23-202), IA (§ 92.7), NV (NRS 609.240), AR (DOLL page), KS (K.S.A. 38-603), NE (§ 48-310), ID (§ 44-1304), NH (RSA 276-A:4), ME (26 M.R.S. § 774), RI (§ 28-3-11), DE (19 Del. C. § 506), SD (SDCL 60-12-1), WV (§ 21-6-7), DC (§ 32-202), WY (§ 27-6-110), ND (§ 34-07-15), AK (AS 23.10.340), HI (HRS § 390-2), MT (MCA 41-2-115 via DLI). SC researched: S.C. Code § 41-13-20 forbids stricter-than-federal rules (note only).
+- TN 14-15 re-checked against the TDLWD required poster quoting T.C.A. § 50-5-104: school-week non-school days are capped at 8 h (fixed), 9 p.m. before non-school days.
+
+**In progress / next:** not done — VT (statutes site and DOL page are JS; nothing fetched), MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; state lists in notes).
 
 **Blocked on:** nothing.
 
@@ -32,14 +35,16 @@
 - `predictive_scheduling`: `reduced_hours_fraction` (pay for cut hours, e.g. 0.5), `change_premium_hours_max`, `change_premium_hours_under_24h`, `change_premium_window_days`, `changes_restricted_within_notice` + `on_call_prohibited` (NYC: prohibitions, no premium), `min_locations`.
 - `min_rest_between_shifts`: `premium_applies_to: "shift"` = whole next shift at the premium (Chicago, LA); absent = only hours inside the rest window. `premium_flat_dollars` (Philadelphia $40, `premium_multiplier: null`).
 - `minor_limits.max_days_week` (NY, FL, PA, MI, NJ, WA, MA, MO, WI: 6) and `minor_limits.max_avg_hours_day` (MI 16-17: 8) — informational; the validator does not check them yet.
-- `minor_limits.latest_end_before_non_school_day` is also used by WA, MI, AZ, MA (Fri/Sat nights).
+- `minor_limits.latest_end_before_non_school_day` is also used by WA, MI, AZ, MA, TN, KY, CT, ME, RI, AR, WY (Fri/Sat nights).
+- Age bands are not always 14-15 / 16-17: CT uses 14-14 and 15-15, LA and AR use 16-16 / 17-17. A band with only a school-week rule is listed in `tests/test_state_minors.py::SCHOOL_WEEK_ONLY`.
+- A 0 cap means "may not work" (CT: 14-year-olds weekly 0 h; 15-year-olds 0 h on school days) — retail/restaurant only.
 - `meal_break.earliest_start_minute_of_shift`, `meal_break.employee_optional` (ND), `rest_break.max_minutes_without_rest` (WA: 180), `daily_overtime.applies_if_rate_below_min_wage_multiple` (NV: 1.5).
 - Minutes are minutes-from-midnight for times of day (420 = 7 a.m., 1140 = 7 p.m.).
 
 **Shortcuts taken:**
 - DOL-drafted states: `minimum_wage.effective` = DOL table date (2026-11-05), not the statutory date (fixed for NY, FL, IL, MI, VA). Minor-hour limits not yet researched for states not listed above (federal floor applies; their notes say so).
 - Minor-specific meal/rest breaks (e.g. 30 min after 5 h in PA/OH/MI/IL/NC/VA/MD; 6 h in NJ/WI/TN) are in notes only — `meal_break` has no age scope.
-- Validator convention Mon-Fri = school days makes Friday-night/day rules stricter than law in NY, FL, WA, TN, OH, NC, MN (noted per state). NJ 16-17 summer 10 h / 50 h allowance not encoded (year-round 8 h / 40 h enforced). TN source is the TDLWD summary page (statute is Lexis-hosted); its 3 h/day school-week cap is applied to Saturdays too — verify.
+- Validator convention Mon-Fri = school days makes Friday-night/day rules stricter than law in NY, FL, WA, TN, OH, NC, MN (noted per state). NJ 16-17 summer 10 h / 50 h allowance not encoded (year-round 8 h / 40 h enforced). TN source is TDLWD's page + required poster (statute is Lexis-hosted).
 - Maryland retail shift breaks: DOL table does not say paid/unpaid; encoded rest=paid, meal=unpaid, flagged in notes.
 - City aliases ("nyc", "new york city") are not mapped; the city key is `new york`.
 - CA seventh-consecutive-day overtime is in `notes`, not params (no field for it).
@@ -51,57 +56,57 @@
 | file | wOT | dOT | meal | rest | minor | minRole | clopen | predict | report | wage | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | federal | 1 | – | – | – | 2 | 1 | – | – | – | 1 | 3 |
-| AK | 1 | 1 | – | – | – | – | – | – | – | 1 | 6 |
-| AL | – | – | – | – | – | – | – | – | – | – | 7 |
-| AR | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| AK | 1 | 1 | – | – | 2 | – | – | – | – | 1 | 7 |
+| AL | – | – | – | – | 3 | – | – | – | – | – | 7 |
+| AR | 1 | – | – | – | 4 | – | – | – | – | 1 | 7 |
 | AZ | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | CA | 1 | 1 | 2 | 1 | 4 | – | – | – | 1 | 1 | 5 |
-| CO | 1 | 1 | 1 | 1 | – | – | – | – | – | 1 | 4 |
-| CT | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
-| DC | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
-| DE | – | – | 1 | – | – | – | – | – | – | 1 | 6 |
+| CO | 1 | 1 | 1 | 1 | 4 | – | – | – | – | 1 | 5 |
+| CT | 1 | – | 1 | – | 6 | – | – | – | – | 1 | 6 |
+| DC | 1 | – | – | – | 4 | – | – | – | – | 1 | 6 |
+| DE | – | – | 1 | – | 2 | – | – | – | – | 1 | 6 |
 | FL | – | – | – | – | 3 | – | – | – | – | 1 | 11 |
 | GA | – | – | – | – | – | – | – | – | – | – | 8 |
-| HI | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
-| IA | – | – | – | – | – | – | – | – | – | 1 | 7 |
-| ID | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| HI | 1 | – | – | – | 2 | – | – | – | – | 1 | 6 |
+| IA | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
+| ID | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | IL | 1 | – | 2 | – | 2 | – | – | – | – | 1 | 9 |
 | IN | 1 | – | – | – | – | – | – | – | – | 1 | 8 |
-| KS | – | – | – | – | – | – | – | – | – | 1 | 7 |
-| KY | 1 | – | – | 1 | – | – | – | – | – | 1 | 6 |
-| LA | – | – | – | – | – | – | – | – | – | – | 7 |
+| KS | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
+| KY | 1 | – | – | 1 | 3 | – | – | – | – | 1 | 6 |
+| LA | – | – | – | – | 4 | – | – | – | – | – | 8 |
 | MA | 1 | – | 1 | – | 4 | – | – | – | – | 1 | 6 |
 | MD | 1 | – | 1 | 1 | 2 | – | – | – | – | 1 | 6 |
-| ME | 1 | – | 1 | – | – | – | – | – | – | 1 | 6 |
+| ME | 1 | – | 1 | – | 4 | – | – | – | – | 1 | 6 |
 | MI | 1 | – | – | – | 4 | – | – | – | – | 2 | 7 |
 | MN | 1 | – | – | – | 3 | – | – | – | – | 1 | 7 |
 | MO | 1 | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | MS | – | – | – | – | – | – | – | – | – | – | 7 |
-| MT | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| MT | 1 | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | NC | 1 | – | – | – | 3 | – | – | – | – | 1 | 7 |
-| ND | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
-| NE | – | – | – | – | – | – | – | – | – | 1 | 7 |
-| NH | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
+| ND | 1 | – | 1 | – | 2 | – | – | – | – | 1 | 5 |
+| NE | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
+| NH | 1 | – | 1 | – | 4 | – | – | – | – | 1 | 5 |
 | NJ | 1 | – | – | – | 4 | – | – | – | – | 2 | 10 |
 | NM | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
-| NV | 1 | 1 | 1 | 1 | – | – | – | – | – | 1 | 3 |
+| NV | 1 | 1 | 1 | 1 | 3 | – | – | – | – | 1 | 3 |
 | NY | 1 | – | 1 | – | 4 | – | – | – | – | 1 | 10 |
 | OH | 1 | – | – | – | 3 | – | – | – | – | 1 | 9 |
-| OK | – | – | – | – | – | – | – | – | – | 1 | 7 |
-| OR | 1 | – | 1 | 1 | – | – | 1 | 1 | – | 1 | 8 |
+| OK | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
+| OR | 1 | – | 1 | 1 | 4 | – | 1 | 1 | – | 1 | 8 |
 | PA | 1 | – | – | – | 4 | – | – | – | – | 1 | 8 |
-| RI | 1 | – | 2 | – | – | – | – | – | – | 1 | 7 |
+| RI | 1 | – | 2 | – | 3 | – | – | – | – | 1 | 7 |
 | SC | – | – | – | – | – | – | – | – | – | – | 7 |
-| SD | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| SD | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | TN | – | – | 1 | – | 3 | – | – | – | – | – | 8 |
 | TX | – | – | – | – | 2 | – | – | – | – | 1 | 5 |
-| UT | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| UT | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | VA | – | – | – | – | – | – | – | – | – | 2 | 8 |
 | VT | 1 | – | – | – | – | – | – | – | – | 1 | 8 |
 | WA | 1 | – | 1 | 1 | 4 | – | – | – | – | 1 | 6 |
 | WI | 1 | – | – | – | 2 | – | – | – | – | 1 | 7 |
-| WV | 1 | – | 1 | – | – | – | – | – | – | 1 | 6 |
-| WY | – | – | – | – | – | – | – | – | – | – | 7 |
+| WV | 1 | – | 1 | – | 2 | – | – | – | – | 1 | 6 |
+| WY | – | – | – | – | 2 | – | – | – | – | – | 7 |
 | ca-berkeley | – | – | – | – | – | – | 1 | 1 | – | 1 | 3 |
 | ca-emeryville | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |
 | ca-los-angeles | – | – | – | – | – | – | 1 | 1 | – | 1 | 3 |

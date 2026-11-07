@@ -7,32 +7,11 @@
   "notes": [
     "Denver and some other Colorado cities set higher local minimum wages; no city files yet.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (CDLE INFO #22A summarizing C.R.S. \u00a7 8-12-105; statute text is LexisNexis-hosted): all minors under 18 are capped at 8 h/24 h and 40 h/week (seasonal piece-rate harvest exceptions). Under-16 state-only limits: 6 h on a school day, no work 9:30 p.m.-5 a.m. before school days (CO.minor_limits.1 enforces 9:30 p.m. every night of a school week, stricter). 7 CCR 1103-20 (youth rules) has no hour limits.",
+    "Minimum wage: CDLE INFO #22A confirms $15.16 for 2026; effective date left at the date first seen (the source gives no start date)."
   ],
   "rules": [
-    {
-      "id": "CO.minimum_wage.1",
-      "jurisdiction": {
-        "state": "CO",
-        "city": null
-      },
-      "level": "state",
-      "type": "minimum_wage",
-      "params": {
-        "dollars_per_hour": 15.16,
-        "effective": "2026-11-05"
-      },
-      "summary": "Colorado's basic minimum wage is $15.16 an hour (DOL table, Nov. 2026).",
-      "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Basic Minimum Rate (per hour): $15.16",
-        "last_verified": "2026-11-06"
-      },
-      "confidence": "medium",
-      "verified": false
-    },
     {
       "id": "CO.weekly_overtime.1",
       "jurisdiction": {
@@ -124,6 +103,141 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CO.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.16,
+        "effective": "2026-11-05"
+      },
+      "summary": "Colorado's 2026 minimum wage is $15.16 an hour (CDLE).",
+      "citation": {
+        "url": "https://cdle.colorado.gov/sites/cdle/files/info_%2322a_employment_of_minors%2C_minimum_wages%2C_hours%2C_fines%2C_and_procedures_6.3.2026.pdf",
+        "title": "CDLE INFO #22A \u2014 Employment of Minors, Minimum Wages, Hours (C.R.S. \u00a7 8-12-105), June 3, 2026",
+        "excerpt": "Employers can pay most minors 85% of the full Colorado minimum wage \u2014 for example, in 2026, $12.89 rather than the full $15.16 minimum.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CO.minor_limits.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 6,
+        "max_hours_week": 40,
+        "earliest_start": 300,
+        "latest_end": 1290,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8
+      },
+      "summary": "Under Colorado law, minors under 16 may work at most 6 hours on a school day (unless the next day is not a school day), 8 hours in 24 and 40 a week, not 9:30 p.m.-5 a.m. before school days; federal 3 h / 18 h / 7 p.m. limits also apply where FLSA covers the employer.",
+      "citation": {
+        "url": "https://cdle.colorado.gov/sites/cdle/files/info_%2322a_employment_of_minors%2C_minimum_wages%2C_hours%2C_fines%2C_and_procedures_6.3.2026.pdf",
+        "title": "CDLE INFO #22A \u2014 Employment of Minors, Minimum Wages, Hours (C.R.S. \u00a7 8-12-105), June 3, 2026",
+        "excerpt": "If state but not federal law applies, the CYEOA limit is: at most 6 hours per day, unless the next day isn't a school day. C.R.S. \u00a7 8-12-105(2).",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CO.minor_limits.2",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Colorado minors of any age may work at most 8 hours in any 24 hours and 40 hours a week.",
+      "citation": {
+        "url": "https://cdle.colorado.gov/sites/cdle/files/info_%2322a_employment_of_minors%2C_minimum_wages%2C_hours%2C_fines%2C_and_procedures_6.3.2026.pdf",
+        "title": "CDLE INFO #22A \u2014 Employment of Minors, Minimum Wages, Hours (C.R.S. \u00a7 8-12-105), June 3, 2026",
+        "excerpt": "Minors of Any Age: At most 40 hours per week, and 8 hours in any 24 hours.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CO.minor_limits.3",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Colorado minors of any age (under 18) may work at most 8 hours in any 24 hours and 40 hours a week.",
+      "citation": {
+        "url": "https://cdle.colorado.gov/sites/cdle/files/info_%2322a_employment_of_minors%2C_minimum_wages%2C_hours%2C_fines%2C_and_procedures_6.3.2026.pdf",
+        "title": "CDLE INFO #22A \u2014 Employment of Minors, Minimum Wages, Hours (C.R.S. \u00a7 8-12-105), June 3, 2026",
+        "excerpt": "Minors of Any Age: At most 40 hours per week, and 8 hours in any 24 hours.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CO.minor_limits.4",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Colorado minors of any age (under 18) may work at most 8 hours in any 24 hours and 40 hours a week.",
+      "citation": {
+        "url": "https://cdle.colorado.gov/sites/cdle/files/info_%2322a_employment_of_minors%2C_minimum_wages%2C_hours%2C_fines%2C_and_procedures_6.3.2026.pdf",
+        "title": "CDLE INFO #22A \u2014 Employment of Minors, Minimum Wages, Hours (C.R.S. \u00a7 8-12-105), June 3, 2026",
+        "excerpt": "Minors of Any Age: At most 40 hours per week, and 8 hours in any 24 hours.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

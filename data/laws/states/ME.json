@@ -9,8 +9,8 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (26 M.R.S. \u00a7 774): 16-17 may work up to 8 h on the last scheduled school day of the week (validator applies 6 h on Friday, stricter) and up to 50 h in weeks with fewer than 3 school days or the first/last school week (not encoded). 16-17 school-week non-school-day cap encoded as 10 h. Extra param key max_days_week."
   ],
   "rules": [
     {
@@ -80,6 +80,125 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "ME.minor_limits.1",
+      "jurisdiction": {
+        "state": "ME",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "While school is in session, minors under 16 may work at most 3 hours a day and 18 a week, 6 consecutive days, 7 a.m.-7 p.m. (9 p.m. in summer vacation).",
+      "citation": {
+        "url": "https://legislature.maine.gov/statutes/26/title26sec774.html",
+        "title": "26 M.R.S. \u00a7 774 \u2014 Hours of employment of minors",
+        "excerpt": "B. More than 18 hours in any week when school is in session; C. More than 8 hours in any day when school is not in session; D. More than 3 hours in any day when school is in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "ME.minor_limits.2",
+      "jurisdiction": {
+        "state": "ME",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "When school is not in session, minors under 16 may work at most 8 hours a day, 40 a week and 6 consecutive days, 7 a.m.-7 p.m. (9 p.m. in summer vacation).",
+      "citation": {
+        "url": "https://legislature.maine.gov/statutes/26/title26sec774.html",
+        "title": "26 M.R.S. \u00a7 774 \u2014 Hours of employment of minors",
+        "excerpt": "A. More than 40 hours in any week when school is not in session ... F. Between the hours of 7 p.m. and 7 a.m. except during summer vacation",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "ME.minor_limits.3",
+      "jurisdiction": {
+        "state": "ME",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 6,
+        "max_hours_week": 24,
+        "earliest_start": 420,
+        "latest_end": 1335,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 10,
+        "latest_end_before_non_school_day": 1440,
+        "max_days_week": 6
+      },
+      "summary": "Enrolled 16- and 17-year-olds may work at most 6 hours on a school day (8 on the last school day of the week and on non-school days), 24 hours a week, 7 a.m.-10:15 p.m. before a school day (midnight otherwise).",
+      "citation": {
+        "url": "https://legislature.maine.gov/statutes/26/title26sec774.html",
+        "title": "26 M.R.S. \u00a7 774 \u2014 Hours of employment of minors",
+        "excerpt": "B. More than 24 hours in any week when the minor's school is in session ... D. More than 6 hours in any day when the minor's school is in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "ME.minor_limits.4",
+      "jurisdiction": {
+        "state": "ME",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 10,
+        "max_hours_week": 50,
+        "earliest_start": 300,
+        "latest_end": 1440,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "When school is not in session, enrolled 16- and 17-year-olds may work at most 10 hours a day, 50 a week and 6 consecutive days, 5 a.m.-midnight.",
+      "citation": {
+        "url": "https://legislature.maine.gov/statutes/26/title26sec774.html",
+        "title": "26 M.R.S. \u00a7 774 \u2014 Hours of employment of minors",
+        "excerpt": "A. More than 50 hours in any week when the minor's school is not in session ... C. More than 10 hours in any day when the minor's school is not in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

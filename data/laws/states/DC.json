@@ -9,8 +9,8 @@
     "No DC meal or rest-period requirement in the DOL tables.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (D.C. Code \u00a7 32-202): same limits in school and non-school weeks; federal 3 h/18 h school-week limits for 14-15 (federal.json) also apply. Extra param key max_days_week."
   ],
   "rules": [
     {
@@ -55,6 +55,122 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "DC.minor_limits.1",
+      "jurisdiction": {
+        "state": "DC",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "Minors under 16 may work at most 8 hours a day, 48 hours and 6 consecutive days a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://code.dccouncil.gov/us/dc/council/code/sections/32-202",
+        "title": "D.C. Code \u00a7 32-202 \u2014 Employment of minors under 18; hours",
+        "excerpt": "more than 6 consecutive days in any 1 week, or more than 48 hours in any 1 week, or more than 8 hours in any 1 day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "DC.minor_limits.2",
+      "jurisdiction": {
+        "state": "DC",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "Minors under 16 may work at most 8 hours a day, 48 hours and 6 consecutive days a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://code.dccouncil.gov/us/dc/council/code/sections/32-202",
+        "title": "D.C. Code \u00a7 32-202 \u2014 Employment of minors under 18; hours",
+        "excerpt": "more than 6 consecutive days in any 1 week, or more than 48 hours in any 1 week, or more than 8 hours in any 1 day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "DC.minor_limits.3",
+      "jurisdiction": {
+        "state": "DC",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "Minors 16-17 may work at most 8 hours a day, 48 hours and 6 consecutive days a week, 6 a.m.-10 p.m.",
+      "citation": {
+        "url": "https://code.dccouncil.gov/us/dc/council/code/sections/32-202",
+        "title": "D.C. Code \u00a7 32-202 \u2014 Employment of minors under 18; hours",
+        "excerpt": "nor shall any minor 16 or 17 years of age be employed, permitted, or suffered to work before 6:00 a.m. or after 10:00 p.m. of any day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "DC.minor_limits.4",
+      "jurisdiction": {
+        "state": "DC",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "Minors 16-17 may work at most 8 hours a day, 48 hours and 6 consecutive days a week, 6 a.m.-10 p.m.",
+      "citation": {
+        "url": "https://code.dccouncil.gov/us/dc/council/code/sections/32-202",
+        "title": "D.C. Code \u00a7 32-202 \u2014 Employment of minors under 18; hours",
+        "excerpt": "nor shall any minor 16 or 17 years of age be employed, permitted, or suffered to work before 6:00 a.m. or after 10:00 p.m. of any day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

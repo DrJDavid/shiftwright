@@ -6,8 +6,8 @@
   "level": "state",
   "notes": [
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (NRS 609.240): under-16 limits are the same in school and non-school weeks (federal 3 h/18 h/7 p.m. limits in federal.json also apply). The 16-18 11 p.m. limit applies only before school days; enforced every night of a school week (stricter); 18-year-olds not encoded."
   ],
   "rules": [
     {
@@ -125,6 +125,90 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "NV.minor_limits.1",
+      "jurisdiction": {
+        "state": "NV",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Children under 16 may work at most 8 hours a day and 40 hours a week.",
+      "citation": {
+        "url": "https://www.leg.state.nv.us/NRS/NRS-609.html#NRS609Sec240",
+        "title": "NRS 609.240 \u2014 Maximum hours of employment of child under 16; night limits",
+        "excerpt": "No child under the age of 16 years may be employed ... more than 40 hours in any 1 week, or more than 8 hours in any 1 day.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NV.minor_limits.2",
+      "jurisdiction": {
+        "state": "NV",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Children under 16 may work at most 8 hours a day and 40 hours a week.",
+      "citation": {
+        "url": "https://www.leg.state.nv.us/NRS/NRS-609.html#NRS609Sec240",
+        "title": "NRS 609.240 \u2014 Maximum hours of employment of child under 16; night limits",
+        "excerpt": "No child under the age of 16 years may be employed ... more than 40 hours in any 1 week, or more than 8 hours in any 1 day.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NV.minor_limits.3",
+      "jurisdiction": {
+        "state": "NV",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": null,
+        "earliest_start": 360,
+        "latest_end": 1380,
+        "latest_end_summer": null
+      },
+      "summary": "High school students aged 16-18 may not work between 11 p.m. and 6 a.m. on a night before a school day (exemptions by school district or court).",
+      "citation": {
+        "url": "https://www.leg.state.nv.us/NRS/NRS-609.html#NRS609Sec240",
+        "title": "NRS 609.240 \u2014 Maximum hours of employment of child under 16; night limits",
+        "excerpt": "between 11 p.m. and 6 a.m. on any night immediately preceding a school day if the child: (a) Is enrolled in high school ... (b) Is 16 years of age or older and under 19 years of age",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

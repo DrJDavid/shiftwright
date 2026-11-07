@@ -10,8 +10,125 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors: under-16 weekly cap of 40 h is in La. R.S. 23:215(C); under-16 need a 30-minute meal interval in any 5-hour period (23:213, not encoded: no minor-break type). Extra param key max_days_week.",
+    "Minors: 16 and 17 night limits apply only before a school day; enforced every night of a school week (stricter)."
   ],
-  "rules": []
+  "rules": [
+    {
+      "id": "LA.minor_limits.1",
+      "jurisdiction": {
+        "state": "LA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "When school is in session, minors under 16 may work at most 3 hours on a school day, 8 on other days, 18 hours a week and 6 consecutive days, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://legis.la.gov/Legis/Law.aspx?d=83836",
+        "title": "La. R.S. 23:214 \u2014 Minors under sixteen; maximum hours when school in session",
+        "excerpt": "shall not be employed, permitted, or suffered to work more than three hours each day on any day when school is in session, nor more than eighteen hours in any week when school is in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "LA.minor_limits.2",
+      "jurisdiction": {
+        "state": "LA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "Minors under 16 may work at most 8 hours a day, 6 consecutive days and 40 hours a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://legis.la.gov/Legis/Law.aspx?d=83832",
+        "title": "La. R.S. 23:211 \u2014 Minors; maximum hours in general",
+        "excerpt": "No minor under the age of sixteen shall be employed ... more than eight hours in any one day, nor more than six consecutive days in any one week.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "LA.minor_limits.3",
+      "jurisdiction": {
+        "state": "LA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 16,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": null,
+        "earliest_start": 300,
+        "latest_end": 1380,
+        "latest_end_summer": null
+      },
+      "summary": "16-year-olds who have not graduated may not work between 11 p.m. and 5 a.m. before a school day.",
+      "citation": {
+        "url": "https://legis.la.gov/Legis/Law.aspx?d=83837",
+        "title": "La. R.S. 23:215 \u2014 Minors; prohibited hours; maximum work week",
+        "excerpt": "No minor sixteen years of age who has not graduated from high school shall be employed ... between the hours of 11:00 p.m. and 5:00 a.m. prior to the start of any school day.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "LA.minor_limits.4",
+      "jurisdiction": {
+        "state": "LA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 17,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": null,
+        "earliest_start": 300,
+        "latest_end": 1440,
+        "latest_end_summer": null
+      },
+      "summary": "17-year-olds who have not graduated may not work between midnight and 5 a.m. before a school day.",
+      "citation": {
+        "url": "https://legis.la.gov/Legis/Law.aspx?d=83837",
+        "title": "La. R.S. 23:215 \u2014 Minors; prohibited hours; maximum work week",
+        "excerpt": "No minor seventeen years of age who has not graduated from high school shall be employed ... between the hours of 12:00 a.m. and 5:00 a.m. prior to the start of any school day.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
 }

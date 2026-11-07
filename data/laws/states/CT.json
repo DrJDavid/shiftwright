@@ -8,8 +8,9 @@
     "CT meal period does not apply if the employer gives 30+ total minutes of paid rest/meal time per 7.5-hour period (DOL table).",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (Conn. Gen. Stat. \u00a7\u00a7 31-13, 31-14, 31-18, 31-23): rules encoded for mercantile (retail) establishments. Under-16 may not work in mercantile/restaurant at all (\u00a7 31-23(a)) except 15-year-olds as bagger/cashier/stock clerk in school vacations of 5+ days, and on Saturdays in a retail food store; encoded as a 0 h weekly cap for 14 and a 0 h school-day cap for 15. Restaurants (\u00a7 31-18) have the same 6 h/32 h/48 h limits with an 11 p.m./midnight night limit.",
+    "Minors: 16-17 school-day cap is 8 h when the school day precedes a non-school day (Friday); the validator applies 6 h on Friday (stricter). Supermarkets (>3,500 sq ft) may keep 16-17 until midnight before non-school days; encoded 11 p.m."
   ],
   "rules": [
     {
@@ -80,6 +81,178 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CT.minor_limits.1",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 14,
+        "school_week": true,
+        "max_hours_day": null,
+        "max_hours_week": 0,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Under-16s may not work in mercantile establishments or restaurants in Connecticut (15-year-olds only as baggers, cashiers or stock clerks in school vacations); 14-year-olds: no retail/restaurant work.",
+      "citation": {
+        "url": "https://www.cga.ct.gov/current/pub/chap_557.htm",
+        "title": "Conn. Gen. Stat. \u00a7 31-23 \u2014 Employment of minors prohibited in certain occupations",
+        "excerpt": "No minor under sixteen years of age shall be employed or permitted to work in any manufacturing, mechanical, mercantile or theatrical industry, restaurant or public dining room",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CT.minor_limits.2",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 14,
+        "school_week": false,
+        "max_hours_day": null,
+        "max_hours_week": 0,
+        "earliest_start": null,
+        "latest_end": null,
+        "latest_end_summer": null
+      },
+      "summary": "Under-16s may not work in mercantile establishments or restaurants in Connecticut (15-year-olds only as baggers, cashiers or stock clerks in school vacations); 14-year-olds: no retail/restaurant work.",
+      "citation": {
+        "url": "https://www.cga.ct.gov/current/pub/chap_557.htm",
+        "title": "Conn. Gen. Stat. \u00a7 31-23 \u2014 Employment of minors prohibited in certain occupations",
+        "excerpt": "No minor under sixteen years of age shall be employed or permitted to work in any manufacturing, mechanical, mercantile or theatrical industry, restaurant or public dining room",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CT.minor_limits.3",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 15,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 0,
+        "max_hours_week": null,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8
+      },
+      "summary": "In a school week, 15-year-olds may work in a mercantile establishment (as bagger, cashier or stock clerk) only on Saturday in a retail food store, at most 8 hours, 7 a.m.-7 p.m.",
+      "citation": {
+        "url": "https://www.cga.ct.gov/current/pub/chap_557.htm",
+        "title": "Conn. Gen. Stat. \u00a7 31-23 \u2014 Employment of minors prohibited in certain occupations",
+        "excerpt": "a minor who has reached the age of fifteen may be employed ... in any mercantile establishment as a bagger, cashier or stock clerk, provided such employment is (A) limited to periods of school vacation",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CT.minor_limits.4",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 15,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "During school vacations (5+ days), 15-year-olds may work in a mercantile establishment as a bagger, cashier or stock clerk at most 8 hours a day and 40 a week, 7 a.m.-7 p.m. (9 p.m. July 1-Labor Day).",
+      "citation": {
+        "url": "https://www.cga.ct.gov/current/pub/chap_557.htm",
+        "title": "Conn. Gen. Stat. \u00a7 31-23 \u2014 Employment of minors prohibited in certain occupations",
+        "excerpt": "a minor who has reached the age of fifteen may be employed ... in any mercantile establishment as a bagger, cashier or stock clerk, provided such employment is (A) limited to periods of school vacation",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CT.minor_limits.5",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 6,
+        "max_hours_week": 32,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "latest_end_before_non_school_day": 1380
+      },
+      "summary": "Students 16-17 in mercantile establishments may work at most 6 hours on a school day (8 before a non-school day and on other days) and 32 hours in a school week, 6 a.m.-10 p.m. (11 p.m., supermarkets midnight, before a non-school day).",
+      "citation": {
+        "url": "https://www.cga.ct.gov/current/pub/chap_557.htm",
+        "title": "Conn. Gen. Stat. \u00a7 31-13 \u2014 Hours of labor of minors in mercantile establishments",
+        "excerpt": "more than (1) six hours in any regularly scheduled school day unless the regularly scheduled school day immediately precedes a nonschool day or eight hours in any other day, and (2) thirty-two hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CT.minor_limits.6",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1380,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "When school is not in session, 16- and 17-year-olds in mercantile establishments may work at most 8 hours a day and 48 a week, 6 a.m.-11 p.m. on nights not before a school day (supermarkets midnight).",
+      "citation": {
+        "url": "https://www.cga.ct.gov/current/pub/chap_557.htm",
+        "title": "Conn. Gen. Stat. \u00a7 31-14 \u2014 Night work of minors regulated",
+        "excerpt": "No person under eighteen years of age shall be employed in any manufacturing, mechanical or mercantile establishment between the hours of ten o'clock in the evening and six o'clock in the morning",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
