@@ -10,8 +10,9 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (Child Labor Act \u00a7 3): no minor may work more than 5 hours continuously without a 30-minute break, or more than 6 consecutive days; the break is not encoded (no minor-break rule type). Extra param key max_days_week.",
+    "Minors: 16-17 school-week hours do not apply to high school graduates or those exempt from compulsory attendance; 16-17 hours over 44 in a vacation week must be voluntary."
   ],
   "rules": [
     {
@@ -56,6 +57,123 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "PA.minor_limits.1",
+      "jurisdiction": {
+        "state": "PA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "During a regular school week, 14- and 15-year-olds may work at most 3 hours on a school day, 8 hours on a non-school day, 18 hours a week, 6 days in a row, between 7 a.m. and 7 p.m.",
+      "citation": {
+        "url": "https://www.palegis.us/statutes/unconsolidated/law-information/view-statute?txtType=HTM&SessYr=2012&ActNum=0151.&SessInd=0",
+        "title": "Pennsylvania Child Labor Act (Act 151 of 2012), \u00a7 3 \u2014 Time limitations on employment of minors",
+        "excerpt": "more than three hours on a school day nor more than eight hours on a day when there is no school. (3) ... more than 18 hours during a regular school week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "PA.minor_limits.2",
+      "jurisdiction": {
+        "state": "PA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1260,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "When school is not in session, 14- and 15-year-olds may work at most 8 hours a day and 40 hours a week, 7 a.m. to 9 p.m. during school vacation.",
+      "citation": {
+        "url": "https://www.palegis.us/statutes/unconsolidated/law-information/view-statute?txtType=HTM&SessYr=2012&ActNum=0151.&SessInd=0",
+        "title": "Pennsylvania Child Labor Act (Act 151 of 2012), \u00a7 3 \u2014 Time limitations on employment of minors",
+        "excerpt": "during a school vacation period a minor shall be permitted to be employed until 9 p.m. ... (4) The minor may not be employed for more than 40 hours during a week when school is not in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "PA.minor_limits.3",
+      "jurisdiction": {
+        "state": "PA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 28,
+        "earliest_start": 360,
+        "latest_end": 1440,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "When school is in session, 16- and 17-year-olds may work at most 8 hours a day and 28 hours in a regular school week, between 6 a.m. and midnight.",
+      "citation": {
+        "url": "https://www.palegis.us/statutes/unconsolidated/law-information/view-statute?txtType=HTM&SessYr=2012&ActNum=0151.&SessInd=0",
+        "title": "Pennsylvania Child Labor Act (Act 151 of 2012), \u00a7 3 \u2014 Time limitations on employment of minors",
+        "excerpt": "more than 28 hours per week during a regular school week. (ii) The minor may not be employed for more than eight hours in a single day. (iii) ... before 6 a.m. or after 12 midnight",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "PA.minor_limits.4",
+      "jurisdiction": {
+        "state": "PA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 10,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1500,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "During school vacation, 16- and 17-year-olds may work at most 10 hours a day and 48 hours a week (hours over 44 only voluntarily), 6 a.m. to 1 a.m.",
+      "citation": {
+        "url": "https://www.palegis.us/statutes/unconsolidated/law-information/view-statute?txtType=HTM&SessYr=2012&ActNum=0151.&SessInd=0",
+        "title": "Pennsylvania Child Labor Act (Act 151 of 2012), \u00a7 3 \u2014 Time limitations on employment of minors",
+        "excerpt": "During a school vacation ... more than ten hours in a single day. (ii) The minor may not be employed for more than 48 hours in a single week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
