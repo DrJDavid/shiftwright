@@ -190,3 +190,29 @@ def test_tradeoff_is_asked_once_and_ids_must_exist(client, built):
     assert [t["answered"] for t in summary["tradeoffs"]] == ["keep", None, None]
     # the approval gate still holds: approve_budget_increase without a card choice is refused
     assert "error" in T.approve_budget_increase(ctx, {"option_id": "made-up", "extra_hours": 99}).content
+
+
+# ------------------------------------------------------------------ decisions panel (REST, no chat stream)
+def test_decisions_panel_lists_and_applies_without_the_chat(client, built):
+    sid, role, items, a, b = built
+    assert client.post(f"/api/stores/{sid}/solve", json={"time_limit_s": 5}).status_code == 200
+    d = client.get(f"/api/stores/{sid}/decisions").json()
+    assert d["waiting"] == 3 and [x["id"] for x in d["decisions"]] == [items[1]["id"], items[0]["id"], items[2]["id"]]
+    assert d["decisions"][0]["question"].startswith('Keeping "') and len(d["decisions"][0]["options"]) == 2
+
+    drop = f"{items[1]['id']}:drop"
+    r = client.post(f"/api/stores/{sid}/decisions/{items[1]['id']}", json={"option_id": drop})
+    assert r.status_code == 200 and r.json()["decision"] == "drop"
+    cfg = StoreConfig.model_validate(client.get(f"/api/stores/{sid}/config").json())
+    assert next(c for c in cfg.constraints if c.id == "c_apart").status.value == "rejected"
+    approve = f"{items[0]['id']}:approve"
+    assert client.post(f"/api/stores/{sid}/decisions/{items[0]['id']}", json={"option_id": approve}).status_code == 200
+    cfg = StoreConfig.model_validate(client.get(f"/api/stores/{sid}/config").json())
+    assert [ap.extra_hours for ap in cfg.budget.approvals] == [3.0]
+
+    d = client.get(f"/api/stores/{sid}/decisions").json()  # survives: it's stored, not in a chat stream
+    assert d["waiting"] == 1 and d["decisions"][0]["answered"] == "drop"
+    again = client.post(f"/api/stores/{sid}/decisions/{items[1]['id']}", json={"option_id": drop})
+    assert again.status_code == 409
+    bad = client.post(f"/api/stores/{sid}/decisions/{items[2]['id']}", json={"option_id": "nope"})
+    assert bad.status_code == 422
