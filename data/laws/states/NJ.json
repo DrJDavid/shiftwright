@@ -14,7 +14,8 @@
     "Minimum wage: $16.48 from 2027-01-01 confirmed on NJDOL site (rule NJ.minimum_wage.2, ignored until in effect). The 2026 rate ($15.92) is still from the DOL table.",
     "Minors: NJ 16-17 summer allowance (10 h/day, 50 h/week from the last school day to Labor Day, N.J.S.A. 34:2-21.3(b)) is not encoded; NJ.minor_limits.4 enforces the year-round 8 h/40 h, so legal summer schedules over 40 h will be flagged.",
     "Minors: any minor under 18 needs a 30-minute lunch after 6 continuous hours (N.J.S.A. 34:2-21.4); not encoded (no minor-break rule type). Extra param key max_days_week.",
-    "Minors: NJDOL notes its statute reprint page is being updated; text fetched 2026-11-06 already includes the P.L.2022 changes."
+    "Minors: NJDOL notes its statute reprint page is being updated; text fetched 2026-11-06 already includes the P.L.2022 changes.",
+    "Tipped minimum wage: cash wage = minimum wage \u2212 $9.87 (N.J.A.C. 12:56-3.4(a)-(b), credit fixed since Jan. 1, 2024); the 2026 rule is medium because the $15.92 rate comes from the DOL table. Only employers paying the general rate may take the credit; small/seasonal employers' tipped rates not encoded."
   ],
   "rules": [
     {
@@ -196,6 +197,52 @@
         "title": "N.J.S.A. 34:2-21.3 \u2014 Limitations on minors' working hours (NJDOL statute reprint)",
         "excerpt": "a minor between 16 and 18 years of age may work up to 50 hours in one week and up to 10 hours in one day during the period beginning on the last day of the minor\u2019s school year",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NJ.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 6.05,
+        "max_tip_credit_per_hour": 9.87,
+        "effective": "2026-11-05"
+      },
+      "summary": "New Jersey employers may credit up to $9.87 an hour of tips, so the tipped cash wage is $6.05 on the $15.92 minimum wage.",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/tools-resources/laws/wageandhourlaws.shtml",
+        "title": "N.J.A.C. 12:56-3.4 \u2014 Tip credit (NJDOL reprint)",
+        "excerpt": "take a credit for tips received by the employee against that minimum hourly wage ... 7. Commencing January 1, 2024, $9.87 per hour.",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "NJ.tipped_minimum_wage.2",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 6.61,
+        "max_tip_credit_per_hour": 9.87,
+        "effective": "2027-01-01"
+      },
+      "summary": "From January 1, 2027 the tipped cash wage is $6.61 ($16.48 minimum wage \u2212 $9.87 tip credit).",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/tools-resources/laws/wageandhourlaws.shtml",
+        "title": "N.J.A.C. 12:56-3.4 \u2014 Tip credit (NJDOL reprint)",
+        "excerpt": "take a credit for tips received by the employee against that minimum hourly wage ... 7. Commencing January 1, 2024, $9.87 per hour.",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
