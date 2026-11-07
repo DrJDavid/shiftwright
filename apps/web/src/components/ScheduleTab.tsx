@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Gap, StoreConfig } from '../contracts'
+import type { Gap, LawRule, StoreConfig } from '../contracts'
 import type { SolveResponse } from '../api/protocol'
 import { roleColors } from '../lib/roles'
 import { ScheduleGrid } from './ScheduleGrid'
@@ -15,9 +15,10 @@ type Props = {
   onGapClick?: (g: Gap) => void
   onDayClick?: (day: number) => void
   callouts?: { employee_id: string; day: number }[]
+  lawRules?: LawRule[]
 }
 
-export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts }: Props) {
+export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules }: Props) {
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const names = useMemo(() => new Map(config.employees.map((e) => [e.id, e.name])), [config.employees])
 
@@ -68,7 +69,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
           No legal schedule exists with the current hard rules. {schedule.infeasibility.summary}
         </div>
       )}
-      <ScheduleGrid schedule={schedule} config={config} onGapClick={onGapClick} onDayClick={onDayClick} callouts={callouts} />
+      <ScheduleGrid schedule={schedule} config={config} onGapClick={onGapClick} onDayClick={onDayClick} callouts={callouts} lawRules={lawRules} />
     </div>
   )
 }
