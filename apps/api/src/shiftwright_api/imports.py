@@ -163,7 +163,9 @@ async def preview(kind: str, data: bytes, llm: Optional[LLMClient]) -> tuple[Imp
         warnings.append("The file has no data rows.")
     pv = ImportPreview(kind=kind, columns=columns, proposed_mapping=mapping,
                        unmapped_required=unmapped_required(kind, mapping),
-                       rows_preview=rows[:20], row_count=len(rows), warnings=warnings)
+                       rows_preview=rows[:20], row_count=len(rows), warnings=warnings,
+                       target_fields=list(TARGETS[kind]),
+                       required_fields=[f for f, (req, _) in TARGETS[kind].items() if req])
     return pv, rows
 
 

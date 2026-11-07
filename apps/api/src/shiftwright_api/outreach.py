@@ -26,7 +26,7 @@ from shiftwright_contracts.models import (
 
 from . import integrations
 from .db import Database
-from .explain import DAYS, hhmm
+from .explain import DAYS, clock
 from .messenger import Messenger, RecipientBlocked, interpret
 from .models import OutreachState
 
@@ -37,7 +37,7 @@ def offer_text(config: StoreConfig, cand: OutreachCandidate) -> str:
     roles = {r.id: r.name for r in config.roles}
     role_names = ", ".join(dict.fromkeys(roles.get(s.role_id, s.role_id) for s in sh.segments)) or "a shift"
     first = emp.name.split(" ")[0]
-    return (f"Hi {first}, {config.store.name} needs {role_names} {DAYS[sh.day]} {hhmm(sh.start)}-{hhmm(sh.end)} "
+    return (f"Hi {first}, {config.store.name} needs {role_names} {DAYS[sh.day]} {clock(sh.start)}-{clock(sh.end)} "
             f"at ${emp.wage_per_hour:.2f}/hr. Can you work it? Reply YES or NO")
 
 

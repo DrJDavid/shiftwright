@@ -23,11 +23,24 @@ def hhmm(minute: int) -> str:
     return f"{m // 60:02d}:{m % 60:02d}"
 
 
+def clock(minute: int) -> str:
+    """12-hour time for people: 600 -> "10 am", 870 -> "2:30 pm", 0/1440 -> "12 am"."""
+    m = minute % 1440
+    h, mm = divmod(m, 60)
+    suffix = "am" if h < 12 else "pm"
+    h12 = h % 12 or 12
+    return f"{h12} {suffix}" if mm == 0 else f"{h12}:{mm:02d} {suffix}"
+
+
+def money(x: float) -> str:
+    return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
+
+
 def phrase_gap(config: StoreConfig, gap: Gap, reasons: list[GapReason]) -> str:
     roles = {r.id: r.name for r in config.roles}
     names = {e.id: e.name for e in config.employees}
-    head = (f"{roles.get(gap.role_id, gap.role_id)} {DAYS[gap.day]} {hhmm(gap.start)}–{hhmm(gap.end)} "
-            f"uncovered ({gap.missing_headcount} short, ${gap.penalty_dollars:,.2f})")
+    head = (f"{roles.get(gap.role_id, gap.role_id)} {DAYS[gap.day]} {clock(gap.start)}–{clock(gap.end)} "
+            f"uncovered ({gap.missing_headcount} short, {money(gap.penalty_dollars)})")
     if not reasons:
         return head + ". The engine gave no per-person reasons."
     parts = []

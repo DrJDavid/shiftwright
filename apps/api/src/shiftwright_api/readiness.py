@@ -9,6 +9,7 @@ from . import integrations
 from .models import Readiness, ReadinessCheck
 
 NON_BLOCKING = {"provisional_rules"}
+DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 def compute(config: StoreConfig) -> Readiness:
@@ -36,7 +37,7 @@ def compute(config: StoreConfig) -> Readiness:
         f"{len(config.employees)} employees" if config.employees else "No employees yet.")
 
     trained = {r for e in config.employees for r in e.trained_role_ids}
-    untrained = [r.id for r in config.roles if r.id not in trained]
+    untrained = [r.name for r in config.roles if r.id not in trained]
     add("training", "Every role has a trained employee", bool(config.roles) and not untrained,
         "All roles covered." if config.roles and not untrained else
         ("No roles yet." if not config.roles else f"Nobody trained for: {', '.join(untrained)}"))
@@ -45,7 +46,7 @@ def compute(config: StoreConfig) -> Readiness:
     missing = [d for d in open_days if d not in demand_days]
     add("demand", "Demand for every open day", bool(open_days) and not missing,
         "Demand set for all open days." if open_days and not missing else
-        ("Store hours not set." if not open_days else f"No demand on day(s): {', '.join(map(str, missing))}"))
+        ("Store hours not set." if not open_days else f"No demand on {', '.join(DAY_NAMES[d] for d in missing)}"))
 
     b = config.budget
     add("budget", "Payroll budget", b.weekly_hours_cap > 0,
@@ -63,9 +64,10 @@ def compute(config: StoreConfig) -> Readiness:
             f"Below the ${rate:.2f}/hr minimum ({rule_id}): "
             + ", ".join(f"{e.name} (${e.wage_per_hour:.2f})" for e in low))
 
-    prov = [c.id for c in config.constraints if c.status == RuleStatus.provisional]
+    prov = [c.note or c.kind.value.replace("_", " ") for c in config.constraints
+            if c.status == RuleStatus.provisional]
     add("provisional_rules", "No unconfirmed rules", not prov,
-        "None." if not prov else f"{len(prov)} provisional rule(s) not used until confirmed: {', '.join(prov)}")
+        "None." if not prov else f"{len(prov)} unconfirmed rule(s), not used until confirmed: {'; '.join(prov)}")
 
     ready = all(c.ok for c in checks if c.id not in NON_BLOCKING)
     return Readiness(ready=ready, checks=checks)

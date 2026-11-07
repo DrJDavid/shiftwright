@@ -25,6 +25,8 @@ class ImportPreview(BaseModel):
     rows_preview: list[dict[str, Any]]
     row_count: int
     warnings: list[str] = []
+    target_fields: list[str] = []    # fields a column can map to for this kind (dropdown options), in order
+    required_fields: list[str] = []  # subset of target_fields that must be mapped
 
 
 class ReadinessCheck(BaseModel):

@@ -46,6 +46,8 @@ def test_roster_preview_then_commit(client):
     assert pv.proposed_mapping["Wage Rate"] == "wage_per_hour"
     assert pv.proposed_mapping["Dept"] == "home_department"
     assert pv.unmapped_required == []
+    assert "wage_per_hour" in pv.target_fields and set(pv.proposed_mapping.values()) - {None} <= set(pv.target_fields)
+    assert set(pv.required_fields) == {"employee_id", "name", "home_department", "wage_per_hour"}
     # nothing saved yet
     assert client.get(f"/api/stores/{sid}/config").json()["employees"] == []
 
