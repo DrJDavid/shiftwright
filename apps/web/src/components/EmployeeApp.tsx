@@ -2,6 +2,7 @@
 // Replies go through POST /api/sms/mock-reply (mock messenger only), the same path as a real text.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
+import type { Callout } from '../api/client'
 import { STORE_KEY } from '../lib/stores'
 import type { OutreachState } from '../api/protocol'
 import type { InboundMessage, OutboundMessage, Schedule, StoreConfig } from '../contracts'
@@ -76,6 +77,26 @@ export function EmployeeApp({ employeeId, storeId: given }: { employeeId: string
     }
   }
 
+  const [draft, setDraft] = useState('')
+  const [told, setTold] = useState<Callout | null>(null)
+  const tellManager = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const body = draft.trim()
+    if (!me || !body || !storeId) return
+    setSending(body)
+    setError(null)
+    try {
+      const r = await api.mockReply(me.phone, body, storeId)
+      setTold(r.callout ?? null)
+      setDraft('')
+      await refresh()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setSending(null)
+    }
+  }
+
   if (!storeId) return <Shell title="Shiftwright">Open this page from the store's Fix call-outs tab.</Shell>
   if (error && !cfg) return <Shell title="Shiftwright">Can't load your schedule: {error}</Shell>
   if (!cfg) return <Shell title="Shiftwright">Loading…</Shell>
@@ -111,6 +132,31 @@ export function EmployeeApp({ employeeId, storeId: given }: { employeeId: string
             <p className="mt-3 text-sm text-ink-2">Reply YES or NO to the text message.</p>
           )}
         </section>
+      )}
+      {mockMessenger && !offerOpen && (
+        <form onSubmit={tellManager} className="mb-4 rounded-2xl border border-rule bg-panel p-4">
+          <label htmlFor="tell" className="text-sm font-semibold">
+            Can't make a shift? Message the store
+          </label>
+          <textarea
+            id="tell"
+            rows={2}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="e.g. I'm sick, can't come in tomorrow"
+            className="mt-2 w-full resize-none rounded-xl border border-rule bg-paper px-3 py-2 text-[15px]"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || !!sending}
+            className="mt-2 w-full rounded-xl bg-ink py-2.5 text-base font-semibold text-white disabled:opacity-50"
+          >
+            {sending && !sending.startsWith('Yes') && !sending.startsWith('No') ? 'Sending…' : 'Send'}
+          </button>
+          {told?.reply && <p className="mt-3 rounded-xl bg-pine-wash px-3 py-2 text-sm text-pine-dark">{told.reply}</p>}
+          {told && !told.reply && <p className="mt-3 text-sm text-ink-2">Sent to your manager.</p>}
+          {error && cfg && <p className="mt-2 text-sm text-gap">{error}</p>}
+        </form>
       )}
       {accepted && !offerOpen && (
         <p className="mb-4 rounded-xl bg-pine-wash px-4 py-3 text-sm text-pine-dark">You picked up a shift. It's in your week below.</p>
