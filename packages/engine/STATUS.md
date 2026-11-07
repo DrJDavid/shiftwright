@@ -60,6 +60,14 @@ parity within noise, the others above. The branch always spends the hours budget
 unused). fix_day (30 s week, then fix, load 15–23): Austin 1.7 s, Chicago 4.5 s, Seattle 5.4 s,
 SF 5.6 s, 0 hard in both plans.
 
+**Prod fix (`cursor/C3-prodfix`):** the API solves with `time_limit_s=20` (`req.time_limit_s or 20`),
+not 30. With the 22% reserve and slower Railway CPUs, every day's share fell under 0.8 s, so day LNS
+solved no day and the week fell back to a coarse full model with ~8 s (Chicago 92.49% in prod; 92.79%
+reproduced locally at 20 s). Day LNS now solves the days with the most open demand that fit (all 7
+when they do), and tradeoff what-ifs stop at half the solve limit. At 20 s, load 14–20, branch vs
+pre-C3 3ca575c: Chicago 93.27–93.98 vs 90.36; demo 93.47–94.26 vs 93.57; Seattle 92.41 vs 90.03;
+SF 92.00 vs 88.68; Harbor Grill 96.42–96.57 vs 94.47–96.34; build wall incl. tradeoffs 19–28 s.
+
 **Caveats:** day LNS is guided by a priced objective (tier $/h scaled to ≥ 2× the top wage) under
 the time limit; strict tier order is enforced in phase 2 / repair / fix_day stages, not proven for
 the week. Tradeoff what-ifs add ~4–11 s after the main solve on the demo stores. Explain via
