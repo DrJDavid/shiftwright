@@ -1,0 +1,2817 @@
+{
+  "contract_version": "1.5.0",
+  "config_version": 1,
+  "store": {
+    "id": "rest-0612",
+    "name": "Harbor Grill #12, Chicago IL",
+    "jurisdiction": {
+      "state": "IL",
+      "city": "chicago"
+    },
+    "timezone": "America/Chicago",
+    "slot_minutes": 30,
+    "week_start": "2026-11-09",
+    "hours": [
+      {
+        "day": 0,
+        "open": 660,
+        "close": 1320
+      },
+      {
+        "day": 1,
+        "open": 660,
+        "close": 1320
+      },
+      {
+        "day": 2,
+        "open": 660,
+        "close": 1320
+      },
+      {
+        "day": 3,
+        "open": 660,
+        "close": 1320
+      },
+      {
+        "day": 4,
+        "open": 660,
+        "close": 1380
+      },
+      {
+        "day": 5,
+        "open": 660,
+        "close": 1380
+      },
+      {
+        "day": 6,
+        "open": 660,
+        "close": 1260
+      }
+    ],
+    "pre_open_minutes": 120,
+    "post_close_minutes": 60,
+    "school_week": true,
+    "employer_employee_count": 3500,
+    "schedule_posted_on": "2026-10-26",
+    "sector": "food",
+    "business_description": "Full-service neighborhood restaurant and bar, 120 seats; part of a regional group.",
+    "max_shifts_per_day": 2
+  },
+  "departments": [
+    {
+      "id": "front_of_house",
+      "name": "Front of House"
+    },
+    {
+      "id": "back_of_house",
+      "name": "Back of House"
+    },
+    {
+      "id": "management",
+      "name": "Management"
+    }
+  ],
+  "roles": [
+    {
+      "id": "manager_on_duty",
+      "department_id": "management",
+      "name": "Manager on Duty",
+      "min_age": 0,
+      "gap_penalty_per_hour": 100.0,
+      "description": "Runs the floor and the money while open.",
+      "tipped": false
+    },
+    {
+      "id": "server",
+      "department_id": "front_of_house",
+      "name": "Server",
+      "min_age": 0,
+      "gap_penalty_per_hour": 60.0,
+      "description": "Takes orders and runs tables.",
+      "tipped": true
+    },
+    {
+      "id": "bartender",
+      "department_id": "front_of_house",
+      "name": "Bartender",
+      "min_age": 0,
+      "gap_penalty_per_hour": 50.0,
+      "description": "Bar service and drinks for the floor.",
+      "tipped": true
+    },
+    {
+      "id": "host",
+      "department_id": "front_of_house",
+      "name": "Host",
+      "min_age": 0,
+      "gap_penalty_per_hour": 30.0,
+      "description": "Greets guests, seats tables, manages the wait list.",
+      "tipped": false
+    },
+    {
+      "id": "line_cook",
+      "department_id": "back_of_house",
+      "name": "Line Cook",
+      "min_age": 0,
+      "gap_penalty_per_hour": 80.0,
+      "description": "Works the hot line: grill, saute, fryer.",
+      "tipped": false
+    },
+    {
+      "id": "prep_cook",
+      "department_id": "back_of_house",
+      "name": "Prep Cook",
+      "min_age": 0,
+      "gap_penalty_per_hour": 40.0,
+      "description": "Prep before service, including the meat slicer.",
+      "tipped": false
+    },
+    {
+      "id": "dishwasher",
+      "department_id": "back_of_house",
+      "name": "Dishwasher",
+      "min_age": 0,
+      "gap_penalty_per_hour": 40.0,
+      "description": "Dish pit and kitchen cleanup.",
+      "tipped": false
+    }
+  ],
+  "role_tags": {
+    "bartender": [
+      "alcohol_service"
+    ],
+    "line_cook": [
+      "cooking",
+      "fryer"
+    ],
+    "prep_cook": [
+      "meat_slicer"
+    ]
+  },
+  "employees": [
+    {
+      "id": "e001",
+      "name": "Sam Davis",
+      "phone": "+13125550100",
+      "age": 41,
+      "home_department_id": "management",
+      "trained_role_ids": [
+        "manager_on_duty"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 29.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 10.0,
+          "source": "employee",
+          "note": "Prefers Fridays off."
+        }
+      ],
+      "hire_date": "2023-07-30",
+      "attendance": {
+        "shifts_90d": 59,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e002",
+      "name": "Wren Hernandez",
+      "phone": "+13125550101",
+      "age": 50,
+      "home_department_id": "management",
+      "trained_role_ids": [
+        "manager_on_duty",
+        "line_cook"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 27.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2020-01-06",
+      "attendance": {
+        "shifts_90d": 30,
+        "callouts_90d": 0,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e003",
+      "name": "Eden Flores",
+      "phone": "+13125550102",
+      "age": 33,
+      "home_department_id": "management",
+      "trained_role_ids": [
+        "manager_on_duty"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 24.75,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2022-08-07",
+      "attendance": {
+        "shifts_90d": 43,
+        "callouts_90d": 0,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e004",
+      "name": "Lane Wright",
+      "phone": "+13125550103",
+      "age": 44,
+      "home_department_id": "management",
+      "trained_role_ids": [
+        "manager_on_duty",
+        "bartender"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 28.75,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2021-10-27",
+      "attendance": {
+        "shifts_90d": 49,
+        "callouts_90d": 0,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e005",
+      "name": "Lane Flores",
+      "phone": "+13125550104",
+      "age": 22,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 5,
+          "on_date": null,
+          "start": 0,
+          "end": 960,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "Saturdays: not before 4pm."
+        },
+        {
+          "weekday": 5,
+          "on_date": null,
+          "start": 960,
+          "end": 1380,
+          "kind": "preferred_on",
+          "weight_dollars": 15.0,
+          "source": "employee",
+          "note": "Likes Saturday dinner."
+        }
+      ],
+      "hire_date": "2019-04-17",
+      "attendance": {
+        "shifts_90d": 55,
+        "callouts_90d": 0,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e006",
+      "name": "Finley Gonzalez",
+      "phone": "+13125550105",
+      "age": 21,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "dishwasher",
+        "prep_cook"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2019-09-24",
+      "attendance": {
+        "shifts_90d": 56,
+        "callouts_90d": 1,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 5
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e007",
+      "name": "Xavi King",
+      "phone": "+13125550106",
+      "age": 20,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "dishwasher",
+        "line_cook",
+        "prep_cook"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 19.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2020-01-21",
+      "attendance": {
+        "shifts_90d": 33,
+        "callouts_90d": 1,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e008",
+      "name": "Blake Allen",
+      "phone": "+13125550107",
+      "age": 15,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "line_cook"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.25,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2021-07-30",
+      "attendance": {
+        "shifts_90d": 44,
+        "callouts_90d": 0,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e009",
+      "name": "Marlowe Nelson",
+      "phone": "+13125550108",
+      "age": 16,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "dishwasher"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.75,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 10.0,
+          "source": "employee",
+          "note": "Prefers Tuesdays off."
+        }
+      ],
+      "hire_date": "2020-02-25",
+      "attendance": {
+        "shifts_90d": 37,
+        "callouts_90d": 1,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e010",
+      "name": "Cameron Campbell",
+      "phone": "+13125550109",
+      "age": 18,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "host"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2019-04-10",
+      "attendance": {
+        "shifts_90d": 28,
+        "callouts_90d": 2,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 2
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e011",
+      "name": "Reese Moore",
+      "phone": "+13125550110",
+      "age": 23,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "dishwasher",
+        "prep_cook"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 19.75,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2019-02-27",
+      "attendance": {
+        "shifts_90d": 43,
+        "callouts_90d": 0,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e012",
+      "name": "Ray Green",
+      "phone": "+13125550111",
+      "age": 28,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.0,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2022-07-05",
+      "attendance": {
+        "shifts_90d": 31,
+        "callouts_90d": 0,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 2
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e013",
+      "name": "Finley Smith",
+      "phone": "+13125550112",
+      "age": 21,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook",
+        "prep_cook",
+        "dishwasher"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2026-06-08",
+      "attendance": {
+        "shifts_90d": 34,
+        "callouts_90d": 0,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 4
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e014",
+      "name": "Ray Anderson",
+      "phone": "+13125550113",
+      "age": 20,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "dishwasher",
+        "prep_cook",
+        "line_cook"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 17.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2021-09-24",
+      "attendance": {
+        "shifts_90d": 30,
+        "callouts_90d": 4,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e015",
+      "name": "Wren Garcia",
+      "phone": "+13125550114",
+      "age": 49,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "bartender"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2019-02-06",
+      "attendance": {
+        "shifts_90d": 32,
+        "callouts_90d": 1,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e016",
+      "name": "Tatum Mitchell",
+      "phone": "+13125550115",
+      "age": 44,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.75,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2026-07-20",
+      "attendance": {
+        "shifts_90d": 56,
+        "callouts_90d": 1,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 3
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e017",
+      "name": "Robin Wright",
+      "phone": "+13125550116",
+      "age": 23,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2024-02-02",
+      "attendance": {
+        "shifts_90d": 45,
+        "callouts_90d": 1,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e018",
+      "name": "Ari Moore",
+      "phone": "+13125550117",
+      "age": 40,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook",
+        "prep_cook",
+        "dishwasher"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 20.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2022-04-24",
+      "attendance": {
+        "shifts_90d": 59,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e019",
+      "name": "Gabe Wright",
+      "phone": "+13125550118",
+      "age": 23,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook",
+        "dishwasher",
+        "prep_cook"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 22.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2026-07-18",
+      "attendance": {
+        "shifts_90d": 58,
+        "callouts_90d": 1,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e020",
+      "name": "Kai Nguyen",
+      "phone": "+13125550119",
+      "age": 34,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "host",
+        "server"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.25,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2021-07-13",
+      "attendance": {
+        "shifts_90d": 54,
+        "callouts_90d": 2,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 2
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e021",
+      "name": "Sasha Robinson",
+      "phone": "+13125550120",
+      "age": 20,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "prep_cook"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2024-10-23",
+      "attendance": {
+        "shifts_90d": 36,
+        "callouts_90d": 1,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e022",
+      "name": "Jesse Martin",
+      "phone": "+13125550121",
+      "age": 16,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "host",
+        "server"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.75,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2023-03-12",
+      "attendance": {
+        "shifts_90d": 44,
+        "callouts_90d": 1,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e023",
+      "name": "Tatum Nguyen",
+      "phone": "+13125550122",
+      "age": 34,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "host",
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.75,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2019-08-06",
+      "attendance": {
+        "shifts_90d": 55,
+        "callouts_90d": 2,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e024",
+      "name": "Nico Moore",
+      "phone": "+13125550123",
+      "age": 37,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2024-07-20",
+      "attendance": {
+        "shifts_90d": 43,
+        "callouts_90d": 1,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 3
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e025",
+      "name": "Skyler Martinez",
+      "phone": "+13125550124",
+      "age": 21,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "prep_cook",
+        "line_cook"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 18.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2020-11-24",
+      "attendance": {
+        "shifts_90d": 41,
+        "callouts_90d": 0,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 3
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e026",
+      "name": "Parker Hernandez",
+      "phone": "+13125550125",
+      "age": 37,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "host",
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 10.0,
+          "source": "employee",
+          "note": "Prefers Fridays off."
+        }
+      ],
+      "hire_date": "2020-03-23",
+      "attendance": {
+        "shifts_90d": 28,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 7
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e027",
+      "name": "Lee Hall",
+      "phone": "+13125550126",
+      "age": 24,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "bartender",
+        "server"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 18.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2021-05-18",
+      "attendance": {
+        "shifts_90d": 50,
+        "callouts_90d": 2,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e028",
+      "name": "Noel Garcia",
+      "phone": "+13125550127",
+      "age": 19,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [
+        {
+          "weekday": 5,
+          "on_date": null,
+          "start": 0,
+          "end": 960,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "Saturdays: not before 4pm."
+        },
+        {
+          "weekday": 5,
+          "on_date": null,
+          "start": 960,
+          "end": 1380,
+          "kind": "preferred_on",
+          "weight_dollars": 15.0,
+          "source": "employee",
+          "note": "Likes Saturday dinner."
+        }
+      ],
+      "hire_date": "2024-05-11",
+      "attendance": {
+        "shifts_90d": 32,
+        "callouts_90d": 1,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 4
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e029",
+      "name": "Taylor Hall",
+      "phone": "+13125550128",
+      "age": 23,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook",
+        "dishwasher"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2023-12-10",
+      "attendance": {
+        "shifts_90d": 35,
+        "callouts_90d": 0,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 1
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e030",
+      "name": "Yael Nguyen",
+      "phone": "+13125550129",
+      "age": 24,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook",
+        "prep_cook"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 20.75,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2019-11-30",
+      "attendance": {
+        "shifts_90d": 26,
+        "callouts_90d": 0,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 4
+      },
+      "tipped_wage_per_hour": null
+    },
+    {
+      "id": "e031",
+      "name": "Yael Johnson",
+      "phone": "+13125550130",
+      "age": 23,
+      "home_department_id": "front_of_house",
+      "trained_role_ids": [
+        "server",
+        "bartender"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2021-04-02",
+      "attendance": {
+        "shifts_90d": 45,
+        "callouts_90d": 1,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 4
+      },
+      "tipped_wage_per_hour": 17.05
+    },
+    {
+      "id": "e032",
+      "name": "Jules Mitchell",
+      "phone": "+13125550131",
+      "age": 19,
+      "home_department_id": "back_of_house",
+      "trained_role_ids": [
+        "line_cook",
+        "dishwasher"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 21.75,
+      "min_hours_week": 10.0,
+      "max_hours_week": 28.0,
+      "availability": [],
+      "hire_date": "2026-05-20",
+      "attendance": {
+        "shifts_90d": 36,
+        "callouts_90d": 0,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      },
+      "tipped_wage_per_hour": null
+    }
+  ],
+  "demand": [
+    {
+      "id": "d_bartender_0_0660",
+      "role_id": "bartender",
+      "day": 0,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_0_1020",
+      "role_id": "bartender",
+      "day": 0,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_0_0660",
+      "role_id": "dishwasher",
+      "day": 0,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_0_1020",
+      "role_id": "dishwasher",
+      "day": 0,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_0_0660",
+      "role_id": "host",
+      "day": 0,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_0_1020",
+      "role_id": "host",
+      "day": 0,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_0_0660",
+      "role_id": "line_cook",
+      "day": 0,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_0_0840",
+      "role_id": "line_cook",
+      "day": 0,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_0_1020",
+      "role_id": "line_cook",
+      "day": 0,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_0_1260",
+      "role_id": "line_cook",
+      "day": 0,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_0_0660",
+      "role_id": "manager_on_duty",
+      "day": 0,
+      "start": 660,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_0_0540",
+      "role_id": "prep_cook",
+      "day": 0,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_0_0900",
+      "role_id": "prep_cook",
+      "day": 0,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_0_0660",
+      "role_id": "server",
+      "day": 0,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_0_0840",
+      "role_id": "server",
+      "day": 0,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_0_1020",
+      "role_id": "server",
+      "day": 0,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 5,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_0_1260",
+      "role_id": "server",
+      "day": 0,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_1_0660",
+      "role_id": "bartender",
+      "day": 1,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_1_1020",
+      "role_id": "bartender",
+      "day": 1,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_1_0660",
+      "role_id": "dishwasher",
+      "day": 1,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_1_1020",
+      "role_id": "dishwasher",
+      "day": 1,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_1_0660",
+      "role_id": "host",
+      "day": 1,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_1_1020",
+      "role_id": "host",
+      "day": 1,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_1_0660",
+      "role_id": "line_cook",
+      "day": 1,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_1_0840",
+      "role_id": "line_cook",
+      "day": 1,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_1_1020",
+      "role_id": "line_cook",
+      "day": 1,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_1_1260",
+      "role_id": "line_cook",
+      "day": 1,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_1_0660",
+      "role_id": "manager_on_duty",
+      "day": 1,
+      "start": 660,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_1_0540",
+      "role_id": "prep_cook",
+      "day": 1,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_1_0900",
+      "role_id": "prep_cook",
+      "day": 1,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_1_0660",
+      "role_id": "server",
+      "day": 1,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_1_0840",
+      "role_id": "server",
+      "day": 1,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_1_1020",
+      "role_id": "server",
+      "day": 1,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 5,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_1_1260",
+      "role_id": "server",
+      "day": 1,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_2_0660",
+      "role_id": "bartender",
+      "day": 2,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_2_1020",
+      "role_id": "bartender",
+      "day": 2,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_2_0660",
+      "role_id": "dishwasher",
+      "day": 2,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_2_1020",
+      "role_id": "dishwasher",
+      "day": 2,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_2_0660",
+      "role_id": "host",
+      "day": 2,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_2_1020",
+      "role_id": "host",
+      "day": 2,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_2_0660",
+      "role_id": "line_cook",
+      "day": 2,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_2_0840",
+      "role_id": "line_cook",
+      "day": 2,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_2_1020",
+      "role_id": "line_cook",
+      "day": 2,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_2_1260",
+      "role_id": "line_cook",
+      "day": 2,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_2_0660",
+      "role_id": "manager_on_duty",
+      "day": 2,
+      "start": 660,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_2_0540",
+      "role_id": "prep_cook",
+      "day": 2,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_2_0900",
+      "role_id": "prep_cook",
+      "day": 2,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_2_0660",
+      "role_id": "server",
+      "day": 2,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_2_0840",
+      "role_id": "server",
+      "day": 2,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_2_1020",
+      "role_id": "server",
+      "day": 2,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 5,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_2_1260",
+      "role_id": "server",
+      "day": 2,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_3_0660",
+      "role_id": "bartender",
+      "day": 3,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_3_1020",
+      "role_id": "bartender",
+      "day": 3,
+      "start": 1020,
+      "end": 1080,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_3_1080",
+      "role_id": "bartender",
+      "day": 3,
+      "start": 1080,
+      "end": 1320,
+      "headcount": 2,
+      "source": "event",
+      "event_id": "ev_private_3",
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_3_0660",
+      "role_id": "dishwasher",
+      "day": 3,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_3_1020",
+      "role_id": "dishwasher",
+      "day": 3,
+      "start": 1020,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_3_0660",
+      "role_id": "host",
+      "day": 3,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_3_1020",
+      "role_id": "host",
+      "day": 3,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_3_0660",
+      "role_id": "line_cook",
+      "day": 3,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_3_0840",
+      "role_id": "line_cook",
+      "day": 3,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_3_1020",
+      "role_id": "line_cook",
+      "day": 3,
+      "start": 1020,
+      "end": 1080,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_3_1080",
+      "role_id": "line_cook",
+      "day": 3,
+      "start": 1080,
+      "end": 1260,
+      "headcount": 4,
+      "source": "event",
+      "event_id": "ev_private_3",
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_3_1260",
+      "role_id": "line_cook",
+      "day": 3,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 2,
+      "source": "event",
+      "event_id": "ev_private_3",
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_3_0660",
+      "role_id": "manager_on_duty",
+      "day": 3,
+      "start": 660,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_3_0540",
+      "role_id": "prep_cook",
+      "day": 3,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_3_0900",
+      "role_id": "prep_cook",
+      "day": 3,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_3_0660",
+      "role_id": "server",
+      "day": 3,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_3_0840",
+      "role_id": "server",
+      "day": 3,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_3_1020",
+      "role_id": "server",
+      "day": 3,
+      "start": 1020,
+      "end": 1080,
+      "headcount": 5,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_3_1080",
+      "role_id": "server",
+      "day": 3,
+      "start": 1080,
+      "end": 1260,
+      "headcount": 7,
+      "source": "event",
+      "event_id": "ev_private_3",
+      "note": ""
+    },
+    {
+      "id": "d_server_3_1260",
+      "role_id": "server",
+      "day": 3,
+      "start": 1260,
+      "end": 1320,
+      "headcount": 4,
+      "source": "event",
+      "event_id": "ev_private_3",
+      "note": ""
+    },
+    {
+      "id": "d_bartender_4_0660",
+      "role_id": "bartender",
+      "day": 4,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_4_1020",
+      "role_id": "bartender",
+      "day": 4,
+      "start": 1020,
+      "end": 1380,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_4_0660",
+      "role_id": "dishwasher",
+      "day": 4,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_4_1020",
+      "role_id": "dishwasher",
+      "day": 4,
+      "start": 1020,
+      "end": 1380,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_4_0660",
+      "role_id": "host",
+      "day": 4,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_4_1020",
+      "role_id": "host",
+      "day": 4,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_4_0660",
+      "role_id": "line_cook",
+      "day": 4,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_4_0840",
+      "role_id": "line_cook",
+      "day": 4,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_4_1020",
+      "role_id": "line_cook",
+      "day": 4,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_4_1260",
+      "role_id": "line_cook",
+      "day": 4,
+      "start": 1260,
+      "end": 1380,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_4_0660",
+      "role_id": "manager_on_duty",
+      "day": 4,
+      "start": 660,
+      "end": 1380,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_4_0540",
+      "role_id": "prep_cook",
+      "day": 4,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_4_0900",
+      "role_id": "prep_cook",
+      "day": 4,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_4_0660",
+      "role_id": "server",
+      "day": 4,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_4_0840",
+      "role_id": "server",
+      "day": 4,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_4_1020",
+      "role_id": "server",
+      "day": 4,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 7,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_4_1260",
+      "role_id": "server",
+      "day": 4,
+      "start": 1260,
+      "end": 1380,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_5_0660",
+      "role_id": "bartender",
+      "day": 5,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_5_1020",
+      "role_id": "bartender",
+      "day": 5,
+      "start": 1020,
+      "end": 1380,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_5_0660",
+      "role_id": "dishwasher",
+      "day": 5,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_5_1020",
+      "role_id": "dishwasher",
+      "day": 5,
+      "start": 1020,
+      "end": 1380,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_5_0660",
+      "role_id": "host",
+      "day": 5,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_5_1020",
+      "role_id": "host",
+      "day": 5,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_5_0660",
+      "role_id": "line_cook",
+      "day": 5,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_5_0840",
+      "role_id": "line_cook",
+      "day": 5,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_5_1020",
+      "role_id": "line_cook",
+      "day": 5,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_5_1260",
+      "role_id": "line_cook",
+      "day": 5,
+      "start": 1260,
+      "end": 1380,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_5_0660",
+      "role_id": "manager_on_duty",
+      "day": 5,
+      "start": 660,
+      "end": 1380,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_5_0540",
+      "role_id": "prep_cook",
+      "day": 5,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_5_0900",
+      "role_id": "prep_cook",
+      "day": 5,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_5_0660",
+      "role_id": "server",
+      "day": 5,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_5_0840",
+      "role_id": "server",
+      "day": 5,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_5_1020",
+      "role_id": "server",
+      "day": 5,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 7,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_5_1260",
+      "role_id": "server",
+      "day": 5,
+      "start": 1260,
+      "end": 1380,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_6_0660",
+      "role_id": "bartender",
+      "day": 6,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_bartender_6_1020",
+      "role_id": "bartender",
+      "day": 6,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_6_0660",
+      "role_id": "dishwasher",
+      "day": 6,
+      "start": 660,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_dishwasher_6_1020",
+      "role_id": "dishwasher",
+      "day": 6,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_6_0660",
+      "role_id": "host",
+      "day": 6,
+      "start": 660,
+      "end": 840,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_host_6_1020",
+      "role_id": "host",
+      "day": 6,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_6_0660",
+      "role_id": "line_cook",
+      "day": 6,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_6_0840",
+      "role_id": "line_cook",
+      "day": 6,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_line_cook_6_1020",
+      "role_id": "line_cook",
+      "day": 6,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_manager_on_duty_6_0660",
+      "role_id": "manager_on_duty",
+      "day": 6,
+      "start": 660,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_6_0540",
+      "role_id": "prep_cook",
+      "day": 6,
+      "start": 540,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_prep_cook_6_0900",
+      "role_id": "prep_cook",
+      "day": 6,
+      "start": 900,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_6_0660",
+      "role_id": "server",
+      "day": 6,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_6_0840",
+      "role_id": "server",
+      "day": 6,
+      "start": 840,
+      "end": 1020,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_server_6_1020",
+      "role_id": "server",
+      "day": 6,
+      "start": 1020,
+      "end": 1260,
+      "headcount": 6,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    }
+  ],
+  "events": [
+    {
+      "id": "ev_private_3",
+      "kind": "private_event",
+      "day": 3,
+      "start": 1080,
+      "end": 1320,
+      "note": "Private party in the back room.",
+      "label": "Rehearsal dinner (40 guests)"
+    }
+  ],
+  "budget": {
+    "weekly_hours_cap": 804.0,
+    "weekly_dollar_cap": null,
+    "overtime_allowed": false,
+    "approvals": []
+  },
+  "constraints": [
+    {
+      "id": "c_min_shift",
+      "kind": "min_shift_length",
+      "params": {
+        "minutes": 180
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "default",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Shifts are at least 3 hours."
+    },
+    {
+      "id": "c_max_shift",
+      "kind": "max_shift_length",
+      "params": {
+        "minutes": 600
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "default",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Shifts are at most 10 hours."
+    },
+    {
+      "id": "c_min_rest",
+      "kind": "min_rest_between_shifts",
+      "params": {
+        "minutes": 600
+      },
+      "strength": "soft",
+      "weight_dollars": 30.0,
+      "applies_to_employee_ids": null,
+      "source": "default",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Try to leave 10 hours between a close and the next day's open."
+    },
+    {
+      "id": "c_max_days",
+      "kind": "max_days_per_week",
+      "params": {
+        "days": 5
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Nobody works more than 5 days a week."
+    },
+    {
+      "id": "c_mod_always",
+      "kind": "always_staffed",
+      "params": {
+        "role_id": "manager_on_duty",
+        "windows": "store_hours"
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "A manager on duty whenever we're open."
+    },
+    {
+      "id": "c_min_hours",
+      "kind": "min_hours_week",
+      "params": {},
+      "strength": "soft",
+      "weight_dollars": 10.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Give people their minimum hours."
+    },
+    {
+      "id": "c_fair_close",
+      "kind": "fair_spread",
+      "params": {
+        "shift_class": "close",
+        "max_per_employee": 3
+      },
+      "strength": "soft",
+      "weight_dollars": 10.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Spread closes: at most 3 per person."
+    },
+    {
+      "id": "c_not_together_1",
+      "kind": "not_together",
+      "params": {
+        "employee_ids": [
+          "e031",
+          "e005"
+        ]
+      },
+      "strength": "soft",
+      "weight_dollars": 25.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Yael and Lane shouldn't work together."
+    }
+  ],
+  "unmodeled": [],
+  "law_pack": null
+}

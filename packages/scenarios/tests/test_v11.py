@@ -18,28 +18,25 @@ def _floor(jur) -> float:
 
 @pytest.mark.parametrize("jur", JURISDICTIONS)
 @pytest.mark.parametrize("size", SIZES)
-def test_wages_meet_minimum_except_trap(jur, size):
+@pytest.mark.parametrize("sector", ["retail", "food"])
+def test_nobody_below_minimum_wage(jur, size, sector):
+    """No generated employee is ever below the resolved minimum (the below_minimum_wage trap is gone)."""
     for seed in (1, 2):
         for diff in DIFFICULTIES:
-            sc = generate(seed, size, diff, jur)
+            sc = generate(seed, size, diff, jur, sector=sector)
             floor = _floor(sc.config.store.jurisdiction)
-            low = {e.id for e in sc.config.employees if e.wage_per_hour < floor}
-            trap = set(sc.expected["traps"].get("below_minimum_wage", []))
-            assert low == trap, (seed, size, diff, jur)
-            if diff == "legal_trap":
-                assert len(trap) == 1
-                assert sc.expected["traps"]["minimum_wage"]["dollars_per_hour"] == floor
-            else:
-                assert not trap
+            low = [(e.id, e.wage_per_hour) for e in sc.config.employees if e.wage_per_hour < floor]
+            assert not low, (seed, size, diff, jur, sector, floor, low)
+            assert "below_minimum_wage" not in sc.expected["traps"]
 
 
-def test_wage_trap_is_schedulable():
-    for jur in ("TX", "CA"):
-        sc = generate(1, "M", "legal_trap", jur)
-        (eid,) = sc.expected["traps"]["below_minimum_wage"]
-        e = next(e for e in sc.config.employees if e.id == eid)
-        assert e.age >= 18 and e.home_department_id != "leadership"
-        assert e.wage_per_hour > 0
+def test_ca_legal_trap_allows_split_shifts():
+    for size in SIZES:
+        sc = generate(1, size, "legal_trap", "CA")
+        assert sc.config.store.max_shifts_per_day == 2
+        assert sc.expected["infeasible"] is False
+    assert generate(1, "S", "legal_trap", "TX").config.store.max_shifts_per_day == 1
+    assert generate(1, "S", "normal", "CA").config.store.max_shifts_per_day == 1
 
 
 def test_committed_fixtures_meet_minimum_wage():

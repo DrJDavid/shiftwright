@@ -360,6 +360,11 @@ def write_fixtures() -> None:
         (FIXTURES_DIR / store_f).write_text(sc.config.model_dump_json(indent=2) + "\n")
         if key == DEFAULT_LOCALITY:
             write_exports(sc, FIXTURES_DIR / "exports")
+    from .food import build_demo_restaurant
+
+    sc = build_demo_restaurant()
+    (FIXTURES_DIR / "demo_scenario_restaurant.json").write_text(sc.model_dump_json(indent=2) + "\n")
+    (FIXTURES_DIR / "demo_store_restaurant.json").write_text(sc.config.model_dump_json(indent=2) + "\n")
 
 
 if __name__ == "__main__":

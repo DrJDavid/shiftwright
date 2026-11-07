@@ -102,7 +102,18 @@ def _lift_wages(emps: list[Employee], floor: float | None) -> float:
     lift = math.ceil(floor * 4) / 4 - BASE_WAGE_FLOOR
     for e in emps:
         e.wage_per_hour = round(e.wage_per_hour + lift, 2)
+    enforce_minimum_wage(emps, floor)
     return lift
+
+
+def enforce_minimum_wage(emps: list[Employee], floor: float | None) -> None:
+    """Last line of defence: nobody is ever paid below the resolved minimum wage."""
+    if floor is None:
+        return
+    least = math.ceil(floor * 4) / 4
+    for e in emps:
+        if e.wage_per_hour < floor:
+            e.wage_per_hour = least
 
 
 # --------------------------------------------------------------------------- #
@@ -401,7 +412,7 @@ def build_constraints(rng: random.Random, emps: list[Employee]) -> list[Constrai
 # --------------------------------------------------------------------------- #
 # Difficulty tweaks
 # --------------------------------------------------------------------------- #
-def _apply_legal_trap(rng: random.Random, emps: list[Employee], wage_law: tuple[float, str] | None) -> dict:
+def _apply_legal_trap(rng: random.Random, emps: list[Employee]) -> dict:
     minors = [e for e in emps if e.age < 18]
     pit = rng.sample(minors, min(2, len(minors)))
     for e in pit:
@@ -422,17 +433,8 @@ def _apply_legal_trap(rng: random.Random, emps: list[Employee], wage_law: tuple[
         "clopen_prone": [e.id for e in clopen],
         "notes": "Minors trained on PIT must never be scheduled on pit_operator. Clopen-prone employees can "
                  "only close one day and open the next. Meal/rest-break traps depend on the jurisdiction's law pack "
-                 "(use CA for those). The below_minimum_wage employee is a full-timer with open availability, so "
-                 "they get scheduled and the validator should flag them.",
+                 "(use CA for those; CA legal_trap stores allow split shifts, max_shifts_per_day=2).",
     }
-    if wage_law is not None:
-        floor, rule_id = wage_law
-        low_pool = [e for e in adults if e not in clopen and e.status == EmploymentStatus.full_time] or \
-                   [e for e in adults if e not in clopen]
-        low = rng.choice(low_pool)
-        low.wage_per_hour = max(0.25, math.floor((floor - 1.0) * 4) / 4)
-        traps["below_minimum_wage"] = [low.id]
-        traps["minimum_wage"] = {"dollars_per_hour": floor, "law_rule_id": rule_id}
     return traps
 
 
@@ -468,14 +470,22 @@ def generate(
     difficulty: Difficulty = "normal",
     jurisdiction: str | Jurisdiction = "TX",
     school_week: bool | None = True,
+    sector: Literal["retail", "food"] = "retail",
 ) -> Scenario:
     """school_week: the default week (Nov 9-15 2026) is a normal school week, so True.
-    It isn't part of the seed key: only Store.school_week and expected change."""
+    It isn't part of the seed key: only Store.school_week and expected change.
+    sector="food": a restaurant (see food.py); otherwise the retail store."""
     if size not in SIZE_STAFF:
         raise ValueError(f"size must be S, M or L, got {size!r}")
     if difficulty not in DIFFICULTIES:
         raise ValueError(f"difficulty must be one of {DIFFICULTIES}, got {difficulty!r}")
     jur = _parse_jurisdiction(jurisdiction)
+    if sector == "food":
+        from .food import generate_food
+
+        return generate_food(seed, size, difficulty, jur, school_week)
+    if sector != "retail":
+        raise ValueError(f"sector must be 'retail' or 'food', got {sector!r}")
     key = f"{seed}|{size}|{difficulty}|{jur.state}|{jur.city or ''}"
     rng = random.Random(key)
 
@@ -499,7 +509,7 @@ def generate(
         "wage_lift": lift,
     }
     if difficulty == "legal_trap":
-        expected["traps"] = _apply_legal_trap(rng, emps, wage_law)
+        expected["traps"] = _apply_legal_trap(rng, emps)
     elif difficulty == "infeasible":
         ids, variant, summary = _apply_infeasible(rng, emps)
         expected.update(infeasible=True, conflicting_ids=ids, infeasible_variant=variant, infeasible_summary=summary)
@@ -520,6 +530,8 @@ def generate(
             pre_open_minutes=PRE_OPEN,
             post_close_minutes=POST_CLOSE,
             school_week=school_week,
+            # CA meal/rest breaks + always_staffed LOD: the S store is only legal with a split day (#23).
+            max_shifts_per_day=2 if difficulty == "legal_trap" and jur.state == "CA" else 1,
         ),
         departments=[Department(id=d, name=n) for d, n in DEPARTMENTS if d in used_depts],
         roles=[Role(id=r, department_id=ROLES[r][0], name=ROLES[r][1], min_age=ROLES[r][2],
