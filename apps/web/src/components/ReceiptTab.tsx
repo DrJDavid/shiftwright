@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Api } from '../api/client'
 import type { OutreachState, SolveResponse } from '../api/protocol'
-import type { LawPack, ScheduleMetrics, StoreConfig, ValidationReport } from '../contracts'
+import type { LawPack, LawRule, ScheduleMetrics, StoreConfig, ValidationReport } from '../contracts'
 import { checkRules, describeViolation, type RuleCheck } from '../lib/compliance'
 import { fmtDayDate, fmtHours, fmtMoney, fmtPct } from '../lib/format'
 import { humanizer } from '../lib/humanize'
+import { minorProtections } from '../lib/minors'
+import { MinorLine } from './MinorLine'
 
 type Props = {
   api: Api
@@ -186,6 +188,8 @@ function Receipt({
           </div>
         )}
       </section>
+
+      <MinorsSection config={config} schedule={schedule} rules={rules} />
 
       <section className="mt-5 break-inside-avoid">
         <H>Store rules</H>
@@ -381,6 +385,24 @@ function CallOutRepairs({ config, outreach }: { config: StoreConfig; outreach: O
           })}
         </tbody>
       </table>
+    </section>
+  )
+}
+
+/** Minor protection made visible even when nothing is violated (from config + law pack + schedule only). */
+function MinorsSection({ config, schedule, rules }: { config: StoreConfig; schedule: SolveResponse['schedule']; rules: LawRule[] }) {
+  const list = minorProtections(config, schedule, rules)
+  if (list.length === 0) return null
+  return (
+    <section className="mt-5 break-inside-avoid">
+      <H>Minors kept off hazardous roles</H>
+      <ul className="space-y-1.5">
+        {list.map((m) => (
+          <li key={m.employee.id}>
+            <MinorLine m={m} />
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

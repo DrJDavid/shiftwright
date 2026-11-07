@@ -8,6 +8,7 @@ import { fmtMoney, fmtPct, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/forma
 import { roleColors } from '../lib/roles'
 import { EmployeeApp } from './EmployeeApp'
 import { humanizer } from '../lib/humanize'
+import { dayCoveragePct } from '../lib/dayCoverage'
 
 type Props = {
   api: Api
@@ -64,8 +65,10 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
   const chosen = picked.filter((id) => working.has(id))
 
   const [sentCallouts, setSentCallouts] = useState<string[]>([])
+  const [planBase, setPlanBase] = useState<Schedule | null>(null)
   const findCoverage = async () => {
     setSentCallouts(chosen)
+    setPlanBase(result?.schedule ?? null)
     onCallouts?.(chosen.map((id) => ({ employee_id: id, day })))
     setBusy(true)
     setError(null)
@@ -169,6 +172,15 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
   const callouts = new Set(picked)
   const status = outreach?.status ?? 'idle'
   const liveCoverage = outreach?.schedule?.metrics?.coverage_pct
+  const dayCov = plan
+    ? {
+        before: dayCoveragePct(config, planBase, day),
+        afterCallouts: dayCoveragePct(config, planBase, day, sentCallouts),
+        best: dayCoveragePct(config, plan.schedule_if_all_accept, day),
+        worst: dayCoveragePct(config, plan.schedule_if_none_accept, day),
+        live: outreach?.schedule ? dayCoveragePct(config, outreach.schedule, day) : null,
+      }
+    : null
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -291,7 +303,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
           </div>
         )}
 
-        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} lawPack={lawPack} />}
+        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} lawPack={lawPack} dayCov={dayCov} day={day} />}
       </div>
 
       {phoneOf && (
@@ -323,6 +335,8 @@ export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }:
           plan={plan}
           outreach={outreach}
           liveCoverage={liveCoverage}
+          dayCov={dayCov}
+          dayName={WEEKDAY_FULL[day]}
           onStart={() => void startTexting()}
           onApplyOnly={() => void applyOnly()}
           applied={applied}
@@ -352,12 +366,16 @@ function PlanView({
   roleName,
   outreach,
   lawPack,
+  dayCov,
+  day,
 }: {
   plan: FixPlan
   config: StoreConfig
   roleName: Map<string, string>
   outreach: OutreachState | null
   lawPack: LawPack | null
+  dayCov: DayCov | null
+  day: number
 }) {
   const lawById = new Map((lawPack?.rules ?? []).map((r) => [r.id, r]))
   const hasScheduleLaw = (lawPack?.rules ?? []).some((r) => r.type === 'predictive_scheduling')
@@ -383,10 +401,19 @@ function PlanView({
           Mock plan from the in-browser mock, not the engine.
         </p>
       )}
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-rule bg-rule">
-        <Big label="After the call-outs" value={fmtPct(plan.coverage_before_pct)} tone="text-gap" />
-        <Big label="Plan, if the first choices say yes" value={fmtPct(plan.coverage_after_best_pct)} tone="text-pine-dark" />
-        <Big label="Plan, if nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
+      <div>
+        <div className="mb-1 text-xs font-semibold tracking-wide text-muted uppercase">{WEEKDAY_FULL[day]} coverage</div>
+        <div className="grid grid-cols-4 gap-px overflow-hidden rounded-lg border border-rule bg-rule">
+          <Big label="Before the call-outs" value={pctOr(dayCov?.before)} tone="text-ink-2" />
+          <Big label="After the call-outs" value={pctOr(dayCov?.afterCallouts)} tone="text-gap" />
+          <Big label="Plan, if the first choices say yes" value={pctOr(dayCov?.best)} tone="text-pine-dark" />
+          <Big label="Plan, if nobody says yes" value={pctOr(dayCov?.worst)} tone="text-ink-2" />
+        </div>
+        <p className="mt-1 text-[11px] text-muted">
+          {WEEKDAY_FULL[day]} only: needed headcount-minutes covered, from the store's demand and each schedule's shifts (same
+          definition as the weekly figure). Week: {fmtPct(plan.coverage_before_pct)} after the call-outs →{' '}
+          {fmtPct(plan.coverage_after_best_pct)} best / {fmtPct(plan.coverage_after_worst_pct)} if nobody says yes.
+        </p>
       </div>
 
       <ModeBanner plan={plan} outreach={outreach} h={h} lawById={lawById} noScheduleLaw={!!lawPack && !hasScheduleLaw} />
@@ -668,6 +695,10 @@ function NoteWithSource({ text }: { text: string }) {
   )
 }
 
+type DayCov = { before: number | null; afterCallouts: number | null; best: number | null; worst: number | null; live: number | null }
+const WEEKDAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const pctOr = (v: number | null | undefined) => (v == null ? '—' : fmtPct(v))
+
 function Big({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
     <div className="bg-panel px-4 py-3">
@@ -704,6 +735,8 @@ function Phone({
   plan,
   outreach,
   liveCoverage,
+  dayCov,
+  dayName,
   onStart,
   onApplyOnly,
   applied,
@@ -717,6 +750,8 @@ function Phone({
   plan: FixPlan
   outreach: OutreachState | null
   liveCoverage: number | undefined
+  dayCov: DayCov | null
+  dayName: string
   onStart: () => void
   onApplyOnly: () => void
   applied: string | null
@@ -740,7 +775,9 @@ function Phone({
         : waitingOnPending && pending
           ? [{ id: pending.to_employee_id, phone: pending.to_phone }]
           : []
-  const shown = useTween(liveCoverage ?? plan.coverage_before_pct)
+  // Headline: the day's coverage (live during outreach); the weekly figure is secondary.
+  const dayNow = dayCov?.live ?? dayCov?.afterCallouts ?? null
+  const shown = useTween(dayNow ?? liveCoverage ?? plan.coverage_before_pct)
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
@@ -754,14 +791,15 @@ function Phone({
     <aside className="flex w-[21rem] shrink-0 flex-col border-l border-rule bg-paper" aria-label="Outreach">
       <div className="border-b border-rule bg-panel px-4 py-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-xs text-muted">Coverage</span>
+          <span className="text-xs text-muted">{dayNow != null ? `${dayName} coverage` : 'Coverage'}</span>
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_CLS[status]}`}>{STATUS_LABEL[status]}</span>
         </div>
         <div className="text-3xl font-semibold tabular-nums">{fmtPct(shown ?? 0)}</div>
         <div className="text-xs text-muted">
           {(outreach?.accepted_employee_ids ?? []).length > 0
             ? `${outreach!.accepted_employee_ids.map(nameOf).join(', ')} said yes`
-            : `Best case ${fmtPct(plan.coverage_after_best_pct)} if the first choices say yes`}
+            : `Best case ${dayCov?.best != null ? fmtPct(dayCov.best) : fmtPct(plan.coverage_after_best_pct)} if the first choices say yes`}
+          {dayNow != null && <span className="block">Week {fmtPct(liveCoverage ?? plan.coverage_before_pct)}</span>}
         </div>
       </div>
 

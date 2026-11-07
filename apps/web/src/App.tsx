@@ -290,6 +290,7 @@ export default function App() {
               onSolve={() => void runSolve()}
               onGapClick={setOpenGap}
               callouts={callouts}
+              lawRules={lawPack?.rules}
               onDayClick={(d) => {
                 setCoverageDay(d)
                 setTab('coverage')

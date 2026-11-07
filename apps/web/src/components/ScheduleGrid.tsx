@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
+import type { Employee, Gap, LawRule, Schedule, Shift, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
 import { shiftWage } from '../lib/vocab'
 import { humanizer } from '../lib/humanize'
+import { minorProtections } from '../lib/minors'
+import { MinorLine } from './MinorLine'
 
 type Props = {
   schedule: Schedule
@@ -12,6 +14,8 @@ type Props = {
   onDayClick?: (day: number) => void
   /** Reported call-outs (Fix tab): their shifts are shown struck through. */
   callouts?: { employee_id: string; day: number }[]
+  /** Law pack rules, for the minor-protection shield on rows. */
+  lawRules?: LawRule[]
 }
 type Hover = { x: number; y: number; content: ReactNode } | null
 
@@ -20,13 +24,17 @@ function paidHours(s: Shift) {
   return (s.end - s.start - unpaid) / 60
 }
 
-export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callouts = [] }: Props) {
+export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callouts = [], lawRules = [] }: Props) {
   const [groupBy, setGroupBy] = useState<'department' | 'hours'>('department')
   const [hover, setHover] = useState<Hover>(null)
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
   const roleById = useMemo(() => new Map(config.roles.map((r) => [r.id, r])), [config.roles])
   const h = useMemo(() => humanizer(config), [config])
+  const protectedMinors = useMemo(
+    () => new Map(minorProtections(config, schedule, lawRules).map((m) => [m.employee.id, m])),
+    [config, schedule, lawRules],
+  )
   const shifts = useMemo(() => schedule.shifts ?? [], [schedule.shifts])
   const gaps = schedule.gaps ?? []
   const days = [0, 1, 2, 3, 4, 5, 6]
@@ -226,7 +234,21 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
               {g.rows.map(({ e, hours }) => (
                 <tr key={e.id} className="group">
                   <th scope="row" className="border-b border-rule-soft bg-panel px-3 py-1.5 text-left font-normal group-hover:bg-paper">
-                    <div className="truncate font-medium text-ink">{e.name}</div>
+                    <div className="flex items-center gap-1 truncate font-medium text-ink">
+                      <span className="truncate">{e.name}</span>
+                      {protectedMinors.has(e.id) && (
+                        <span
+                          className={`shrink-0 ${protectedMinors.get(e.id)!.workedBarred.length ? 'text-gap' : 'text-pine'}`}
+                          aria-label="Minor kept off hazardous roles"
+                          onMouseMove={(ev) => show(ev, <MinorLine m={protectedMinors.get(e.id)!} compact />)}
+                          onMouseLeave={() => setHover(null)}
+                        >
+                          <svg viewBox="0 0 16 16" className="size-3.5" fill="currentColor" aria-hidden>
+                            <path d="M8 1 2.5 3v4.2c0 3.4 2.3 6.4 5.5 7.8 3.2-1.4 5.5-4.4 5.5-7.8V3L8 1Zm-1 9.6L4.6 8.2l1-1L7 8.6l3.4-3.4 1 1L7 10.6Z" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted">
                       {hours > 0 ? fmtHours(hours) : 'Off all week'}
                       {e.max_hours_week ? ` of ${fmtHours(e.max_hours_week)}` : ''}
