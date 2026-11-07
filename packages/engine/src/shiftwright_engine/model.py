@@ -444,6 +444,10 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
     solver.parameters.max_time_in_seconds = float(time_limit_s)
     solver.parameters.num_workers = workers or default_workers()
     solver.parameters.log_search_progress = os.environ.get("ENGINE_LOG") == "1"
+    for kv in filter(None, os.environ.get("ENGINE_CPSAT_PARAMS", "").split(",")):  # experiments only
+        k, v = kv.split("=")
+        cur = getattr(solver.parameters, k)
+        setattr(solver.parameters, k, type(cur)(v) if not isinstance(cur, bool) else v.lower() in ("1", "true"))
     if light_presolve:  # full presolve costs ~15 s on the demo store and barely shrinks it
         solver.parameters.max_presolve_iterations = 1
         solver.parameters.cp_model_probing_level = 0
