@@ -6,9 +6,9 @@
   "level": "city",
   "notes": [
     "Fair Workweek Ordinance (Emeryville Mun. Code Title 5 ch. 39), effective July 1, 2017, covers retail firms with 56+ employees globally.",
-    "Predictability pay: 1 hour for changes with <14 days but >=24 h notice; for <24 h notice, 4 hours or the scheduled shift length, whichever is less (extra key change_premium_hours_under_24h=4); other <24 h changes 1 hour.",
     "Employers must first offer extra hours to existing qualified part-timers up to 35 h/week.",
-    "Right to rest: 1.5x for hours worked between shifts separated by less than 11 hours; employee may decline."
+    "Right to rest: 1.5x for hours worked between shifts separated by less than 11 hours; employee may decline.",
+    "Predictability pay as read from the city's official employee notice on 2026-11-06: 1 h for changes with <14 days but >=24 h notice; with <24 h notice, 4 h or the scheduled shift length (whichever is less) for cancelled/reduced shifts, other changes 1 h. Encoded with reduced_hours_measure='scheduled_shift' (cap applies to the shift's scheduled hours, not the hours cut). The notice and ordinance could not be re-fetched on 2026-11-07 (Akamai 403), so the rule is confidence=medium and exemptions are not encoded (conservative: charge)."
   ],
   "rules": [
     {
@@ -21,19 +21,32 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
-        "change_premium_hours_under_24h": 4,
+        "applies_to": "both",
         "applies_if_employees_over": 55,
-        "applies_to": "both"
+        "employee_count_scope": "global",
+        "premium_basis": "regular_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "reduced_premium_hours": 1,
+        "reduced_hours_fraction": 1.0,
+        "reduced_hours_measure": "scheduled_shift",
+        "reduced_premium_hours_cap": 4,
+        "reduced_fraction_notice_hours": 24,
+        "voluntary_additional_hours_exempt": false,
+        "consent_must_be_written": false,
+        "coworker_coverage_exempt": false,
+        "exemption_requires_group_message": false,
+        "exemption_note": "Exemptions not verified: the city site blocked automated access on 2026-11-07, so no exemption is encoded and every employer change inside 14 days is charged."
       },
-      "summary": "Retail firms with 56+ employees globally must post schedules two weeks ahead and pay predictability pay for later changes.",
+      "summary": "Emeryville retail (56+ employees globally): inside 14 days, 1 hour at the regular rate per change with 24 h+ notice and for other changes with less; a cut or cancelled shift with <24 h notice pays 4 hours or the scheduled shift length, whichever is less.",
       "citation": {
         "url": "https://www.emeryville.org/files/assets/city/v/1/development/documents/fair-workweek-ordinance/final-final-draft-_content_fww-notice-for-employees.pdf",
         "title": "City of Emeryville \u2014 Fair Work Week Ordinance official notice",
         "excerpt": "Retail Firms with 56 or more employees globally ... provide work schedules at least two weeks in advance",
         "last_verified": "2026-11-06"
       },
-      "confidence": "high",
+      "confidence": "medium",
       "verified": false
     },
     {

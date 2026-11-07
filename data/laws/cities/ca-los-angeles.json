@@ -6,8 +6,11 @@
   "level": "city",
   "notes": [
     "Fair Work Week Ordinance (LAMC Ch. XVIII Art. 5) covers retail businesses (NAICS) with 300+ employees globally; employees who work 2+ hours a week in the City of Los Angeles. Effective April 1, 2023.",
-    "Predictability pay: 1 hour for an increase >15 min or a change of date/time/location; 0.5x for hours not worked when hours are cut by 15+ min or an on-call shift is not used (extra key reduced_hours_fraction).",
-    "Clopening (<10 h between shifts spanning two workdays) requires written consent and 1.5x pay for the second shift (extra key premium_applies_to='shift')."
+    "Clopening (<10 h between shifts spanning two workdays) requires written consent and 1.5x pay for the second shift (extra key premium_applies_to='shift').",
+    "Predictability pay (wagesla.lacity.gov FWW page; Rules Reg. 5): increase in hours over 15 min = 1 h at regular rate; change to the date, time, or location = 1 h for EACH change (moving a shift to another day and start time = 2 h, moved_premium_per_attribute); reduction of 15+ min or unfulfilled on-call = 1/2 x hours not worked at regular rate.",
+    "Consent does not waive pay: 'Predictability Pay is required when the change is initiated by the Employer, even if the Employee consents to that change In Writing' (Reg. 5). Exemptions (Reg. 5.1): employee-initiated change; employee accepts an employer-initiated change due to another scheduled employee's absence (must be told it is voluntary, may decline, and no predictability pay); accepted offers of additional hours under LAMC 185.05; discipline; force majeure; hours paid at overtime under Lab. Code 510. Employees asked to leave early voluntarily are still owed pay (FAQ 47).",
+    "'In Writing' includes emails, text messages, scheduling or messaging apps (Rules, definitions). Changes made with <14 days' notice need the employee's written consent.",
+    "Coverage: 300+ employees globally, principal NAICS retail trade (44-45); employees working 2+ hours a week in the City of LA."
   ],
   "rules": [
     {
@@ -20,17 +23,35 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
-        "reduced_hours_fraction": 0.5,
+        "applies_to": "retail",
         "applies_if_employees_over": 299,
-        "applies_to": "retail"
+        "employee_count_scope": "global",
+        "premium_basis": "regular_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "moved_premium_per_attribute": true,
+        "grace_minutes": 15,
+        "reduced_hours_fraction": 0.5,
+        "reduced_fraction_notice_hours": null,
+        "voluntary_additional_hours_exempt": true,
+        "exemption_only_for_absent_coworker_hours": true,
+        "consent_must_be_written": true,
+        "text_message_counts_as_written": true,
+        "coworker_coverage_exempt": false,
+        "exemption_requires_group_message": false,
+        "exemption_message_must_state": [
+          "accepting the hours is voluntary and the employee has a right to decline",
+          "the employee will not receive Predictability Pay for these hours"
+        ],
+        "exemption_note": "Exempt when \"An Employee accepts a schedule change initiated by an Employer due to an absence of another scheduled Employee\"; employer must say acceptance is voluntary, the employee may decline, and no Predictability Pay is owed."
       },
-      "summary": "Large retailers (300+ employees globally) must post schedules 14 days ahead and pay predictability pay for later employer changes.",
+      "summary": "LA retail (300+ employees globally): inside 14 days, 1 hour at the regular rate for added hours (>15 min) and 1 hour per change of date, time or location; reductions of 15+ min pay half the hours not worked. Voluntarily covering an absent coworker is exempt.",
       "citation": {
-        "url": "https://wagesla.lacity.gov/fair-work-week-information",
-        "title": "Los Angeles Office of Wage Standards \u2014 Fair Work Week Information",
-        "excerpt": "Provide Employees advance notice of their Work Schedules at least 14 calendar days before the start of a work period",
-        "last_verified": "2026-11-06"
+        "url": "https://wagesla.lacity.gov/sites/g/files/wph1941/files/2025-05/FWWO-RulesandRegulations-2025-05-08.pdf",
+        "title": "LA Office of Wage Standards \u2014 Fair Work Week Rules and Regulations (2025-05-08), Reg. 5 (LAMC \u00a7 185.06)",
+        "excerpt": "An Employee accepts a schedule change initiated by an Employer due to an absence of another scheduled Employee. The Employer must communicate to the Employee that acceptance of the hours is voluntary",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

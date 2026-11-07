@@ -12,7 +12,11 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Oregon predictability pay: 1 hour for >30 min added, a moved shift without lost hours, or an added shift; 0.5x regular rate per lost scheduled hour for cuts, cancellations or unused on-call shifts (BOLI).",
-    "Minors (BOLI): minors must get a 30-minute meal break when working 6+ hours and a paid 15-minute rest break per 4 hours (or major portion) \u2014 longer than the adult 10 minutes; not encoded (rest_break has no age scope). Employers need a BOLI certificate to employ minors."
+    "Minors (BOLI): minors must get a 30-minute meal break when working 6+ hours and a paid 15-minute rest break per 4 hours (or major portion) \u2014 longer than the adult 10 minutes; not encoded (rest_break has no age scope). Employers need a BOLI certificate to employ minors.",
+    "Schedule-change pay (ORS 653.455(2)): 1 h at the regular rate for adding >30 min, changing date/start/end with no loss of hours, or scheduling an additional shift/on-call shift; 1/2 x regular rate per scheduled hour not worked for subtracting hours, moving with loss of hours, cancelling, or an on-call shift not used. Changes of start/end by 30 minutes or less are exempt.",
+    "Exceptions (653.455(3)): employee-initiated swaps/coverage between employees; employee written requests; voluntary standby list acceptances (653.432); (k) employer requests extra hours for unanticipated customer needs or unexpected employee absence, employee consents in writing, standby list exhausted first if one exists, and \u2014 if the employee is not working at the time \u2014 the request is a group communication (to all eligible employees, written or oral); an employee on shift may be asked individually (extensions).",
+    "ORS 653.412-.485 do not define 'in writing'; BOLI lists text message as a notice method but the consent standard was not confirmed (OAR 839-026 not fetched), so text_message_counts_as_written=false (conservative).",
+    "Coverage (ORS 653.422): retail, hospitality or food-services establishments with 500+ employees worldwide (chains and integrated enterprises aggregated). ORS 653.490 preempts local scheduling laws."
   ],
   "rules": [
     {
@@ -118,17 +122,33 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
-        "reduced_hours_fraction": 0.5,
+        "applies_to": "both",
         "applies_if_employees_over": 499,
-        "applies_to": "both"
+        "employee_count_scope": "global",
+        "premium_basis": "regular_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "grace_minutes": 30,
+        "reduced_hours_fraction": 0.5,
+        "reduced_fraction_notice_hours": null,
+        "voluntary_additional_hours_exempt": true,
+        "consent_must_be_written": true,
+        "text_message_counts_as_written": false,
+        "coworker_coverage_exempt": true,
+        "exemption_requires_group_message": true,
+        "exemption_individual_ok_if_on_shift": true,
+        "exemption_recipients": "all_eligible",
+        "exemption_only_for_absent_coworker_hours": false,
+        "standby_list_first": true,
+        "exemption_note": "Exempt if the employer requests extra hours \"to address unanticipated customer needs or unexpected employee absence\", \"the employee consents in writing\", and, if the employee is not on shift, the request is \"through a group communication\"."
       },
-      "summary": "Oregon retail, hospitality and food-service employers with 500+ employees worldwide must give schedules 14 days ahead and pay predictability pay for later changes.",
+      "summary": "Oregon (500+ employees worldwide, retail/hospitality/food): without 14 days' notice, 1 hour at the regular rate for adding 30+ min, moving a shift or adding a shift; half pay for hours lost. Extra hours for an unexpected absence are exempt with written consent (group request if off shift).",
       "citation": {
-        "url": "https://www.oregon.gov/boli/workers/pages/predictive-scheduling.aspx",
-        "title": "Oregon BOLI \u2014 Predictive Scheduling (ORS 653.412-653.490, OAR 839-026)",
-        "excerpt": "at least 500 employees worldwide ... at least 14 calendar days in advance for the first day on the schedule",
-        "last_verified": "2026-11-06"
+        "url": "https://www.oregonlegislature.gov/bills_laws/ors/ors653.html",
+        "title": "ORS 653.455 \u2014 Compensation for work schedule changes; exceptions",
+        "excerpt": "One hour of pay at the employee's regular rate of pay ... when the employer: (A) Adds more than 30 minutes of work ... (C) Schedules the employee for an additional work shift",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
