@@ -7,9 +7,10 @@ The called-out shifts are removed from `now` on. Levers:
   - call_in: a new shift for someone not working today, starting at or after `now`
     (wage + CALL_IN_DISRUPTION_DOLLARS + any predictive-scheduling premium; preferences not charged);
   - drop_coverage: leave the gap (its penalty).
-Two models are solved on the week (other days fixed): N without call-ins (`schedule_if_none_accept`,
-and the immediate `actions`) and A with every allowed lever (`schedule_if_all_accept`; its call-ins
-head the `outreach_queue`). Alternates are the next best call-ins against N's remaining gaps.
+Two models are solved on the week (other days fixed): A with every allowed lever
+(`schedule_if_all_accept`; its call-ins head the `outreach_queue`), then N without call-ins but with
+exactly A's extensions (`schedule_if_none_accept` and the immediate `actions`, SEMANTICS #24).
+Alternates are the next best call-ins against N's remaining gaps.
 Ranking (SEMANTICS #16): gap hours the shift can cover per added dollar × est_accept_prob.
 """
 from __future__ import annotations
@@ -510,10 +511,20 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
     t0 = time.perf_counter()
     fx = _Fix(req)
     base_sched = fx._schedule(list(fx.base))
-    per = max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.4)
 
-    # N: no call-ins.
-    rN = fx._solve(fx.ext, set(), per)
+    # A: every allowed lever, extensions and call-ins chosen together.
+    picked: list[int] = []
+    rA, a_ext = None, None
+    if Lever.call_in in fx.levers and fx.callin:
+        rA = fx._solve(fx.ext | fx.callin, set(), max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.5))
+        if rA is not None:
+            picked = [i for i in fx.callin if rA[1].boolean_value(rA[0].y[i])]
+            a_ext = {i for i in fx.ext if rA[1].boolean_value(rA[0].y[i])}
+
+    # N: no call-ins. A's extensions are the immediate actions, so N keeps exactly those
+    # (SEMANTICS #24: actions are in both schedules; A differs from N only by call-ins).
+    per = max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.6)
+    rN = fx._solve(fx.ext, set(), per) if a_ext is None else fx._solve(a_ext, a_ext, per)
     if rN is None:
         none_shifts, none_sched = list(fx.base), base_sched
         ext_N = {}
@@ -523,16 +534,7 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
         none_sched = fx._schedule(none_shifts, rN[0], rN[1], "optimal" if rN[2] == cp_model.OPTIMAL else "feasible",
                                   premium_pay=sum(x.dollars for x in ext_N.values()))
 
-    # A: N's immediate actions (its extensions, forced; SEMANTICS #24) plus call-ins.
-    picked: list[int] = []
-    all_shifts, rA = none_shifts, None
-    n_ext = {i for i in fx.ext if rN is not None and rN[1].boolean_value(rN[0].y[i])}
-    if Lever.call_in in fx.levers and fx.callin:
-        rA = fx._solve(n_ext | fx.callin, n_ext, max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.7))
-        if rA is not None:
-            picked = [i for i in fx.callin if rA[1].boolean_value(rA[0].y[i])]
-            if picked:
-                all_shifts = fx._shifts(rA[0], rA[1])
+    all_shifts = fx._shifts(rA[0], rA[1]) if picked else none_shifts
 
     # Outreach pool: A's call-ins, then up to MAX_ALTERNATES alternates against N's remaining gaps.
     pool = []  # (cand, shift, open hours)
