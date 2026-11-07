@@ -1,22 +1,13 @@
 # WS7 status
 
-_Updated Sat Nov 7, ~01:45 CT. Rebased on main 4f53a85 (real engine solve_week; fix_day not yet)._
+_Updated Sat Nov 7, ~03:15 CT. Rebased on main eaed15e (contracts v1.3; fix_day not yet)._
 
 ## How David runs it locally
 
-From the repo root, after `make install` once:
+From the repo root, after `make install` once: `make dev`, then open **http://localhost:5173/?demo**
+(`?demo=chicago|seattle|sf` once WS6 ships those templates). `make dev-api` now loads `.env` itself.
 
-```
-set -a; . ./.env; set +a; make dev
-```
-
-then open **http://localhost:5173/?demo** (the `?demo` loads a fresh copy of the demo store, Store #0417 with
-60 people; afterwards plain http://localhost:5173 reopens the same store). `make dev` runs the API on :8000 and Vite
-on :5173 (Vite proxies `/api` to :8000). The `set -a; . ./.env` part matters: `make dev-api` doesn't read `.env`
-itself, so without it the chat has no OpenRouter key. **Suggested Makefile fix (coordinator, root file):**
-`dev-api: set -a; [ -f .env ] && . ./.env; set +a; uv run uvicorn shiftwright_api.main:app --reload --port 8000`.
-
-In the app: **Store ▾** (top right) loads the demo store or starts an empty one at any time. Click **Build schedule**
+In the app: **Store ▾** (top right) loads a demo store (Austin; Chicago/Seattle/SF appear once their templates exist) or starts an empty one. Click **Build schedule**
 (about 20–30 s), then use the tabs. Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock&demo.
 
 ## Running it (details)
@@ -30,6 +21,43 @@ In the app: **Store ▾** (top right) loads the demo store or starts an empty on
   remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
+
+**Slice 4 (Sat 03:15)**
+- CSV import card: dropdowns from `ImportPreview.target_fields`; "Still needed" computed from `required_fields` plus the
+  server's alternatives (birth date satisfies age, first + last satisfies name, any avail_* column) — mirrors
+  `imports.unmapped_required`; the old card never cleared and kept Import disabled.
+- `department_staffing` card (API.md v1.3): one card per department; each role has "Most of the day", busy times
+  (headcount, Weekdays/Saturday/Sunday, from–to; add/remove), opening crew (n, minutes before open) and closing crew
+  (n, minutes after close); prefilled from `suggested` with a "Suggested" tag or "Use suggestion" per role and
+  "Looks right" for the whole department; live **Preview** heatmap per day group computed client-side by
+  `src/lib/staffing.ts` (base over open hours, peaks replace base, crews outside open hours; unit-tested);
+  collapses to "Front of Store: 1–2 Guest Service Desk, 1–5 Cashier, …". `coverage_grid` renders read-only when
+  `readonly: true`. In the gallery and in the mock onboarding (after payroll; suggestions read from the fixture demand).
+- Store ▾ localities: Austin (`demo`), Chicago (`demo_chicago`), Seattle (`demo_seattle`), SF (`demo_sf`). A locality
+  whose template the server rejects (404/422) is hidden for the session with a note. `?demo=<city>` works too.
+  Older API without `demo`: falls back to PUTting the bundled fixture.
+- Schedule grid: `Shift.why` headline in the hover tooltip ("click for N more"), all items in a click popover; nothing
+  shown when empty. The mock fills `why` with facts about its own greedy choice.
+- Fix tab: per action, "+$17.50 Chicago predictability pay" (amount from `premium_pay_dollars`, label from the law
+  rule in `law_rule_ids`, link to its source), or "No premium · <rule> checked", or "No predictive-scheduling law in
+  this location's law pack". Rationale shown as written. Mock computes premiums only from an embedded law pack's
+  `predictive_scheduling` params (threshold, `change_premium_hours`, `voluntary_additional_hours_exempt`), per #17.
+- **Compliance receipt** tab: store, week, jurisdiction, law-pack coverage; validator verdict; solver-reported vs
+  validator-recomputed metrics side by side (differences highlighted); every law rule with summary, citation title +
+  URL, excerpt, last verified/confidence, and how the schedule meets it from the rule's own params
+  (`src/lib/compliance.ts`: OT hours and max weekly hours, longest day, shifts over the break trigger and how many
+  have the break, minors' ages/longest day/week/earliest start/latest end vs limits, under-18 shifts in tagged roles,
+  shortest rest, lowest wage vs minimum, predictive-scheduling applicability by employer size) plus the validator's
+  violations for that rule; rules not applicable this week say why (school week, employer size); store rules with
+  hard Met/violations and soft cost this week; premium pay + overtime. **Print / Save PDF** prints only the receipt
+  (portal + print CSS) — the Austin demo prints on 2 Letter pages. "Run the validator" (`POST /validate`) if missing.
+- **Employee phone view** `?employee=<id>&store=<id>` (390×844): their week (times, roles, breaks, total hours), an
+  open shift offer with Accept / Decline (through `POST /api/sms/mock-reply`, only when the messenger is mock;
+  otherwise "Reply YES or NO to the text"), "Saying no is fine", message history. No badges, nags or upsell. Fix tab
+  thread: "Open <name>'s phone" shows it in an inline phone frame (works with the in-browser mock too) and, in live
+  mode, a new-window link.
+- Import commit-time warnings: not exposed by the API yet (stored server-side only), so nothing to show.
+- Tests: 21. build, lint clean.
 
 **Slice 3 (Sat 01:45)**
 - Real engine checked on the demo store (174 shifts, 69 gaps, 90% coverage, validator 0 hard): grid, stats, heatmap and
@@ -100,6 +128,17 @@ solve → grid, stats, validator badge + report. (Solve runs WS6's engine stub u
 - Coverage heatmap: cells are slot-sized; a gap shorter than a slot still marks the whole cell red (hover shows the exact range).
 
 ## API-side notes for WS6
+
+Slice 4 (open):
+- A way to list available store templates (e.g. `templates: string[]` in `/api/health` or `GET /api/templates`), so the
+  Store menu can hide missing localities without trying to create a store.
+- `ImportPreview`: the "alternatives" in `unmapped_required` (first+last for name, birth_date for age, any avail_*)
+  aren't in `required_fields`, so the web mirrors them in `src/cards/csvKind.ts`. A `required_alternatives` field
+  (e.g. `{name: [["first_name","last_name"]], age: [["birth_date"]]}`) would remove the copy.
+- Compliance receipt can't show yet: premiums itemised by law rule and employee (only the weekly total exists);
+  which law rules the validator actually evaluated (vs skipped); commit-time import warnings.
+
+Earlier:
 
 1. Readiness has no "wages ≥ minimum wage" check yet (API.md v1.1 lists it). The web renders whatever checks arrive.
 2. Readiness details show raw ids: "Nobody trained for: guest_service_desk, …" and "No demand on day(s): 0, 1, …".
