@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shiftwright shift texts</title>
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<main>
+<nav><a href="/">Shiftwright</a><a href="/privacy.html">Privacy Policy</a><a href="/terms.html">Terms &amp; Conditions</a></nav>
+<h1>Get shift texts from your employer</h1>
+<p class="meta">Shiftwright helps managers schedule hourly staff. If your employer uses Shiftwright, you can choose to get text messages about your shifts.</p>
+
+<p>What you'll get: shift offers when a coworker calls out ("Can you cover Tue 4–10 pm? Reply YES or NO"),
+confirmations when you pick up a shift, and notices when your schedule changes. You can also text the
+number to tell your manager you can't make a shift.</p>
+
+<form id="optin">
+  <label for="name">Your name</label>
+  <input id="name" name="name" type="text" autocomplete="name" required maxlength="80">
+  <label for="employer">Where you work</label>
+  <input id="employer" name="employer" type="text" required maxlength="120">
+  <label for="phone">Mobile number</label>
+  <input id="phone" name="phone" type="tel" autocomplete="tel" required maxlength="20" placeholder="(512) 555-0123">
+  <label class="consent">
+    <input id="consent" name="consent" type="checkbox">
+    <span id="consent-text">Text me shift offers and schedule changes from my employer via Shiftwright.
+    Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help.
+    Consent is not a condition of employment.
+    See the <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy Policy</a>.</span>
+  </label>
+  <button type="submit" id="submit" disabled>Sign up for texts</button>
+  <p class="note">The box is never pre-checked. Your number is used only for these messages and is never sold or shared for marketing.</p>
+  <p id="result" role="status"></p>
+</form>
+
+<h2>Stopping texts</h2>
+<p>Reply <strong>STOP</strong> to any message to stop all texts. Reply <strong>HELP</strong> for help.</p>
+</main>
+<script>
+(function () {
+  var form = document.getElementById('optin');
+  var box = document.getElementById('consent');
+  var btn = document.getElementById('submit');
+  var out = document.getElementById('result');
+  box.addEventListener('change', function () { btn.disabled = !box.checked; });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!box.checked) return;
+    btn.disabled = true;
+    out.textContent = '';
+    fetch('/api/sms/optin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: form.name.value, employer: form.employer.value, phone: form.phone.value,
+        consent: true, consent_text: document.getElementById('consent-text').textContent.replace(/\s+/g, ' ').trim()
+      })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      out.textContent = res.ok ? "You're signed up. Reply STOP at any time to opt out."
+                               : (res.j && res.j.detail) || 'Something went wrong. Please try again.';
+      btn.disabled = res.ok;
+    }).catch(function () {
+      out.textContent = 'Something went wrong. Please try again.';
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
+</body>
+</html>

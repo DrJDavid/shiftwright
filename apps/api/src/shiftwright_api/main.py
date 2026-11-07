@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -46,6 +47,8 @@ from .models import (
 )
 from .outreach import OutreachBusy, OutreachManager
 from .settings import Settings
+
+SMS_OPTIN_SCOPE = "_public"  # kv scope for opt-ins (not tied to one store)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -406,6 +409,26 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
                 raise HTTPException(403, "Invalid Twilio signature")
         await app.state.outreach.inbound(form.get("From", ""), form.get("Body", ""))
         return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml")
+
+    @app.post("/api/sms/optin")
+    def sms_optin(body: dict = Body(...)) -> dict:
+        """Public opt-in from /sms.html: records who agreed to shift texts, when, and the exact wording."""
+        name, employer = str(body.get("name") or "").strip()[:80], str(body.get("employer") or "").strip()[:120]
+        phone = "".join(ch for ch in str(body.get("phone") or "") if ch.isdigit())
+        if len(phone) == 11 and phone.startswith("1"):
+            phone = phone[1:]
+        if body.get("consent") is not True:
+            raise HTTPException(422, "Check the box to agree to shift texts.")
+        if not name or not employer:
+            raise HTTPException(422, "Enter your name and where you work.")
+        if len(phone) != 10:
+            raise HTTPException(422, "Enter a 10-digit US mobile number.")
+        db().put(SMS_OPTIN_SCOPE, "sms_optin", "+1" + phone, {
+            "name": name, "employer": employer, "phone": "+1" + phone,
+            "consent_text": str(body.get("consent_text") or "")[:1000], "source": "/sms.html",
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"ok": True}
 
     @app.post("/api/sms/mock-reply")
     async def sms_mock_reply(body: dict = Body(...)) -> dict:
