@@ -17,12 +17,24 @@ type Props = {
   place: string
 }
 
+/** Without these the build has nobody to place or nothing to cover (PUNCHLIST B4 QA), so Build stays off. */
+const BUILD_NEEDS: [id: string, what: string][] = [
+  ['employees', 'your team'],
+  ['training', 'who can work each role'],
+  ['demand', 'how many people you need, and when'],
+]
+
+function listPhrase(items: string[]): string {
+  return items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
 /** Setup mode's left rail: Business → Hours & budget → Team → Staffing → Rules → Build. */
 export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipment, plain = (t) => t, place }: Props) {
   const steps = setupSteps(readiness)
   const detail = (c: Check) => (c.id === 'jurisdiction' && c.ok ? `Labor rules for ${place}` : plain(c.detail))
   const current = steps.find((s) => !s.done)?.id
   const ready = readiness?.ready ?? false
+  const missing = readiness ? BUILD_NEEDS.filter(([id]) => !readiness.checks.find((c) => c.id === id)?.ok).map(([, what]) => what) : []
   const equipment = readiness?.checks.find((c) => c.id === 'equipment_roles')
 
   return (
@@ -50,7 +62,9 @@ export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipmen
         ) : (
           <>
             <SolveButton state={solve} onSolve={onBuild} label="Build my schedule" disabled />
-            {solve.status !== 'running' && (
+            {readiness && missing.length > 0 ? (
+              <p className="mt-2 text-xs text-muted">To build a schedule, first add {listPhrase(missing)}.</p>
+            ) : readiness && solve.status !== 'running' && (
               <p className="mt-2 text-xs text-muted">
                 Some steps aren't done, so parts of the week may go uncovered.{' '}
                 <button type="button" onClick={onBuild} className="font-semibold text-ink underline">

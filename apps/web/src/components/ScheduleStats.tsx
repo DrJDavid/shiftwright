@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import type { Schedule, ValidationReport } from '../contracts'
-import { fmtHours, fmtMoney, fmtPct, fmtRange, WEEKDAY_NAMES } from '../lib/format'
+import { fmtCoverage, fmtHours, fmtMoney, fmtRange, WEEKDAY_NAMES } from '../lib/format'
 
-type Props = { schedule: Schedule; validation: ValidationReport | null; employeeName: (id: string) => string }
+type Props = {
+  schedule: Schedule
+  validation: ValidationReport | null
+  employeeName: (id: string) => string
+  demand: { headcount: number }[]
+}
 
-export function ScheduleStats({ schedule, validation, employeeName }: Props) {
+export function ScheduleStats({ schedule, validation, employeeName, demand }: Props) {
   const m = schedule.metrics
   const [open, setOpen] = useState(false)
   if (!m) return null
@@ -31,7 +36,7 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
         <span className="text-xl font-semibold">{fmtMoney(m.total_wage_cost)}</span>
       </Stat>
       <Stat label="Coverage">
-        <span className="text-xl font-semibold">{fmtPct(m.coverage_pct)}</span>
+        <span className="text-xl font-semibold">{fmtCoverage(m.coverage_pct, demand)}</span>
       </Stat>
       <Stat label="Gap cost">
         <span className={`text-xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>

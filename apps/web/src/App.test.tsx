@@ -172,8 +172,8 @@ async function createHarborGrill() {
 }
 
 describe('setup mode → workspace mode (B4)', () => {
-  it('starts in setup mode, then switches to the workspace after the first build, keeping the chat', async () => {
-    setup('/signup')
+  it('a new, empty workplace starts in setup mode and cannot be built yet', async () => {
+    const t = setup('/signup')
     await createHarborGrill()
 
     // Setup mode: step tracker + centered chat, no tabs.
@@ -181,15 +181,38 @@ describe('setup mode → workspace mode (B4)', () => {
     for (const label of ['Business', 'Hours & budget', 'Team', 'Staffing', 'Rules', 'Build'])
       expect(within(steps).getByText(label)).toBeTruthy()
     expect(screen.queryByRole('tablist')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Build my schedule' }).hasAttribute('disabled')).toBe(true)
     expect(screen.getByLabelText('Business: not done')).toBeTruthy()
+    expect(t.calls.find((c) => c.url === '/api/stores')?.body).toMatchObject({ template: 'empty' })
+
+    // PUNCHLIST B4 QA: no people / training / staffing → Build is off, says what's missing, no "Build anyway".
+    expect(
+      await screen.findByText('To build a schedule, first add your team, who can work each role and how many people you need, and when.'),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Build my schedule' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Build anyway' })).toBeNull()
+  })
+
+  it('switches to the workspace after the first build, keeping the chat', async () => {
+    setup('/signup')
+    await signUp()
+    await screen.findByRole('heading', { name: 'New workplace' })
+    fireEvent.click(screen.getByRole('button', { name: 'Or explore a sample workplace' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Austin, TX/ }))
+    await screen.findByRole('complementary', { name: 'Setup steps' })
+    expect(screen.queryByRole('tablist')).toBeNull()
 
     // Talk to the chat first; the conversation must survive the mode switch.
     fireEvent.click(screen.getByRole('button', { name: 'Set up my store' }))
     await screen.findByText(/Let's start with the store itself/)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Build anyway' }))
-    await screen.findByRole('tablist', { name: 'Views' })
+    // The sample has a team, training and staffing, so Build (or "Build anyway") is on.
+    const build = await waitFor(() => {
+      const b = screen.queryByRole('button', { name: 'Build anyway' }) ?? screen.getByRole('button', { name: 'Build my schedule' })
+      expect(b.hasAttribute('disabled')).toBe(false)
+      return b
+    })
+    fireEvent.click(build)
+    await screen.findByRole('tablist', { name: 'Views' }, { timeout: 5000 })
     expect(screen.queryByRole('complementary', { name: 'Setup steps' })).toBeNull()
 
     // The chat is now a drawer behind "Ask Shiftwright", with the same conversation.

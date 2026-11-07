@@ -1,7 +1,7 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B6: routes, accounts, create workplace, switcher, guided setup, workspace tabs, plain language), branch
-`cursor/B1-web-shell` off main 9413f5e. Built against the PUNCHLIST A1 endpoint table; A1 isn't on main yet._
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B6 + B4 QA bugs), branch `cursor/B1-web-shell`, which now
+includes `cursor/A1-auth` (051b0c6) and main. Verified against the real A1 backend (see "Real-backend check")._
 
 ## How David runs it locally
 
@@ -58,6 +58,26 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
   contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
   the mock now uses the same suffix. A contract field would be safer.
 
+## Real-backend check (A1 merged)
+
+Ran the API with `AUTH_REQUIRED=true MESSENGER=mock`, no OpenRouter key, serving the built web app (port 8011,
+throwaway sqlite). Browser: signed-out `/workplaces` → `/login`; signup → `/workplaces/new`; Harbor Grill (Restaurant,
+Chicago, IL) saved with `sector: food`, `jurisdiction {IL, chicago}`, template `empty` → setup mode with the real
+readiness ids (all known to the step map); chat SSE `POST /chat` 200 with the cookie (agent replies "OPENROUTER_API_KEY is
+not set" as expected); CSV drop → `POST /import/roster` 200 preview; build → workspace tabs. curl: second user gets
+404 on the first user's store (config and chat) and an empty `/workplaces`; sample copies list `sample_of: "demo"`;
+409 duplicate email (case-insensitive), 422 short password, 401 "Wrong email or password.", logout 204 → `/me` 401.
+- Samples are detected by `sample_of` (no longer the "Sample: " prefix). The mock matches.
+
+## B4 QA bugs (fixed)
+
+- Build is disabled until readiness `employees`, `training` and `demand` pass, with one line saying what's missing
+  ("To build a schedule, first add your team, who can work each role and …"); no "Build anyway" then. "Build anyway"
+  only appears when those three pass but other checks don't.
+- Coverage with no demand shows "—" (`fmtCoverage`, schedule stats and the compliance table), not 100%.
+- Every new workplace is created with template `empty` (tested); `VITE_STORE_TEMPLATE` is gone; the mock's default is
+  `empty` too.
+
 ## Plain language (B6)
 
 - Rule names come from data the app already has (`src/lib/ruleNames.ts`, tested): law rules by their law-pack
@@ -79,7 +99,7 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
   on bad credentials; `POST /api/auth/logout` → 204; `GET /api/auth/me` → `{user}` or 401; `GET /api/workplaces` →
   `{workplaces:[{id,name,sector,city,state,updated_at,has_schedule}]}`; `POST /api/workplaces/sample {template}` →
   `StoreConfig` named "Sample: …".
-- Samples are recognised by the "Sample: " name prefix (to list them under "Explore a sample").
+- Samples are recognised by `sample_of` (A1).
 - `POST /api/stores` (template `empty`) is sent `name, sector, business_description` (omitted when blank) and
   `jurisdiction {state, city}` (city lower-cased, as before). Until A2 lands the server may ignore `sector` /
   `business_description`.
@@ -100,12 +120,11 @@ copies the Austin fixture (`demo`/`tiny` only) as "Sample: …". Stores created 
 email; wrong password; create-workplace required fields; create posts `{template: empty, name, sector, business_description,
 jurisdiction}` and opens `/w/:id` with the switcher listing it checked; explore a sample. `src/mock/mock.test.ts`: mock
 accounts + ownership. Plus setup steps, call-in badge, rule names, conflict-menu names, and the setup → workspace
-switch (chat survives). 51 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+switch (chat survives). 53 tests total; `npm run build`, `npm run lint`, `npm test` clean.
 
 ## Next (Lane B)
 
 - A contract field for call-in shifts (today keyed off the `-callin` id suffix).
-- Wire-up check against the real A1 once it lands (cookie on the chat SSE + CSV upload, 401 handling).
 
 ## Running it (details)
 

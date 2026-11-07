@@ -4,7 +4,7 @@ import type { Api } from '../api/client'
 import type { OutreachState, SolveResponse } from '../api/protocol'
 import type { LawPack, LawRule, ScheduleMetrics, StoreConfig, ValidationReport } from '../contracts'
 import { checkRules, describeViolation, type RuleCheck } from '../lib/compliance'
-import { fmtDayDate, fmtHours, fmtMoney, fmtPct } from '../lib/format'
+import { fmtCoverage, fmtDayDate, fmtHours, fmtMoney } from '../lib/format'
 import { humanizer } from '../lib/humanize'
 import { minorProtections } from '../lib/minors'
 import { MinorLine } from './MinorLine'
@@ -136,7 +136,7 @@ function Receipt({
           )}
           <p className="mt-1 text-xs text-ink-2">Re-checks every shift against the labor rules and store rules, separately from the scheduler.</p>
         </div>
-        <MetricsTable claimed={schedule.metrics ?? null} recomputed={m ?? null} />
+        <MetricsTable claimed={schedule.metrics ?? null} recomputed={m ?? null} demand={config.demand} />
       </section>
 
       {hard.length > 0 && (
@@ -306,13 +306,21 @@ function RuleBlock({ c, config }: { c: RuleCheck; config: StoreConfig }) {
   )
 }
 
-function MetricsTable({ claimed, recomputed }: { claimed: ScheduleMetrics | null; recomputed: ScheduleMetrics | null }) {
+function MetricsTable({
+  claimed,
+  recomputed,
+  demand,
+}: {
+  claimed: ScheduleMetrics | null
+  recomputed: ScheduleMetrics | null
+  demand: { headcount: number }[]
+}) {
   const rows: [string, (x: ScheduleMetrics) => string][] = [
     ['Paid hours', (x) => `${fmtHours(x.budget_hours_used)} of ${fmtHours(x.budget_hours_cap)} cap`],
     ['Wage cost (incl. overtime)', (x) => fmtMoney(x.total_wage_cost)],
     ['Overtime hours', (x) => fmtHours(x.overtime_hours)],
     ['Premium pay', (x) => fmtMoney(x.premium_pay_dollars ?? 0, { cents: true })],
-    ['Coverage', (x) => fmtPct(x.coverage_pct)],
+    ['Coverage', (x) => fmtCoverage(x.coverage_pct, demand)],
     ['Uncovered (gap) cost', (x) => fmtMoney(x.gap_penalty_dollars)],
     ['Soft-rule cost', (x) => fmtMoney(x.soft_penalty_dollars)],
   ]

@@ -266,7 +266,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       const jur = req.jurisdiction ?? { state: 'TX', city: 'austin' }
       const cfg = fromFixture
         ? mockStoreConfig(id, req.template === 'demo' ? 'bigbox_mid' : 'bigbox_small', name, jur.state, jur.city ?? null, true)
-        : mockStoreConfig(id, (req.template as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid', name, jur.state, jur.city ?? null)
+        : mockStoreConfig(id, (req.template as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'empty', name, jur.state, jur.city ?? null)
       if (req.sector) cfg.store = { ...cfg.store, sector: req.sector }
       if (req.business_description) cfg.store = { ...cfg.store, business_description: req.business_description }
       return ok(newStore(cfg).config)
