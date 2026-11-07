@@ -70,7 +70,11 @@ def test_call_in_exemption_shapes():
     for city in ("berkeley", "emeryville"):
         assert ps_rule("CA", city).params["voluntary_additional_hours_exempt"] is False
     assert ps_rule("IL", "evanston").params["voluntary_additional_hours_exempt"] is False
-    # LA and SF exempt only for an absent coworker's hours.
-    for city in ("los angeles", "san francisco"):
-        assert ps_rule("CA", city).params["exemption_only_for_absent_coworker_hours"] is True
+    # LA exempts only an absent coworker's hours; SF exempts any uncoerced volunteer (Rule 6.1).
+    assert ps_rule("CA", "los angeles").params["exemption_only_for_absent_coworker_hours"] is True
+    sf = ps_rule("CA", "san francisco").params
+    assert sf["exemption_only_for_absent_coworker_hours"] is False and sf["voluntary_requires_no_coercion"] is True
+    assert sf["coworker_absence_exempt_applies_to"] == ["call_in", "extension"]
+    for state, city in ALL_PS:
+        assert set(ps_rule(state, city).params["exemption_applies_to"]) <= {"call_in", "extension"}
     assert ps_rule("CA", "san francisco").params["under_24h_tiers"][0] == {"max_changed_hours": 4, "premium_hours": 2}

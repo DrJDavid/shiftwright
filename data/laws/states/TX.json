@@ -9,7 +9,8 @@
     "No Texas daily-overtime, minimum-rest-between-shifts, predictive-scheduling, or reporting-time-pay statute; federal weekly overtime applies.",
     "Tex. Lab. Code \u00a7 62.0515(a): the state minimum wage supersedes city ordinances governing wages in private employment, so Texas cities have no separate private-sector minimum wage.",
     "Texas 14-15 hour limits (8/day, 48/week) are looser than federal FLSA limits; the resolver keeps the federal limits where stricter.",
-    "Tex. Lab. Code \u00a7 1.005 (HB 2127, eff. Sept. 1, 2023) bars city/county ordinances on leave, breaks, benefits, and scheduling practices that exceed state or federal law: https://capitol.texas.gov/tlodocs/88R/billtext/html/HB02127F.HTM"
+    "Tex. Lab. Code \u00a7 1.005 (HB 2127, eff. Sept. 1, 2023) bars city/county ordinances on leave, breaks, benefits, and scheduling practices that exceed state or federal law: https://capitol.texas.gov/tlodocs/88R/billtext/html/HB02127F.HTM",
+    "Tipped minimum wage: Tex. Lab. Code \u00a7 62.052 incorporates FLSA \u00a7 3(m) ($2.13 cash wage, see federal.json citation); 'tipped employee' = customarily receives more than $20 a month in tips."
   ],
   "rules": [
     {
@@ -86,6 +87,29 @@
         "title": "Tex. Lab. Code \u00a7 51.013(a),(c) \u2014 Hours of employment (TWC copy of Chapter 51)",
         "excerpt": "is not enrolled in summer school to work between the hours of midnight and 5 a.m. on any day during the time that school is recessed for the summer",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "TX.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "TX",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 2.13,
+        "max_tip_credit_per_hour": 5.12,
+        "effective": "2009-07-24"
+      },
+      "summary": "Texas adopts the FLSA tipped-employee rule: $2.13 cash wage, up to $5.12 tip credit toward $7.25.",
+      "citation": {
+        "url": "https://www.twc.texas.gov/sites/default/files/ui/docs/chapter-62-minimum-wage-twc.pdf",
+        "title": "Tex. Lab. Code \u00a7 62.052 \u2014 Tipped employees (TWC copy of Chapter 62)",
+        "excerpt": "In determining the wage of a tipped employee, the amount paid the employee by the employer is the amount described as paid to a tipped employee under Section 3(m), Fair Labor Standards Act",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

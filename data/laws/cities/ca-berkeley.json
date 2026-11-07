@@ -9,7 +9,9 @@
     "Predictability pay (FAQ Q12-14): with <14 days but >=24 h notice, 1 h for any change; with <24 h notice, 1 h for adding a shift, adding hours or moving a shift, and min(4, hours cut) for cuts/cancellations (15 min cut = 0.25 h). Paid at the regular rate (29 U.S.C. 207(e)). Grace: 10 min before/after a shift (up to 30 min after to finish serving a customer).",
     "Exemptions (FAQ Q15-16): employee-initiated changes only \u2014 shift swaps, coverage arrangements between employees, employee requests to leave early or take sick/vacation days. The FAQ lists no exemption for employer-requested hours the employee voluntarily accepts (voluntary_additional_hours_exempt=false).",
     "Coverage (FAQ Q6): employers with 10+ employees in Berkeley primarily in retail (and other listed industries) with 56+ employees globally; restaurants, retail/restaurant franchisees and nonprofits need 100+ globally. Covers employees working 2+ hours/week in Berkeley; ordinance operational Jan. 12, 2024. Extra key min_local_employees.",
-    "Offers of additional hours to existing part-time employees must be made and accepted in writing, with 24 h to respond (FAQ Q20)."
+    "Offers of additional hours to existing part-time employees must be made and accepted in writing, with 24 h to respond (FAQ Q20).",
+    "applies_to='both': retail and restaurants are covered, but restaurants need 100+ employees globally (retail 56+); the rule's threshold is the retail one.",
+    "min_rest_between_shifts: the FAQ measures 11 h from 'the end of the previous shift' with no same-day exclusion, so excludes_same_day_split is not set (applies between every pair of shifts)."
   ],
   "rules": [
     {
@@ -39,7 +41,9 @@
         "consent_must_be_written": false,
         "coworker_coverage_exempt": true,
         "exemption_requires_group_message": false,
-        "exemption_note": "Only employee-initiated changes are exempt: \"Employee-initiated changes like shift swaps or coverage arrangements do not require the employer to pay predictability pay.\" An employer-requested call-in owes 1 hour even if accepted."
+        "exemption_note": "Only employee-initiated changes are exempt: \"Employee-initiated changes like shift swaps or coverage arrangements do not require the employer to pay predictability pay.\" An employer-requested call-in owes 1 hour even if accepted.",
+        "food_applies_if_employees_over": 99,
+        "exemption_applies_to": []
       },
       "summary": "Berkeley (10+ local and 56+ global employees in retail): inside 14 days, 1 hour at the regular rate for any change with 24 h+ notice and for added/moved shifts with less; cuts/cancellations with <24 h notice pay the hours cut, up to 4.",
       "citation": {

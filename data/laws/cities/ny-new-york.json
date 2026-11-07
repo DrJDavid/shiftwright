@@ -11,7 +11,9 @@
     "Minimum wage effective date from Lab. Law \u00a7 652(1-a)(a); NYS DOL confirms the rate stays $17.00 on Jan. 1, 2027.",
     "Fair Workweek retail (DCWP FAQ): schedules due 72 h ahead; within 72 h, cancelling or subtracting >15 min is prohibited (not a premium), adding a new shift or >15 min needs the employee's advance written consent after being told they may decline; on-call and 'check-in' shifts are prohibited. No predictability pay exists for retail. Allowed within 72 h: employee-requested time off, shift trades between employees, closures for emergencies.",
     "Consent record must contain the date/time consent was given and reference the specific change; if extra time is added at the end of a shift, written consent may be obtained up to 15 minutes after the extra time begins. The FAQ does not say whether a text reply is a sufficient 'written' record (text_message_counts_as_written=false, conservative); the employer may transmit schedules by text.",
-    "Coverage: retail businesses primarily selling consumer goods with 20 or more employees across all NYC stores under common ownership or management (part-time/temporary included). Fast-food rules (premiums) are separate and not encoded (restaurant meals are not consumer goods)."
+    "Coverage: retail businesses primarily selling consumer goods with 20 or more employees across all NYC stores under common ownership or management (part-time/temporary included). Fast-food rules (premiums) are separate and not encoded (restaurant meals are not consumer goods).",
+    "applies_to='retail': the retail provisions cover stores selling consumer goods; restaurant meals are not consumer goods (DCWP FAQ). Fast food has separate rules, not encoded.",
+    "exemption_applies_to: written consent is required for any added time over 15 minutes within 72 h \u2014 'adding a new shift or requiring an employee to report ... earlier or to end their shift ... after the scheduled end time' (DCWP FAQ)."
   ],
   "rules": [
     {
@@ -44,7 +46,11 @@
           "the specific schedule or shift change (no general/ongoing consent)"
         ],
         "consent_deadline_minutes_after_start": 15,
-        "exemption_note": "Extra time within 72 h needs \"the employee's advance written consent\" after being told they may say no; the written record must \"contain the date and time the employee gave consent\" and reference the specific shift change."
+        "exemption_note": "Extra time within 72 h needs \"the employee's advance written consent\" after being told they may say no; the written record must \"contain the date and time the employee gave consent\" and reference the specific shift change.",
+        "exemption_applies_to": [
+          "call_in",
+          "extension"
+        ]
       },
       "summary": "NYC retail (20+ NYC store employees): no premium pay. Within 72 hours of a shift the employer may not cancel or cut it by more than 15 minutes, and may add more than 15 minutes only with the employee's advance written consent.",
       "citation": {

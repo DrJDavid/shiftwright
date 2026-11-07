@@ -58,6 +58,10 @@ def _wage_key(r: LawRule):
     return float(r.params["dollars_per_hour"])
 
 
+def _tipped_key(r: LawRule):
+    return float(r.params["cash_wage_per_hour"])
+
+
 EXCLUSIVE: dict[T, Callable[[LawRule], object]] = {
     T.weekly_overtime: _ot_key,
     T.daily_overtime: _ot_key,
@@ -78,8 +82,24 @@ def _merge(rules: list[LawRule], on: date) -> list[LawRule]:
         if candidates:
             # most protective; ties go to the more local jurisdiction
             kept.append(max(candidates, key=lambda r: (key(r), LEVEL_RANK[r.level])))
-    kept += [r for r in rules if r.type not in EXCLUSIVE]
+    kept += _tipped(rules, kept, on)
+    kept += [r for r in rules if r.type not in EXCLUSIVE and r.type != T.tipped_minimum_wage]
     return kept
+
+
+def _tipped(rules: list[LawRule], kept: list[LawRule], on: date) -> list[LawRule]:
+    """SEMANTICS #20: one tipped_minimum_wage rule (highest cash wage; ties -> more local).
+
+    A tip credit only counts if it comes from the jurisdiction whose minimum wage applies (or a more
+    local one): e.g. the federal $2.13 cash wage never applies in a state with its own higher minimum
+    wage and no state tip credit (CA, WA). No tipped rule => tipped employees get the full minimum wage."""
+    wage = next((r for r in kept if r.type == T.minimum_wage), None)
+    floor = LEVEL_RANK[wage.level] if wage else 0
+    candidates = [r for r in rules if r.type == T.tipped_minimum_wage and _in_effect(r, on)
+                  and LEVEL_RANK[r.level] >= floor]
+    if not candidates:
+        return []
+    return [max(candidates, key=lambda r: (_tipped_key(r), LEVEL_RANK[r.level]))]
 
 
 def resolve(
