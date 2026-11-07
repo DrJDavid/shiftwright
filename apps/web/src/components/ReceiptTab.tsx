@@ -159,10 +159,32 @@ function Receipt({
           </p>
         ))}
         <div className="divide-y divide-rule-soft">
-          {checks.map((c) => (
-            <RuleBlock key={c.rule.id} c={c} config={config} />
-          ))}
+          {checks
+            .filter((c) => c.applies && !(c.quiet && c.violations.length === 0))
+            .map((c) => (
+              <RuleBlock key={c.rule.id} c={c} config={config} />
+            ))}
         </div>
+        {checks.some((c) => !c.applies || (c.quiet && c.violations.length === 0)) && (
+          <div className="mt-2 break-inside-avoid">
+            <div className="text-xs font-semibold text-muted">Also checked, nothing in this schedule triggers them</div>
+            <ul className="mt-0.5 space-y-0.5 text-[11px] text-ink-2">
+              {checks
+                .filter((c) => !c.applies || (c.quiet && c.violations.length === 0))
+                .map((c) => (
+                  <li key={c.rule.id}>
+                    <span className="font-medium">{c.rule.summary}</span>{' '}
+                    <span className="text-muted">
+                      — {c.applies ? c.quiet : c.notApplicable}{' '}
+                      <a href={c.rule.citation.url} className="underline">
+                        {c.rule.citation.title}
+                      </a>
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section className="mt-5 break-inside-avoid">

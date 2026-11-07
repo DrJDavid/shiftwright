@@ -17,6 +17,7 @@ export const LOCALITIES: Locality[] = [
   { id: 'chicago', label: 'Chicago, IL', template: 'demo_chicago' },
   { id: 'seattle', label: 'Seattle, WA', template: 'demo_seattle' },
   { id: 'sf', label: 'San Francisco, CA', template: 'demo_sf' },
+  { id: 'restaurant', label: 'Harbor Grill #12, Chicago IL', template: 'demo_restaurant' },
 ]
 
 const MISSING_KEY = 'sw.missingTemplates'

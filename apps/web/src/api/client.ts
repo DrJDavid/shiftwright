@@ -96,6 +96,8 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
       post<StoreConfig>(`${s(id)}/equipment_roles`, { role_id: roleId, decision }),
     validate: (id: string, schedule: Schedule) => post<ValidationReport>(`${s(id)}/validate`, schedule),
     fix: (id: string, body: FixRequestBody) => post<FixPlan>(`${s(id)}/fix`, body),
+    /** v1.5: save the plan's immediate changes (call-outs removed, actions applied) without texting. */
+    fixApply: (id: string, planId: string) => post<SolveResponse>(`${s(id)}/fix/apply`, { plan_id: planId }),
     outreachStart: (id: string, planId: string) => post<OutreachState>(`${s(id)}/outreach/start`, { plan_id: planId }),
     outreachCancel: (id: string) => post<OutreachState>(`${s(id)}/outreach/cancel`, {}),
     outreach: (id: string) => json<OutreachState>(`${s(id)}/outreach`),

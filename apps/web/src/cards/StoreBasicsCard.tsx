@@ -25,12 +25,17 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
   const [school, setSchool] = useState<'unknown' | 'yes' | 'no'>(
     p.school_week === true ? 'yes' : p.school_week === false ? 'no' : 'unknown',
   )
+  // A blank store has no hours yet: start every day open 9a–9p for the leader to adjust and confirm,
+  // rather than every day closed.
+  const noHours = !p.hours || p.hours.length === 0
   const [rows, setRows] = useState<Row[]>(() =>
     WEEKDAY_NAMES.map((_, day) => {
       const h = p.hours?.find((x) => x.day === day)
-      return h ? { open: h.open, close: h.close, closed: false } : { open: 480, close: 1320, closed: true }
+      return h ? { open: h.open, close: h.close, closed: false } : noHours ? { open: 540, close: 1260, closed: false } : { open: 480, close: 1320, closed: true }
     }),
   )
+  const [allOpen, setAllOpen] = useState(rows.find((r) => !r.closed)?.open ?? 540)
+  const [allClose, setAllClose] = useState(rows.find((r) => !r.closed)?.close ?? 1260)
 
   const isMonday = weekStart ? new Date(`${weekStart}T12:00:00Z`).getUTCDay() === 1 : false
   const hoursOk = rows.every((r) => r.closed || r.close > r.open)
@@ -127,7 +132,48 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
         </label>
         {weekStart && !isMonday && <p className="text-sm text-gap">Pick a Monday. Weeks run Monday to Sunday.</p>}
         <div>
-          <span className="mb-1 block text-sm text-ink-2">Open hours</span>
+          <span className="mb-1 block text-sm text-ink-2">Open hours{noHours ? ' (a starting guess: adjust, then confirm)' : ''}</span>
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5 rounded-md bg-paper px-2 py-1.5 text-sm">
+            <span className="text-ink-2">Same hours every day:</span>
+            <input
+              type="time"
+              step={slot * 60}
+              aria-label="Every day open"
+              className="w-[6.25rem] rounded border border-rule bg-panel px-1 py-0.5 text-xs"
+              value={toHHMM(allOpen)}
+              onChange={(e) => setAllOpen(fromHHMM(e.target.value))}
+            />
+            <span className="text-muted">to</span>
+            <input
+              type="time"
+              step={slot * 60}
+              aria-label="Every day close"
+              className="w-[6.25rem] rounded border border-rule bg-panel px-1 py-0.5 text-xs"
+              value={toHHMM(allClose)}
+              onChange={(e) => setAllClose(fromHHMM(e.target.value))}
+            />
+            <button
+              type="button"
+              className="rounded border border-ink/40 px-2 py-0.5 text-xs font-semibold hover:border-ink"
+              onClick={() => setRows((rs) => rs.map((r) => (r.closed ? r : { ...r, open: allOpen, close: allClose })))}
+            >
+              Apply to open days
+            </button>
+            <span className="w-full text-xs text-muted">Closed on:</span>
+            <span className="flex gap-1">
+              {WEEKDAY_NAMES.map((w, d) => (
+                <button
+                  key={w}
+                  type="button"
+                  aria-pressed={rows[d].closed}
+                  onClick={() => setRow(d, { closed: !rows[d].closed, ...(rows[d].closed ? { open: allOpen, close: allClose } : {}) })}
+                  className={`rounded px-1.5 py-0.5 text-xs font-semibold ${rows[d].closed ? 'bg-ink text-white' : 'border border-rule text-ink-2 hover:border-ink'}`}
+                >
+                  {w}
+                </button>
+              ))}
+            </span>
+          </div>
           <div className="divide-y divide-rule-soft rounded-md border border-rule">
             {rows.map((r, day) => (
               <div key={day} className="flex items-center gap-2 px-2.5 py-1 text-sm">
@@ -153,13 +199,10 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
                       value={toHHMM(r.close)}
                       onChange={(e) => setRow(day, { close: fromHHMM(e.target.value) })}
                     />
-                    <span className="flex-1 text-xs text-gap">{r.close > r.open ? '' : 'Ends before it opens'}</span>
+                    <span className="flex-1 text-xs text-gap">{r.close > r.open ? '' : 'Ends early'}</span>
                   </>
                 )}
-                <label className="flex items-center gap-1 text-xs text-ink-2">
-                  <input type="checkbox" checked={r.closed} onChange={(e) => setRow(day, { closed: e.target.checked })} />
-                  Closed
-                </label>
+
               </div>
             ))}
           </div>

@@ -14,6 +14,8 @@ export type RuleCheck = {
   violations: Violation[]
   /** The validator doesn't check this rule type (SEMANTICS #14). */
   unchecked?: string
+  /** Nothing in this store triggers the rule (no one in the age band, no tagged roles): listed compactly. */
+  quiet?: string
 }
 
 const CODE_FOR: Partial<Record<LawRule['type'], Violation['code'][]>> = {
@@ -94,6 +96,7 @@ export function checkRules(config: StoreConfig, schedule: Schedule, validation: 
         const minors = scheduled.filter((e) => e.age >= lo && e.age <= hi)
         if (minors.length === 0) {
           f.push(`No one aged ${lo}–${hi} is scheduled.`)
+          out.quiet = `no one aged ${lo}–${hi} scheduled`
           break
         }
         const dayMax = Math.max(...minors.flatMap((e) => (byEmp.get(e.id) ?? []).map((s) => paidMinutes(s) / 60)))
@@ -122,6 +125,8 @@ export function checkRules(config: StoreConfig, schedule: Schedule, validation: 
         const young = scheduled.filter((e) => inBand(e.age))
         const hits = shifts.filter((s) => inBand(emp.get(s.employee_id)?.age ?? 99) && s.segments.some((g) => banned.includes(g.role_id)))
         const roleNames = banned.map((r) => config.roles.find((x) => x.id === r)?.name ?? r)
+        if (banned.length === 0 || young.length === 0)
+          out.quiet = banned.length === 0 ? `no roles here are tagged ${tags.map(tagLabel).join(', ') || '—'}` : `no one in the age band is scheduled`
         const band = floor != null ? `aged ${floor}–${below - 1}` : `under ${below}`
         f.push(`${plural(young.length, 'employee')} ${band} scheduled; ${roleNames.length ? roleNames.join(', ') : 'no roles'} tagged ${tags.map(tagLabel).join(', ') || '—'}.`)
         f.push(hits.length ? `Shifts by employees ${floor != null ? `aged ${floor}–${below - 1}` : `under ${below}`} in those roles: ${hits.map((s) => `${name(s.employee_id)} ${WEEKDAY_NAMES[s.day]}`).join(', ')}.` : `No one ${floor != null ? `aged ${floor}–${below - 1}` : `under ${below}`} works those roles.`)
