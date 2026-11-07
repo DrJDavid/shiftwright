@@ -1,0 +1,60 @@
+{
+  "jurisdiction": {"state": "TX", "city": null},
+  "level": "state",
+  "notes": [
+    "No Texas statute requires meal or rest breaks for adults in private employment; federal law does not require them either.",
+    "No Texas daily-overtime, minimum-rest-between-shifts, predictive-scheduling, or reporting-time-pay statute; federal weekly overtime applies.",
+    "Tex. Lab. Code § 62.0515(a): the state minimum wage supersedes city ordinances governing wages in private employment, so Texas cities have no separate private-sector minimum wage.",
+    "Texas 14-15 hour limits (8/day, 48/week) are looser than federal FLSA limits; the resolver keeps the federal limits where stricter."
+  ],
+  "rules": [
+    {
+      "id": "TX.minimum_wage.1",
+      "jurisdiction": {"state": "TX", "city": null},
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {"dollars_per_hour": 7.25, "effective": "2009-07-24"},
+      "summary": "Texas minimum wage equals the federal minimum wage ($7.25 an hour).",
+      "citation": {
+        "url": "https://statutes.capitol.texas.gov/Docs/LA/htm/LA.62.htm#62.051",
+        "title": "Tex. Lab. Code § 62.051 — Minimum wage",
+        "excerpt": "an employer shall pay to each employee the federal minimum wage under Section 6, Fair Labor Standards Act of 1938",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "TX.minor_limits.1",
+      "jurisdiction": {"state": "TX", "city": null},
+      "level": "state",
+      "type": "minor_limits",
+      "params": {"age_min": 14, "age_max": 15, "school_week": true, "max_hours_day": 8, "max_hours_week": 48, "earliest_start": 300, "latest_end": 1320, "latest_end_summer": null},
+      "summary": "A 14- or 15-year-old enrolled in school may work at most 8 hours a day and 48 a week, and not between 10 p.m. and 5 a.m. before a school day (midnight-5 a.m. otherwise).",
+      "citation": {
+        "url": "https://www.twc.texas.gov/sites/default/files/ui/docs/chapter-51-employment-of-children-twc.pdf",
+        "title": "Tex. Lab. Code § 51.013(a)-(b) — Hours of employment (TWC copy of Chapter 51)",
+        "excerpt": "between the hours of 10 p.m. and 5 a.m. on a day that is followed by a school day; or between the hours of midnight and 5 a.m. on a day that is not followed by a school day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "TX.minor_limits.2",
+      "jurisdiction": {"state": "TX", "city": null},
+      "level": "state",
+      "type": "minor_limits",
+      "params": {"age_min": 14, "age_max": 15, "school_week": false, "max_hours_day": 8, "max_hours_week": 48, "earliest_start": 300, "latest_end": 1440, "latest_end_summer": 1440},
+      "summary": "During summer recess a 14- or 15-year-old not in summer school may work at most 8 hours a day and 48 a week, and not between midnight and 5 a.m.",
+      "citation": {
+        "url": "https://www.twc.texas.gov/sites/default/files/ui/docs/chapter-51-employment-of-children-twc.pdf",
+        "title": "Tex. Lab. Code § 51.013(a),(c) — Hours of employment (TWC copy of Chapter 51)",
+        "excerpt": "is not enrolled in summer school to work between the hours of midnight and 5 a.m. on any day during the time that school is recessed for the summer",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}
