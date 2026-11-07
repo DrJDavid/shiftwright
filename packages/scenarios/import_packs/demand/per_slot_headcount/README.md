@@ -20,7 +20,7 @@ In the UI: set the week and hours from `../week_variants.json` first (holiday: T
 06:00–23:00, Sat 07:00–23:00), then drop the file as Workload forecast and Import.
 
 - 15-min file: set the store to **15-minute slots** first. Imports exactly.
-- 15-min file into a **30-minute** store: today each row becomes a 30-min block, so the blocks overlap
-  and headcount is double-counted, with no warning. Spec 1b: aggregate to the slot by peak.
+- 15-min file into a **30-minute** store: aggregated to each 30-min slot by the peak 15-min headcount
+  (Spec 1b, implemented by WS6).
 - Solves (20 s): normal 91.5% coverage, holiday 86.2% (Black Friday needs more than 40 people),
   validator passed both times.

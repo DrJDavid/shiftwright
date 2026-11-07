@@ -14,8 +14,8 @@ invented corporate planning numbers, **not law**.
 
 | Sub-pack | Style | Today |
 |---|---|---|
-| [per_slot_headcount/](per_slot_headcount/README.md) | UKG/Kronos labor forecast: job × date × 15/30-min interval → headcount | **Works** (30-min, and 15-min in a 15-min store). 15-min into a 30-min store: wrong (overlapping blocks) |
-| [windowed_roles/](windowed_roles/README.md) | Staffing plan: dept, role, days, start, end, headcount | **Works one row per day.** Day ranges (`Mon-Thu`, `Daily`, `Tue/Thu/Sat`): every row skipped |
+| [per_slot_headcount/](per_slot_headcount/README.md) | UKG/Kronos labor forecast: job × date × 15/30-min interval → headcount | **Works**: 30-min; 15-min in a 15-min store; 15-min into a 30-min store aggregates to the peak (Spec 1b, done by WS6) |
+| [windowed_roles/](windowed_roles/README.md) | Staffing plan: dept, role, days, start, end, headcount | **Works one row per day.** Day ranges (`Mon-Thu`, `Daily`, `Tue/Thu/Sat`): `Days` isn't auto-mapped; mapped by hand, every row is skipped |
 | [dept_daily_hours/](dept_daily_hours/README.md) | Labor allocation: department × day → budgeted hours, week total | **Unsupported** (no role/time/headcount). Spec 3 below |
 | [sales_driven/](sales_driven/README.md) | Hourly transactions / sales / online orders + labor standards | **Unsupported.** Spec 4 below |
 | [workload_units/](workload_units/README.md) | Truck schedule: date, arrival, cases + unload standard | **Unsupported**; forcing a mapping creates a 2,880-person requirement. Spec 5 below |
@@ -43,25 +43,26 @@ sales for all four; trucks for normal + holiday.
 3. Importing a second forecast file today **replaces all corporate demand** (not just that file's roles).
    To mix styles you currently can't import truck rows after a staffing plan (Spec 0 fixes that).
 
-## Verification (TestClient, real engine + validator, run Sat Nov 7 2026 on main @ ddbb2f5)
+## Verification (TestClient, real engine + validator, re-run Sat Nov 7 2026 on main @ 8020045, after WS6's importer fixes)
 
-`uv run pytest packages/scenarios/import_packs/demand -rxX` (about 60 s, three 20 s solves).
+`uv run pytest packages/scenarios/import_packs/demand -rxX` (about 60 s; the three 20 s solves are `@pytest.mark.slow`, skip with `-m "not slow"`).
 
 | Test | Result today |
 |---|---|
 | per-slot 30-min, 4 weeks | Demand equals the truth exactly; no skipped rows, no unknown roles; readiness ready |
 | per-slot 15-min in a 15-min store, normal + holiday | Exact |
+| per-slot 15-min into a 30-min store | Peak per 30-min slot (Spec 1b): exact |
 | Solve, per-slot normal | feasible, 120 shifts, **91.5% coverage**, 871.5 h, validator passed |
 | Solve, per-slot holiday | feasible, 127 shifts, **86.2% coverage**, 934 h, validator passed (Black Friday outruns 40 people: expected) |
 | Solve, windowed per-day normal | feasible, 106 shifts, **94.0% coverage**, 820 h, validator passed |
-| windowed with day ranges | `Days` maps to day, all 17 rows skipped ("bad date 'Mon-Thu'"), no demand |
+| windowed with day ranges | `Days` not proposed → "Still needed: day", commit 422. Mapped by hand: all 17 rows skipped ("bad date 'Mon-Thu'"), no demand |
 | dept hours / sales / trucks / standards as forecast | Preview "Still needed" role/day/start/headcount; commit 422 |
-| `labor_model.csv` as forecast | `Window Start` proposed as **day** ("dow" inside "window") |
+| `labor_model.csv` as forecast | `Window Start`/`End` → start/end (whole-word matching); day + headcount still needed, 422 |
 | `Units per Staff Hour` as forecast | proposed as headcount |
 | Trucks with forced mapping | Requirement of **2,880 people** for new role `dc_0553`, accepted |
 | Second forecast import | Wipes the first one's demand |
 
-xfail (spec, for WS6): 15-min → 30-min peak (1), day ranges (1), replace by role-day (1), dept hours ×4,
+xfail (spec, for WS6): day ranges (1), replace by role-day (1), dept hours ×4,
 sales ×4, trucks ×2, all five styles mixed = per-slot truth (1), absurd-headcount warning (1).
 
 ---
@@ -84,7 +85,7 @@ Shared conventions:
 - Rounding choices below (ceil for standards, round-half-up for hours) are planning conventions, not law.
   The README should say so in the UI where it shows the conversion.
 
-## Spec 1b: per-slot rows whose interval ≠ store slot
+## Spec 1b: per-slot rows whose interval ≠ store slot (implemented on main)
 - Interval length = the `interval_minutes` column if mapped (new optional forecast field; synonyms
   `interval (min)`, `interval length`, `length`, `duration`, `mins`), else `end − start` if End is
   mapped, else the smallest positive gap between consecutive starts for the same role and day.

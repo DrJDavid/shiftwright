@@ -78,6 +78,7 @@ def test_clean_auto_maps_and_imports_everything(clean):
     assert len(s.app.state.db.get(s.sid, "history", "rows")) == res["history"].preview["row_count"]
 
 
+@pytest.mark.slow
 def test_clean_readiness_and_solve(clean):
     s, _, _ = clean
     rd = s.readiness()
@@ -153,6 +154,7 @@ def test_corporate_config(corp):
     assert e["0048100"]["wage_per_hour"] == 24.25 and e["0048100"]["max_hours_week"] == 40
 
 
+@pytest.mark.slow
 def test_corporate_readiness_and_solve(corp):
     s, _, _ = corp
     rd = s.readiness()
@@ -254,12 +256,14 @@ def messy_solves(messy):
     return ready, untagged, s.solve()
 
 
+@pytest.mark.slow
 def test_messy_ready_after_review_fixes(messy_solves):
     ready, untagged, _ = messy_solves
     assert ready["ready"], h.failing_checks(ready)
     assert untagged["validation"]["passed"], h.summarize(untagged)
 
 
+@pytest.mark.slow
 def test_messy_minor_never_on_forklift_once_tagged(messy_solves):
     _, _, tagged = messy_solves
     assert tagged["validation"]["passed"], h.summarize(tagged)
@@ -267,6 +271,7 @@ def test_messy_minor_never_on_forklift_once_tagged(messy_solves):
     assert h.role_assignments(tagged, "forklift")  # adults still cover it
 
 
+@pytest.mark.slow
 def test_bug_minor_on_untagged_forklift(messy_solves):
     """Without the leader's manual tag the engine schedules the 16-year-old on FORKLIFT and the
     validator passes it (neither can know the imported role is a powered industrial truck)."""

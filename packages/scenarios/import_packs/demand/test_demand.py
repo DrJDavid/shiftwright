@@ -111,7 +111,6 @@ def test_per_slot_15min_in_15min_store(variant):
     assert slot_map(s) == bd.truth_15(bd.VARIANTS[variant])
 
 
-@spec
 def test_per_slot_15min_into_30min_store_takes_peak():
     """Spec 1b: rows finer than the store slot are aggregated to the slot by MAX headcount."""
     s = base_session("normal", slot=30)
@@ -123,6 +122,7 @@ def test_per_slot_15min_into_30min_store_takes_peak():
     assert slot_map(s) == want
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("variant", ["normal", "holiday"])
 def test_solve_per_slot_30min(variant, record_property):
     s = base_session(variant)
@@ -147,24 +147,37 @@ def _plan_rows(path: Path) -> list[dict]:
     return out
 
 
-def test_windowed_per_day_imports_exactly():
+def _windowed_per_day_session() -> h.Session:
     s = base_session("normal")
     r = commit_kind(s, "forecast", HERE / "windowed_roles" / "staffing_plan_per_day.csv")
     assert r.preview["unmapped_required"] == [] and not [w for w in r.warnings if "skipped" in w]
+    return s
+
+
+def test_windowed_per_day_imports_exactly():
+    s = _windowed_per_day_session()
     assert slot_map(s) == ref.windows_to_slots(_plan_rows(HERE / "windowed_roles" / "staffing_plan_ranges.csv"), 30)
     assert s.readiness()["ready"]
+
+
+@pytest.mark.slow
+def test_solve_windowed_per_day():
+    s = _windowed_per_day_session()
     out = h.summarize(s.solve())
     print("windowed", out)
     assert out["validator_passed"], out
 
 
 def test_windowed_day_ranges_today():
-    """Today: `Days` maps to day, but 'Mon-Thu' / 'Daily' / 'Tue/Thu/Sat' can't be read -> rows skipped."""
+    """Today: `Days` isn't proposed for day (commit 422). Mapped by hand, 'Mon-Thu' / 'Daily' /
+    'Tue/Thu/Sat' can't be read -> every row skipped with a warning, no demand."""
     s = base_session("normal")
-    r = commit_kind(s, "forecast", HERE / "windowed_roles" / "staffing_plan_ranges.csv")
-    assert r.preview["proposed_mapping"]["Days"] == "day"
-    skipped = [w for w in r.warnings if "skipped" in w]
-    assert len(skipped) == 17 and s.config()["demand"] == []
+    path = HERE / "windowed_roles" / "staffing_plan_ranges.csv"
+    r = s.import_file("forecast", path)
+    assert r.preview["proposed_mapping"]["Days"] is None and r.preview["unmapped_required"] == ["day"]
+    assert r.commit_status == 422
+    r = commit_kind(s, "forecast", path, {"Days": "day"})
+    assert len([w for w in r.warnings if "skipped" in w]) == 17 and s.config()["demand"] == []
 
 
 @spec
@@ -225,7 +238,7 @@ def test_dept_hours_unsupported_today(variant):
     assert set(r.preview["unmapped_required"]) == {"role", "day", "start", "headcount"}
     assert r.commit_status == 422
     m = s.import_file("forecast", HERE / "dept_daily_hours" / "labor_model.csv")
-    assert m.preview["proposed_mapping"]["Window Start"] == "day"  # "dow" inside "window"
+    assert m.preview["proposed_mapping"]["Window Start"] == "start" and m.commit_status == 422
 
 
 @spec
