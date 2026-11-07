@@ -10,14 +10,16 @@ import { ReadinessRail } from './components/ReadinessRail'
 import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
 import { StoreMenu } from './components/StoreMenu'
+import { StoreTab } from './components/StoreTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
 import { demoFor } from './lib/demoStore'
 
-type Tab = 'schedule' | 'coverage' | 'fix'
+type Tab = 'schedule' | 'coverage' | 'store' | 'fix'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'schedule', label: 'Schedule', ready: true },
   { id: 'coverage', label: 'Coverage', ready: true },
+  { id: 'store', label: 'Store', ready: true },
   { id: 'fix', label: 'Fix call-outs', ready: false },
 ]
 
@@ -75,6 +77,7 @@ export default function App() {
   const [solve, setSolve] = useState<SolveState>({ status: 'idle' })
   const [tab, setTab] = useState<Tab>('schedule')
   const [railOpen, setRailOpen] = useState(true)
+  const [chatOpen, setChatOpen] = useState(true)
   const [openGap, setOpenGap] = useState<Gap | null>(null)
   const [coverageDay, setCoverageDay] = useState(0)
   const [lawPack, setLawPack] = useState<LawPack | null>(null)
@@ -239,15 +242,31 @@ export default function App() {
         <StoreMenu onNew={switchStore} />
       </header>
 
-      <div className={`grid min-h-0 ${railOpen ? 'grid-cols-[minmax(320px,30%)_1fr_19rem]' : 'grid-cols-[minmax(320px,30%)_1fr_3rem]'}`}>
-        <ChatPane
-          key={config.store.id}
-          api={api}
-          storeId={config.store.id}
-          mode="onboard"
-          onConfigChanged={() => void onConfigChanged()}
-          onScheduleChanged={() => void refreshSchedule(config.store.id)}
-        />
+      <div
+        className="grid min-h-0"
+        style={{ gridTemplateColumns: `${chatOpen ? 'minmax(320px,30%)' : '3rem'} minmax(0,1fr) ${railOpen ? '19rem' : '3rem'}` }}
+      >
+        {!chatOpen && (
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            aria-expanded={false}
+            className="flex flex-col items-center gap-2 border-r border-rule bg-paper py-3 text-sm font-semibold text-ink-2 hover:text-ink"
+          >
+            <span className="[writing-mode:vertical-rl]">Chat</span>
+          </button>
+        )}
+        <div className={chatOpen ? 'contents' : 'hidden'}>
+          <ChatPane
+            key={config.store.id}
+            api={api}
+            storeId={config.store.id}
+            mode="onboard"
+            onConfigChanged={() => void onConfigChanged()}
+            onScheduleChanged={() => void refreshSchedule(config.store.id)}
+            onHide={() => setChatOpen(false)}
+          />
+        </div>
 
         <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
           <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
@@ -281,7 +300,10 @@ export default function App() {
               }}
             />
           )}
-          {tab === 'coverage' && <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />}
+          {tab === 'coverage' && (
+            <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
+          )}
+          {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
           {openGap && result && (
             <GapSheet
               api={api}

@@ -31,11 +31,13 @@ type Props = {
   onConfigChanged: () => void
   /** A tool in the chat turn produced a new schedule (e.g. the agent ran a solve). */
   onScheduleChanged: () => void
+  /** Collapse the chat column (e.g. to give the Store tab room). */
+  onHide?: () => void
 }
 
 const STARTERS = ['Set up my store', 'Build the schedule']
 
-export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged }: Props) {
+export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide }: Props) {
   const [items, setItems] = useState<Item[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -65,8 +67,9 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
         newBubble.current = false
         setItems((xs) => {
           const last = xs.at(-1)
-          if (!fresh && last?.kind === 'assistant') return [...xs.slice(0, -1), { ...last, text: last.text + ev.data.delta }]
-          return [...xs, { kind: 'assistant', id: ++seq.current, text: ev.data.delta }]
+          if (!fresh && last?.kind === 'assistant')
+            return [...xs.slice(0, -1), { ...last, text: last.text ? last.text + ev.data.delta : ev.data.delta.replace(/^\s+/, '') }]
+          return [...xs, { kind: 'assistant', id: ++seq.current, text: ev.data.delta.replace(/^\s+/, '') }]
         })
         break
       }
@@ -192,6 +195,16 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
             Drop a CSV to import it
           </div>
         )}
+        {onHide && (
+          <button
+            type="button"
+            onClick={onHide}
+            className="absolute top-2 right-2 z-10 rounded px-2 py-0.5 text-xs text-muted hover:bg-panel hover:text-ink"
+            title="Hide the chat"
+          >
+            Hide
+          </button>
+        )}
         <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {items.length === 0 && (
             <div className="pt-6">
@@ -221,6 +234,7 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
                   {it.text}
                 </div>
               )
+            if (it.kind === 'assistant' && !it.text) return null
             if (it.kind === 'assistant')
               return (
                 <p key={it.id} className="max-w-[60ch] leading-relaxed whitespace-pre-wrap">
