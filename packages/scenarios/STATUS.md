@@ -28,12 +28,37 @@
     they may name someone the engine didn't schedule. **Evals should use
     `pick_callouts(config, schedule, day, n, now, seed)`**, which picks from real shifts (leaders excluded by default).
 
-**In progress:**
-- demo store, CSV exports.
+- Demo store: `fixtures/demo_store.json` (StoreConfig) + `fixtures/demo_scenario.json` (full
+  Scenario with history, narrative, call-outs, expected). Built by `shiftwright_scenarios.demo`
+  (seed 417, M, normal) and hand-tuned. Regenerate with `uv run python -m shiftwright_scenarios.demo`;
+  a test fails if the committed files drift from the builder. Loaders: `load_demo_store()`, `load_demo_scenario()`.
+  - "Store #0417, Austin TX" (TX, city `austin`), 60 staff, 14 roles, trucks Tue/Thu/Sat 04:00–10:00.
+  - Jordan (e007) / Casey (e019): `not_together` (soft $25), both evening-available cashiers; history never overlaps them.
+  - e008, age 17, PIT-trained (the only minor with PIT).
+  - Cashier habit: history has ≥2 cashiers every hour 17:00–22:00, all 8 weeks, while the weekday
+    forecast asks for 1 after 19:00, so the mined rule adds information.
+  - Saturday 06:04 call-outs: e034 (truck), e052 (PIT), e053 (cashier).
+  - Demo phones: e023 and e027 carry placeholder phones `+15125550198/99` and the best call-in record
+    in the store (9/10, 8/9; nobody else ≥ 0.8). `apply_demo_phones(cfg)` swaps in `DEMO_PHONE_1/2`
+    from the environment at runtime. Real numbers never go in the repo.
+- CSV exports: `fixtures/exports/{roster,training,availability,forecast,history}.csv`, corporate style
+  (`TM_ID`, `Dept`, `Wage Rate`, `Avail Mon`, DOB instead of age, job codes, 12-hour times). The mapping
+  tables and format notes are in the `shiftwright_scenarios.exports` docstring.
+
+**In progress:** nothing. Open follow-up below.
+
+**Needs the engine (unverified until WS1 lands):**
+- Whether the 3 Saturday call-outs are actually scheduled Saturday morning in the engine's schedule,
+  whether repair is "possible but not trivial", and whether the demo phones rank 1–2 in the outreach
+  queue. Once `solve_week` / `fix_day` exist: solve the demo store, check, and re-pick with
+  `pick_callouts()` if needed.
+- Brief test "easy → ≥98% coverage" (written, currently skipped).
 
 **Blocked on:** nothing.
 
 **Shortcuts taken / notes for other workstreams:**
+- Demo store has 6 extra cashier cross-trains so the history habit holds through Sunday (the greedy
+  history builder ran out of eligible cashiers by the end of the week otherwise).
 - The brief's "easy reaches ≥98% coverage with the engine" test exists but skips until
   `shiftwright_engine.solve_week` lands. It accepts coverage_pct as 0–1 or 0–100, since the contract
   doesn't fix the unit.

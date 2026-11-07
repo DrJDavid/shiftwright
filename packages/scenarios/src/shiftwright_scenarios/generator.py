@@ -142,34 +142,42 @@ def hourly_demand(role: str, day: int, s: float, trucks: list[int]) -> list[tupl
     return out
 
 
-def build_demand(role_ids: list[str], s: float, trucks: list[int]) -> list[DemandRequirement]:
+def compress_hourly(profiles: dict[tuple[str, int], list[tuple[int, bool]]]) -> list[DemandRequirement]:
+    """(role, day) -> 24 (headcount, is_event) pairs  =>  non-overlapping DemandRequirements."""
     reqs: list[DemandRequirement] = []
-    for day in range(7):
-        for role in role_ids:
-            prof = hourly_demand(role, day, s, trucks)
-            h = 0
-            while h < 24:
-                n, ev = prof[h]
-                if n == 0:
-                    h += 1
-                    continue
-                e = h
-                while e < 24 and prof[e] == (n, ev):
-                    e += 1
-                reqs.append(
-                    DemandRequirement(
-                        id=f"d_{role}_{day}_{h * 60:04d}",
-                        role_id=role,
-                        day=day,
-                        start=h * 60,
-                        end=e * 60,
-                        headcount=n,
-                        source=DemandSource.event if ev else DemandSource.corporate,
-                        event_id=f"ev_truck_{day}" if ev else None,
-                    )
+    for role, day in sorted(profiles, key=lambda k: (k[1], k[0])):
+        prof = profiles[(role, day)]
+        h = 0
+        while h < 24:
+            n, ev = prof[h]
+            if n == 0:
+                h += 1
+                continue
+            e = h
+            while e < 24 and prof[e] == (n, ev):
+                e += 1
+            reqs.append(
+                DemandRequirement(
+                    id=f"d_{role}_{day}_{h * 60:04d}",
+                    role_id=role,
+                    day=day,
+                    start=h * 60,
+                    end=e * 60,
+                    headcount=n,
+                    source=DemandSource.event if ev else DemandSource.corporate,
+                    event_id=f"ev_truck_{day}" if ev else None,
                 )
-                h = e
+            )
+            h = e
     return reqs
+
+
+def hourly_profiles(role_ids: list[str], s: float, trucks: list[int]) -> dict[tuple[str, int], list[tuple[int, bool]]]:
+    return {(role, day): hourly_demand(role, day, s, trucks) for day in range(7) for role in role_ids}
+
+
+def build_demand(role_ids: list[str], s: float, trucks: list[int]) -> list[DemandRequirement]:
+    return compress_hourly(hourly_profiles(role_ids, s, trucks))
 
 
 def required_hours(demand: list[DemandRequirement]) -> float:

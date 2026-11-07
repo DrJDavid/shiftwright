@@ -1,0 +1,4185 @@
+{
+  "contract_version": "1.0.0",
+  "config_version": 1,
+  "store": {
+    "id": "store-0417",
+    "name": "Store #0417, Austin TX",
+    "jurisdiction": {
+      "state": "TX",
+      "city": "austin"
+    },
+    "timezone": "America/Chicago",
+    "slot_minutes": 30,
+    "week_start": "2026-11-09",
+    "hours": [
+      {
+        "day": 0,
+        "open": 480,
+        "close": 1320
+      },
+      {
+        "day": 1,
+        "open": 480,
+        "close": 1320
+      },
+      {
+        "day": 2,
+        "open": 480,
+        "close": 1320
+      },
+      {
+        "day": 3,
+        "open": 480,
+        "close": 1320
+      },
+      {
+        "day": 4,
+        "open": 480,
+        "close": 1320
+      },
+      {
+        "day": 5,
+        "open": 480,
+        "close": 1320
+      },
+      {
+        "day": 6,
+        "open": 480,
+        "close": 1320
+      }
+    ],
+    "pre_open_minutes": 240,
+    "post_close_minutes": 60
+  },
+  "departments": [
+    {
+      "id": "front_of_store",
+      "name": "Front of Store"
+    },
+    {
+      "id": "general_merchandise",
+      "name": "General Merchandise"
+    },
+    {
+      "id": "grocery",
+      "name": "Grocery"
+    },
+    {
+      "id": "fulfillment",
+      "name": "Fulfillment"
+    },
+    {
+      "id": "asset_protection",
+      "name": "Asset Protection"
+    },
+    {
+      "id": "receiving",
+      "name": "Receiving"
+    },
+    {
+      "id": "leadership",
+      "name": "Leadership"
+    }
+  ],
+  "roles": [
+    {
+      "id": "leader_on_duty",
+      "department_id": "leadership",
+      "name": "Leader on Duty",
+      "min_age": 0,
+      "gap_penalty_per_hour": 100.0,
+      "description": "Leader responsible for the building while open."
+    },
+    {
+      "id": "guest_service_desk",
+      "department_id": "front_of_store",
+      "name": "Guest Service Desk",
+      "min_age": 0,
+      "gap_penalty_per_hour": 80.0,
+      "description": "Returns, questions, pickups."
+    },
+    {
+      "id": "cashier",
+      "department_id": "front_of_store",
+      "name": "Cashier",
+      "min_age": 0,
+      "gap_penalty_per_hour": 60.0,
+      "description": "Front lanes and self-checkout."
+    },
+    {
+      "id": "cart_attendant",
+      "department_id": "front_of_store",
+      "name": "Cart Attendant",
+      "min_age": 0,
+      "gap_penalty_per_hour": 25.0,
+      "description": "Carts and lot."
+    },
+    {
+      "id": "drive_up",
+      "department_id": "front_of_store",
+      "name": "Drive Up",
+      "min_age": 0,
+      "gap_penalty_per_hour": 50.0,
+      "description": "Brings online orders to cars."
+    },
+    {
+      "id": "softlines",
+      "department_id": "general_merchandise",
+      "name": "Softlines",
+      "min_age": 0,
+      "gap_penalty_per_hour": 25.0,
+      "description": "Apparel and home textiles floor."
+    },
+    {
+      "id": "hardlines",
+      "department_id": "general_merchandise",
+      "name": "Hardlines",
+      "min_age": 0,
+      "gap_penalty_per_hour": 25.0,
+      "description": "Electronics, toys, sporting goods floor."
+    },
+    {
+      "id": "fitting_room",
+      "department_id": "general_merchandise",
+      "name": "Fitting Room",
+      "min_age": 0,
+      "gap_penalty_per_hour": 15.0,
+      "description": "Fitting room and go-backs."
+    },
+    {
+      "id": "grocery_stock",
+      "department_id": "grocery",
+      "name": "Grocery Stock",
+      "min_age": 0,
+      "gap_penalty_per_hour": 30.0,
+      "description": "Stocks and fronts grocery."
+    },
+    {
+      "id": "order_picker",
+      "department_id": "fulfillment",
+      "name": "Order Picker",
+      "min_age": 0,
+      "gap_penalty_per_hour": 45.0,
+      "description": "Picks online orders."
+    },
+    {
+      "id": "ap_specialist",
+      "department_id": "asset_protection",
+      "name": "AP Specialist",
+      "min_age": 0,
+      "gap_penalty_per_hour": 40.0,
+      "description": "Asset protection on the floor."
+    },
+    {
+      "id": "truck_unload",
+      "department_id": "receiving",
+      "name": "Truck Unload",
+      "min_age": 0,
+      "gap_penalty_per_hour": 70.0,
+      "description": "Unloads the trailer and sorts freight."
+    },
+    {
+      "id": "backroom",
+      "department_id": "receiving",
+      "name": "Backroom",
+      "min_age": 0,
+      "gap_penalty_per_hour": 30.0,
+      "description": "Backstock and pulls."
+    },
+    {
+      "id": "pit_operator",
+      "department_id": "receiving",
+      "name": "PIT Operator",
+      "min_age": 18,
+      "gap_penalty_per_hour": 70.0,
+      "description": "Operates powered industrial trucks."
+    }
+  ],
+  "role_tags": {
+    "pit_operator": [
+      "powered_industrial_truck"
+    ]
+  },
+  "employees": [
+    {
+      "id": "e001",
+      "name": "Remy Garcia",
+      "phone": "+15125550100",
+      "age": 41,
+      "home_department_id": "leadership",
+      "trained_role_ids": [
+        "leader_on_duty"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 26.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2015-03-26",
+      "attendance": {
+        "shifts_90d": 65,
+        "callouts_90d": 3,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 5
+      }
+    },
+    {
+      "id": "e002",
+      "name": "Val Martin",
+      "phone": "+15125550101",
+      "age": 41,
+      "home_department_id": "leadership",
+      "trained_role_ids": [
+        "leader_on_duty"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 28.75,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2018-12-16",
+      "attendance": {
+        "shifts_90d": 61,
+        "callouts_90d": 1,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e003",
+      "name": "Gray Gonzalez",
+      "phone": "+15125550102",
+      "age": 40,
+      "home_department_id": "leadership",
+      "trained_role_ids": [
+        "leader_on_duty",
+        "fitting_room"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 24.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2024-11-26",
+      "attendance": {
+        "shifts_90d": 63,
+        "callouts_90d": 1,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e004",
+      "name": "Uma Nelson",
+      "phone": "+15125550103",
+      "age": 33,
+      "home_department_id": "leadership",
+      "trained_role_ids": [
+        "leader_on_duty"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 27.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2025-06-05",
+      "attendance": {
+        "shifts_90d": 65,
+        "callouts_90d": 1,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 4
+      }
+    },
+    {
+      "id": "e005",
+      "name": "Gray Hall",
+      "phone": "+15125550104",
+      "age": 52,
+      "home_department_id": "leadership",
+      "trained_role_ids": [
+        "leader_on_duty"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 28.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2015-10-13",
+      "attendance": {
+        "shifts_90d": 59,
+        "callouts_90d": 3,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 3
+      }
+    },
+    {
+      "id": "e006",
+      "name": "Jesse Nelson",
+      "phone": "+15125550105",
+      "age": 36,
+      "home_department_id": "leadership",
+      "trained_role_ids": [
+        "leader_on_duty",
+        "hardlines"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 25.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 15.0,
+          "source": "employee",
+          "note": "Prefers Mondays off."
+        }
+      ],
+      "hire_date": "2021-10-08",
+      "attendance": {
+        "shifts_90d": 63,
+        "callouts_90d": 5,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e007",
+      "name": "Jordan Carter",
+      "phone": "+15125550106",
+      "age": 35,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier",
+        "drive_up",
+        "pit_operator"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 17.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [
+        {
+          "weekday": 6,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 15.0,
+          "source": "employee",
+          "note": "Prefers Sundays off."
+        }
+      ],
+      "hire_date": "2019-01-06",
+      "attendance": {
+        "shifts_90d": 57,
+        "callouts_90d": 3,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 5
+      }
+    },
+    {
+      "id": "e008",
+      "name": "Toni Wright",
+      "phone": "+15125550107",
+      "age": 17,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cart_attendant",
+        "guest_service_desk",
+        "drive_up",
+        "ap_specialist",
+        "pit_operator"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 10.0,
+          "source": "employee",
+          "note": "Prefers Mondays off."
+        }
+      ],
+      "hire_date": "2025-11-18",
+      "attendance": {
+        "shifts_90d": 44,
+        "callouts_90d": 1,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e009",
+      "name": "Ira Moore",
+      "phone": "+15125550108",
+      "age": 17,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2026-04-22",
+      "attendance": {
+        "shifts_90d": 36,
+        "callouts_90d": 1,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e010",
+      "name": "Terry Torres",
+      "phone": "+15125550109",
+      "age": 58,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up",
+        "cart_attendant",
+        "guest_service_desk",
+        "fitting_room"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 6,
+          "on_date": null,
+          "start": 0,
+          "end": 720,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "No Sundays before noon."
+        }
+      ],
+      "hire_date": "2022-12-24",
+      "attendance": {
+        "shifts_90d": 37,
+        "callouts_90d": 1,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e011",
+      "name": "Kerry Johnson",
+      "phone": "+15125550110",
+      "age": 20,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2016-03-22",
+      "attendance": {
+        "shifts_90d": 41,
+        "callouts_90d": 0,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e012",
+      "name": "Tatum Moore",
+      "phone": "+15125550111",
+      "age": 59,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "fitting_room",
+        "softlines",
+        "hardlines"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 10.0,
+          "source": "employee",
+          "note": "Prefers Wednesdays off."
+        }
+      ],
+      "hire_date": "2019-04-26",
+      "attendance": {
+        "shifts_90d": 42,
+        "callouts_90d": 1,
+        "callins_offered_90d": 3,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e013",
+      "name": "Remy Thompson",
+      "phone": "+15125550112",
+      "age": 17,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up",
+        "cart_attendant"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2025-10-17",
+      "attendance": {
+        "shifts_90d": 32,
+        "callouts_90d": 3,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e014",
+      "name": "Logan Walker",
+      "phone": "+15125550113",
+      "age": 27,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up",
+        "cart_attendant",
+        "guest_service_desk"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2026-03-17",
+      "attendance": {
+        "shifts_90d": 44,
+        "callouts_90d": 5,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 5
+      }
+    },
+    {
+      "id": "e015",
+      "name": "Bailey Baker",
+      "phone": "+15125550114",
+      "age": 40,
+      "home_department_id": "receiving",
+      "trained_role_ids": [
+        "backroom",
+        "truck_unload",
+        "pit_operator"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 15.0,
+          "source": "employee",
+          "note": "Prefers Wednesdays off."
+        }
+      ],
+      "hire_date": "2016-10-12",
+      "attendance": {
+        "shifts_90d": 38,
+        "callouts_90d": 3,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e016",
+      "name": "Yael Wright",
+      "phone": "+15125550115",
+      "age": 63,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2021-05-24",
+      "attendance": {
+        "shifts_90d": 38,
+        "callouts_90d": 5,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e017",
+      "name": "Ray Wilson",
+      "phone": "+15125550116",
+      "age": 21,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2019-01-10",
+      "attendance": {
+        "shifts_90d": 55,
+        "callouts_90d": 1,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e018",
+      "name": "Ray Gonzalez",
+      "phone": "+15125550117",
+      "age": 25,
+      "home_department_id": "asset_protection",
+      "trained_role_ids": [
+        "ap_specialist",
+        "cashier"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 20.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2017-03-30",
+      "attendance": {
+        "shifts_90d": 56,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 5
+      }
+    },
+    {
+      "id": "e019",
+      "name": "Casey Wilson",
+      "phone": "+15125550118",
+      "age": 32,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier",
+        "drive_up"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2022-05-03",
+      "attendance": {
+        "shifts_90d": 45,
+        "callouts_90d": 0,
+        "callins_offered_90d": 3,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e020",
+      "name": "Pat Wright",
+      "phone": "+15125550119",
+      "age": 39,
+      "home_department_id": "grocery",
+      "trained_role_ids": [
+        "grocery_stock"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2015-04-17",
+      "attendance": {
+        "shifts_90d": 32,
+        "callouts_90d": 2,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e021",
+      "name": "Gray Lopez",
+      "phone": "+15125550120",
+      "age": 28,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker",
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2018-03-13",
+      "attendance": {
+        "shifts_90d": 35,
+        "callouts_90d": 3,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e022",
+      "name": "Micah Campbell",
+      "phone": "+15125550121",
+      "age": 41,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 18.75,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2017-09-30",
+      "attendance": {
+        "shifts_90d": 59,
+        "callouts_90d": 2,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e023",
+      "name": "Terry Green",
+      "phone": "+15125550198",
+      "age": 52,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "hardlines",
+        "softlines",
+        "fitting_room",
+        "truck_unload",
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2025-01-24",
+      "attendance": {
+        "shifts_90d": 37,
+        "callouts_90d": 0,
+        "callins_offered_90d": 10,
+        "callins_accepted_90d": 9
+      }
+    },
+    {
+      "id": "e024",
+      "name": "Val White",
+      "phone": "+15125550123",
+      "age": 40,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 19.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2019-10-26",
+      "attendance": {
+        "shifts_90d": 63,
+        "callouts_90d": 0,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e025",
+      "name": "Reese Clark",
+      "phone": "+15125550124",
+      "age": 37,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "guest_service_desk",
+        "cart_attendant",
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2018-02-19",
+      "attendance": {
+        "shifts_90d": 44,
+        "callouts_90d": 2,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e026",
+      "name": "Logan Carter",
+      "phone": "+15125550125",
+      "age": 51,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "fitting_room",
+        "hardlines"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 18.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [
+        {
+          "weekday": 6,
+          "on_date": null,
+          "start": 0,
+          "end": 720,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "No Sundays before noon."
+        }
+      ],
+      "hire_date": "2024-07-12",
+      "attendance": {
+        "shifts_90d": 64,
+        "callouts_90d": 5,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e027",
+      "name": "Kendall King",
+      "phone": "+15125550199",
+      "age": 54,
+      "home_department_id": "asset_protection",
+      "trained_role_ids": [
+        "ap_specialist",
+        "drive_up",
+        "cashier",
+        "truck_unload"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2017-12-22",
+      "attendance": {
+        "shifts_90d": 32,
+        "callouts_90d": 0,
+        "callins_offered_90d": 9,
+        "callins_accepted_90d": 8
+      }
+    },
+    {
+      "id": "e028",
+      "name": "Ira Lewis",
+      "phone": "+15125550127",
+      "age": 47,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "softlines",
+        "hardlines"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2022-08-25",
+      "attendance": {
+        "shifts_90d": 43,
+        "callouts_90d": 1,
+        "callins_offered_90d": 7,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e029",
+      "name": "Yael Thompson",
+      "phone": "+15125550128",
+      "age": 37,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "hardlines"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 16.75,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2015-04-07",
+      "attendance": {
+        "shifts_90d": 65,
+        "callouts_90d": 1,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e030",
+      "name": "Ira Davis",
+      "phone": "+15125550129",
+      "age": 28,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "fitting_room",
+        "softlines"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 6,
+          "on_date": null,
+          "start": 0,
+          "end": 720,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "No Sundays before noon."
+        }
+      ],
+      "hire_date": "2022-07-17",
+      "attendance": {
+        "shifts_90d": 28,
+        "callouts_90d": 1,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 4
+      }
+    },
+    {
+      "id": "e031",
+      "name": "Robin Davis",
+      "phone": "+15125550130",
+      "age": 23,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up",
+        "guest_service_desk"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2017-11-14",
+      "attendance": {
+        "shifts_90d": 28,
+        "callouts_90d": 1,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e032",
+      "name": "Skyler White",
+      "phone": "+15125550131",
+      "age": 36,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up",
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2018-02-13",
+      "attendance": {
+        "shifts_90d": 30,
+        "callouts_90d": 3,
+        "callins_offered_90d": 3,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e033",
+      "name": "Kendall Scott",
+      "phone": "+15125550132",
+      "age": 24,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2020-08-03",
+      "attendance": {
+        "shifts_90d": 35,
+        "callouts_90d": 0,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e034",
+      "name": "Peyton Flores",
+      "phone": "+15125550133",
+      "age": 38,
+      "home_department_id": "receiving",
+      "trained_role_ids": [
+        "backroom",
+        "truck_unload"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 19.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2018-09-11",
+      "attendance": {
+        "shifts_90d": 55,
+        "callouts_90d": 3,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e035",
+      "name": "Reese Robinson",
+      "phone": "+15125550134",
+      "age": 35,
+      "home_department_id": "receiving",
+      "trained_role_ids": [
+        "truck_unload",
+        "backroom"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 21.0,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2021-03-26",
+      "attendance": {
+        "shifts_90d": 65,
+        "callouts_90d": 1,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e036",
+      "name": "Rowan Mitchell",
+      "phone": "+15125550135",
+      "age": 23,
+      "home_department_id": "grocery",
+      "trained_role_ids": [
+        "grocery_stock",
+        "fitting_room",
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2023-06-07",
+      "attendance": {
+        "shifts_90d": 41,
+        "callouts_90d": 1,
+        "callins_offered_90d": 3,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e037",
+      "name": "Eden Harris",
+      "phone": "+15125550136",
+      "age": 23,
+      "home_department_id": "grocery",
+      "trained_role_ids": [
+        "grocery_stock"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2020-10-29",
+      "attendance": {
+        "shifts_90d": 35,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e038",
+      "name": "Remy Nguyen",
+      "phone": "+15125550137",
+      "age": 46,
+      "home_department_id": "receiving",
+      "trained_role_ids": [
+        "truck_unload",
+        "pit_operator",
+        "fitting_room"
+      ],
+      "status": "seasonal",
+      "wage_per_hour": 16.5,
+      "min_hours_week": 0.0,
+      "max_hours_week": 24.0,
+      "availability": [],
+      "hire_date": "2026-09-01",
+      "attendance": {
+        "shifts_90d": 18,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 5
+      }
+    },
+    {
+      "id": "e039",
+      "name": "Bailey Clark",
+      "phone": "+15125550138",
+      "age": 21,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2019-05-03",
+      "attendance": {
+        "shifts_90d": 40,
+        "callouts_90d": 0,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 3
+      }
+    },
+    {
+      "id": "e040",
+      "name": "Pat Harris",
+      "phone": "+15125550139",
+      "age": 20,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cart_attendant",
+        "guest_service_desk",
+        "order_picker"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2017-02-21",
+      "attendance": {
+        "shifts_90d": 35,
+        "callouts_90d": 2,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e041",
+      "name": "Lee Rivera",
+      "phone": "+15125550140",
+      "age": 24,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier",
+        "drive_up"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 17.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2018-03-29",
+      "attendance": {
+        "shifts_90d": 29,
+        "callouts_90d": 0,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 3
+      }
+    },
+    {
+      "id": "e042",
+      "name": "Uma Hernandez",
+      "phone": "+15125550141",
+      "age": 24,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "guest_service_desk",
+        "cart_attendant"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 20.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2022-06-13",
+      "attendance": {
+        "shifts_90d": 41,
+        "callouts_90d": 1,
+        "callins_offered_90d": 5,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e043",
+      "name": "Robin Walker",
+      "phone": "+15125550142",
+      "age": 28,
+      "home_department_id": "asset_protection",
+      "trained_role_ids": [
+        "ap_specialist"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 18.5,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2021-01-21",
+      "attendance": {
+        "shifts_90d": 61,
+        "callouts_90d": 5,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 6
+      }
+    },
+    {
+      "id": "e044",
+      "name": "Micah Scott",
+      "phone": "+15125550143",
+      "age": 23,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker",
+        "truck_unload"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.75,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2019-03-08",
+      "attendance": {
+        "shifts_90d": 37,
+        "callouts_90d": 2,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e045",
+      "name": "Logan Adams",
+      "phone": "+15125550144",
+      "age": 38,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "softlines",
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2025-05-01",
+      "attendance": {
+        "shifts_90d": 39,
+        "callouts_90d": 2,
+        "callins_offered_90d": 3,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e046",
+      "name": "Finley Torres",
+      "phone": "+15125550145",
+      "age": 18,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cart_attendant"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2023-08-26",
+      "attendance": {
+        "shifts_90d": 65,
+        "callouts_90d": 1,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e047",
+      "name": "Shay Smith",
+      "phone": "+15125550146",
+      "age": 19,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier",
+        "cart_attendant"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2024-12-15",
+      "attendance": {
+        "shifts_90d": 31,
+        "callouts_90d": 0,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 5
+      }
+    },
+    {
+      "id": "e048",
+      "name": "Shay Walker",
+      "phone": "+15125550147",
+      "age": 36,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier",
+        "drive_up"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2022-04-08",
+      "attendance": {
+        "shifts_90d": 33,
+        "callouts_90d": 1,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    },
+    {
+      "id": "e049",
+      "name": "Sasha Davis",
+      "phone": "+15125550148",
+      "age": 22,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up",
+        "fitting_room"
+      ],
+      "status": "seasonal",
+      "wage_per_hour": 17.25,
+      "min_hours_week": 0.0,
+      "max_hours_week": 24.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2026-09-22",
+      "attendance": {
+        "shifts_90d": 22,
+        "callouts_90d": 1,
+        "callins_offered_90d": 6,
+        "callins_accepted_90d": 4
+      }
+    },
+    {
+      "id": "e050",
+      "name": "Yael Johnson",
+      "phone": "+15125550149",
+      "age": 50,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker"
+      ],
+      "status": "seasonal",
+      "wage_per_hour": 19.5,
+      "min_hours_week": 0.0,
+      "max_hours_week": 24.0,
+      "availability": [],
+      "hire_date": "2026-09-20",
+      "attendance": {
+        "shifts_90d": 12,
+        "callouts_90d": 0,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e051",
+      "name": "Robin Carter",
+      "phone": "+15125550150",
+      "age": 27,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "softlines",
+        "hardlines"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 19.25,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 15.0,
+          "source": "employee",
+          "note": "Prefers Wednesdays off."
+        }
+      ],
+      "hire_date": "2022-03-28",
+      "attendance": {
+        "shifts_90d": 41,
+        "callouts_90d": 2,
+        "callins_offered_90d": 4,
+        "callins_accepted_90d": 2
+      }
+    },
+    {
+      "id": "e052",
+      "name": "Wren Adams",
+      "phone": "+15125550151",
+      "age": 29,
+      "home_department_id": "receiving",
+      "trained_role_ids": [
+        "pit_operator",
+        "truck_unload",
+        "softlines"
+      ],
+      "status": "full_time",
+      "wage_per_hour": 20.25,
+      "min_hours_week": 32.0,
+      "max_hours_week": 40.0,
+      "availability": [],
+      "hire_date": "2024-10-27",
+      "attendance": {
+        "shifts_90d": 62,
+        "callouts_90d": 3,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 4
+      }
+    },
+    {
+      "id": "e053",
+      "name": "Toni Mitchell",
+      "phone": "+15125550152",
+      "age": 48,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "softlines",
+        "grocery_stock",
+        "cashier"
+      ],
+      "status": "seasonal",
+      "wage_per_hour": 15.75,
+      "min_hours_week": 0.0,
+      "max_hours_week": 24.0,
+      "availability": [],
+      "hire_date": "2026-10-04",
+      "attendance": {
+        "shifts_90d": 22,
+        "callouts_90d": 1,
+        "callins_offered_90d": 0,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e054",
+      "name": "Devon White",
+      "phone": "+15125550153",
+      "age": 41,
+      "home_department_id": "grocery",
+      "trained_role_ids": [
+        "grocery_stock"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2022-08-19",
+      "attendance": {
+        "shifts_90d": 33,
+        "callouts_90d": 0,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e055",
+      "name": "Lee Lopez",
+      "phone": "+15125550154",
+      "age": 45,
+      "home_department_id": "general_merchandise",
+      "trained_role_ids": [
+        "hardlines",
+        "softlines",
+        "fitting_room"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.5,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [],
+      "hire_date": "2018-02-01",
+      "attendance": {
+        "shifts_90d": 45,
+        "callouts_90d": 1,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 6
+      }
+    },
+    {
+      "id": "e056",
+      "name": "Val Nelson",
+      "phone": "+15125550155",
+      "age": 19,
+      "home_department_id": "grocery",
+      "trained_role_ids": [
+        "grocery_stock"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 18.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 1440,
+          "kind": "preferred_off",
+          "weight_dollars": 10.0,
+          "source": "employee",
+          "note": "Prefers Fridays off."
+        }
+      ],
+      "hire_date": "2025-04-04",
+      "attendance": {
+        "shifts_90d": 29,
+        "callouts_90d": 5,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e057",
+      "name": "Micah Garcia",
+      "phone": "+15125550156",
+      "age": 16,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 16.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2025-08-22",
+      "attendance": {
+        "shifts_90d": 42,
+        "callouts_90d": 3,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 3
+      }
+    },
+    {
+      "id": "e058",
+      "name": "Kai Baker",
+      "phone": "+15125550157",
+      "age": 16,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "cashier",
+        "drive_up"
+      ],
+      "status": "part_time",
+      "wage_per_hour": 15.0,
+      "min_hours_week": 12.0,
+      "max_hours_week": 29.0,
+      "availability": [
+        {
+          "weekday": 0,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 1,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 2,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 3,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        },
+        {
+          "weekday": 4,
+          "on_date": null,
+          "start": 0,
+          "end": 900,
+          "kind": "unavailable",
+          "weight_dollars": 0.0,
+          "source": "employee",
+          "note": "School: not before 15:00 on weekdays."
+        }
+      ],
+      "hire_date": "2026-02-16",
+      "attendance": {
+        "shifts_90d": 33,
+        "callouts_90d": 0,
+        "callins_offered_90d": 1,
+        "callins_accepted_90d": 0
+      }
+    },
+    {
+      "id": "e059",
+      "name": "Dakota Nelson",
+      "phone": "+15125550158",
+      "age": 62,
+      "home_department_id": "fulfillment",
+      "trained_role_ids": [
+        "order_picker"
+      ],
+      "status": "seasonal",
+      "wage_per_hour": 16.0,
+      "min_hours_week": 0.0,
+      "max_hours_week": 24.0,
+      "availability": [],
+      "hire_date": "2026-09-18",
+      "attendance": {
+        "shifts_90d": 22,
+        "callouts_90d": 5,
+        "callins_offered_90d": 8,
+        "callins_accepted_90d": 4
+      }
+    },
+    {
+      "id": "e060",
+      "name": "Kendall Brown",
+      "phone": "+15125550159",
+      "age": 26,
+      "home_department_id": "front_of_store",
+      "trained_role_ids": [
+        "drive_up"
+      ],
+      "status": "seasonal",
+      "wage_per_hour": 16.25,
+      "min_hours_week": 0.0,
+      "max_hours_week": 24.0,
+      "availability": [],
+      "hire_date": "2026-10-06",
+      "attendance": {
+        "shifts_90d": 16,
+        "callouts_90d": 1,
+        "callins_offered_90d": 2,
+        "callins_accepted_90d": 1
+      }
+    }
+  ],
+  "demand": [
+    {
+      "id": "d_ap_specialist_0_0600",
+      "role_id": "ap_specialist",
+      "day": 0,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_0_0480",
+      "role_id": "backroom",
+      "day": 0,
+      "start": 480,
+      "end": 720,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_0_0600",
+      "role_id": "cart_attendant",
+      "day": 0,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_0_0480",
+      "role_id": "cashier",
+      "day": 0,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_0_0660",
+      "role_id": "cashier",
+      "day": 0,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_0_0840",
+      "role_id": "cashier",
+      "day": 0,
+      "start": 840,
+      "end": 960,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_0_0960",
+      "role_id": "cashier",
+      "day": 0,
+      "start": 960,
+      "end": 1140,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_0_1140",
+      "role_id": "cashier",
+      "day": 0,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_0_0540",
+      "role_id": "drive_up",
+      "day": 0,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_0_0660",
+      "role_id": "drive_up",
+      "day": 0,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_0_0840",
+      "role_id": "drive_up",
+      "day": 0,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_0_0960",
+      "role_id": "drive_up",
+      "day": 0,
+      "start": 960,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_0_1140",
+      "role_id": "drive_up",
+      "day": 0,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_0_0600",
+      "role_id": "fitting_room",
+      "day": 0,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_0_0360",
+      "role_id": "grocery_stock",
+      "day": 0,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_0_0720",
+      "role_id": "grocery_stock",
+      "day": 0,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_0_0480",
+      "role_id": "guest_service_desk",
+      "day": 0,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_0_0540",
+      "role_id": "hardlines",
+      "day": 0,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_0_0480",
+      "role_id": "leader_on_duty",
+      "day": 0,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_0_0420",
+      "role_id": "order_picker",
+      "day": 0,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_0_0780",
+      "role_id": "order_picker",
+      "day": 0,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_softlines_0_0540",
+      "role_id": "softlines",
+      "day": 0,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_ap_specialist_1_0600",
+      "role_id": "ap_specialist",
+      "day": 1,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_1_0420",
+      "role_id": "backroom",
+      "day": 1,
+      "start": 420,
+      "end": 780,
+      "headcount": 2,
+      "source": "event",
+      "event_id": "ev_truck_1",
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_1_0600",
+      "role_id": "cart_attendant",
+      "day": 1,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_1_0480",
+      "role_id": "cashier",
+      "day": 1,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_1_0660",
+      "role_id": "cashier",
+      "day": 1,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_1_0840",
+      "role_id": "cashier",
+      "day": 1,
+      "start": 840,
+      "end": 960,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_1_0960",
+      "role_id": "cashier",
+      "day": 1,
+      "start": 960,
+      "end": 1140,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_1_1140",
+      "role_id": "cashier",
+      "day": 1,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_1_0540",
+      "role_id": "drive_up",
+      "day": 1,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_1_0660",
+      "role_id": "drive_up",
+      "day": 1,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_1_0840",
+      "role_id": "drive_up",
+      "day": 1,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_1_0960",
+      "role_id": "drive_up",
+      "day": 1,
+      "start": 960,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_1_1140",
+      "role_id": "drive_up",
+      "day": 1,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_1_0600",
+      "role_id": "fitting_room",
+      "day": 1,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_1_0360",
+      "role_id": "grocery_stock",
+      "day": 1,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_1_0720",
+      "role_id": "grocery_stock",
+      "day": 1,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_1_0480",
+      "role_id": "guest_service_desk",
+      "day": 1,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_1_0540",
+      "role_id": "hardlines",
+      "day": 1,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_1_0480",
+      "role_id": "leader_on_duty",
+      "day": 1,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_1_0420",
+      "role_id": "order_picker",
+      "day": 1,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_1_0780",
+      "role_id": "order_picker",
+      "day": 1,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_pit_operator_1_0240",
+      "role_id": "pit_operator",
+      "day": 1,
+      "start": 240,
+      "end": 540,
+      "headcount": 1,
+      "source": "event",
+      "event_id": "ev_truck_1",
+      "note": ""
+    },
+    {
+      "id": "d_softlines_1_0540",
+      "role_id": "softlines",
+      "day": 1,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_truck_unload_1_0240",
+      "role_id": "truck_unload",
+      "day": 1,
+      "start": 240,
+      "end": 600,
+      "headcount": 4,
+      "source": "event",
+      "event_id": "ev_truck_1",
+      "note": ""
+    },
+    {
+      "id": "d_ap_specialist_2_0600",
+      "role_id": "ap_specialist",
+      "day": 2,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_2_0480",
+      "role_id": "backroom",
+      "day": 2,
+      "start": 480,
+      "end": 720,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_2_0600",
+      "role_id": "cart_attendant",
+      "day": 2,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_2_0480",
+      "role_id": "cashier",
+      "day": 2,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_2_0660",
+      "role_id": "cashier",
+      "day": 2,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_2_0840",
+      "role_id": "cashier",
+      "day": 2,
+      "start": 840,
+      "end": 960,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_2_0960",
+      "role_id": "cashier",
+      "day": 2,
+      "start": 960,
+      "end": 1140,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_2_1140",
+      "role_id": "cashier",
+      "day": 2,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_2_0540",
+      "role_id": "drive_up",
+      "day": 2,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_2_0660",
+      "role_id": "drive_up",
+      "day": 2,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_2_0840",
+      "role_id": "drive_up",
+      "day": 2,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_2_0960",
+      "role_id": "drive_up",
+      "day": 2,
+      "start": 960,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_2_1140",
+      "role_id": "drive_up",
+      "day": 2,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_2_0600",
+      "role_id": "fitting_room",
+      "day": 2,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_2_0360",
+      "role_id": "grocery_stock",
+      "day": 2,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_2_0720",
+      "role_id": "grocery_stock",
+      "day": 2,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_2_0480",
+      "role_id": "guest_service_desk",
+      "day": 2,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_2_0540",
+      "role_id": "hardlines",
+      "day": 2,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_2_0480",
+      "role_id": "leader_on_duty",
+      "day": 2,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_2_0420",
+      "role_id": "order_picker",
+      "day": 2,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_2_0780",
+      "role_id": "order_picker",
+      "day": 2,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_softlines_2_0540",
+      "role_id": "softlines",
+      "day": 2,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_ap_specialist_3_0600",
+      "role_id": "ap_specialist",
+      "day": 3,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_3_0420",
+      "role_id": "backroom",
+      "day": 3,
+      "start": 420,
+      "end": 780,
+      "headcount": 2,
+      "source": "event",
+      "event_id": "ev_truck_3",
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_3_0600",
+      "role_id": "cart_attendant",
+      "day": 3,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_3_0480",
+      "role_id": "cashier",
+      "day": 3,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_3_0660",
+      "role_id": "cashier",
+      "day": 3,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_3_0840",
+      "role_id": "cashier",
+      "day": 3,
+      "start": 840,
+      "end": 960,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_3_0960",
+      "role_id": "cashier",
+      "day": 3,
+      "start": 960,
+      "end": 1140,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_3_1140",
+      "role_id": "cashier",
+      "day": 3,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_3_0540",
+      "role_id": "drive_up",
+      "day": 3,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_3_0660",
+      "role_id": "drive_up",
+      "day": 3,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_3_0840",
+      "role_id": "drive_up",
+      "day": 3,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_3_0960",
+      "role_id": "drive_up",
+      "day": 3,
+      "start": 960,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_3_1140",
+      "role_id": "drive_up",
+      "day": 3,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_3_0600",
+      "role_id": "fitting_room",
+      "day": 3,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_3_0360",
+      "role_id": "grocery_stock",
+      "day": 3,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_3_0720",
+      "role_id": "grocery_stock",
+      "day": 3,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_3_0480",
+      "role_id": "guest_service_desk",
+      "day": 3,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_3_0540",
+      "role_id": "hardlines",
+      "day": 3,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_3_0480",
+      "role_id": "leader_on_duty",
+      "day": 3,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_3_0420",
+      "role_id": "order_picker",
+      "day": 3,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_3_0780",
+      "role_id": "order_picker",
+      "day": 3,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_pit_operator_3_0240",
+      "role_id": "pit_operator",
+      "day": 3,
+      "start": 240,
+      "end": 540,
+      "headcount": 1,
+      "source": "event",
+      "event_id": "ev_truck_3",
+      "note": ""
+    },
+    {
+      "id": "d_softlines_3_0540",
+      "role_id": "softlines",
+      "day": 3,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_truck_unload_3_0240",
+      "role_id": "truck_unload",
+      "day": 3,
+      "start": 240,
+      "end": 600,
+      "headcount": 4,
+      "source": "event",
+      "event_id": "ev_truck_3",
+      "note": ""
+    },
+    {
+      "id": "d_ap_specialist_4_0600",
+      "role_id": "ap_specialist",
+      "day": 4,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_4_0480",
+      "role_id": "backroom",
+      "day": 4,
+      "start": 480,
+      "end": 720,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_4_0600",
+      "role_id": "cart_attendant",
+      "day": 4,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_4_0480",
+      "role_id": "cashier",
+      "day": 4,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_4_0660",
+      "role_id": "cashier",
+      "day": 4,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_4_0840",
+      "role_id": "cashier",
+      "day": 4,
+      "start": 840,
+      "end": 960,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_4_0960",
+      "role_id": "cashier",
+      "day": 4,
+      "start": 960,
+      "end": 1140,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_4_1140",
+      "role_id": "cashier",
+      "day": 4,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_4_0540",
+      "role_id": "drive_up",
+      "day": 4,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_4_0660",
+      "role_id": "drive_up",
+      "day": 4,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_4_0840",
+      "role_id": "drive_up",
+      "day": 4,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_4_0960",
+      "role_id": "drive_up",
+      "day": 4,
+      "start": 960,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_4_1140",
+      "role_id": "drive_up",
+      "day": 4,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_4_0600",
+      "role_id": "fitting_room",
+      "day": 4,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_4_0360",
+      "role_id": "grocery_stock",
+      "day": 4,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_4_0720",
+      "role_id": "grocery_stock",
+      "day": 4,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_4_0480",
+      "role_id": "guest_service_desk",
+      "day": 4,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_4_0660",
+      "role_id": "guest_service_desk",
+      "day": 4,
+      "start": 660,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_4_1140",
+      "role_id": "guest_service_desk",
+      "day": 4,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_4_0540",
+      "role_id": "hardlines",
+      "day": 4,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_4_0480",
+      "role_id": "leader_on_duty",
+      "day": 4,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_4_0420",
+      "role_id": "order_picker",
+      "day": 4,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_4_0780",
+      "role_id": "order_picker",
+      "day": 4,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_softlines_4_0540",
+      "role_id": "softlines",
+      "day": 4,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_ap_specialist_5_0600",
+      "role_id": "ap_specialist",
+      "day": 5,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_5_0420",
+      "role_id": "backroom",
+      "day": 5,
+      "start": 420,
+      "end": 780,
+      "headcount": 2,
+      "source": "event",
+      "event_id": "ev_truck_5",
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_5_0600",
+      "role_id": "cart_attendant",
+      "day": 5,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_5_0480",
+      "role_id": "cashier",
+      "day": 5,
+      "start": 480,
+      "end": 660,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_5_0660",
+      "role_id": "cashier",
+      "day": 5,
+      "start": 660,
+      "end": 840,
+      "headcount": 5,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_5_0840",
+      "role_id": "cashier",
+      "day": 5,
+      "start": 840,
+      "end": 960,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_5_0960",
+      "role_id": "cashier",
+      "day": 5,
+      "start": 960,
+      "end": 1140,
+      "headcount": 5,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_5_1140",
+      "role_id": "cashier",
+      "day": 5,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_5_0540",
+      "role_id": "drive_up",
+      "day": 5,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_5_0660",
+      "role_id": "drive_up",
+      "day": 5,
+      "start": 660,
+      "end": 840,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_5_0840",
+      "role_id": "drive_up",
+      "day": 5,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_5_0960",
+      "role_id": "drive_up",
+      "day": 5,
+      "start": 960,
+      "end": 1140,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_5_1140",
+      "role_id": "drive_up",
+      "day": 5,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_5_0600",
+      "role_id": "fitting_room",
+      "day": 5,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_5_0360",
+      "role_id": "grocery_stock",
+      "day": 5,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_5_0720",
+      "role_id": "grocery_stock",
+      "day": 5,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_5_0480",
+      "role_id": "guest_service_desk",
+      "day": 5,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_5_0660",
+      "role_id": "guest_service_desk",
+      "day": 5,
+      "start": 660,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_5_1140",
+      "role_id": "guest_service_desk",
+      "day": 5,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_5_0540",
+      "role_id": "hardlines",
+      "day": 5,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_5_0480",
+      "role_id": "leader_on_duty",
+      "day": 5,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_5_0420",
+      "role_id": "order_picker",
+      "day": 5,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_5_0780",
+      "role_id": "order_picker",
+      "day": 5,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_pit_operator_5_0240",
+      "role_id": "pit_operator",
+      "day": 5,
+      "start": 240,
+      "end": 540,
+      "headcount": 1,
+      "source": "event",
+      "event_id": "ev_truck_5",
+      "note": ""
+    },
+    {
+      "id": "d_softlines_5_0540",
+      "role_id": "softlines",
+      "day": 5,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_truck_unload_5_0240",
+      "role_id": "truck_unload",
+      "day": 5,
+      "start": 240,
+      "end": 600,
+      "headcount": 4,
+      "source": "event",
+      "event_id": "ev_truck_5",
+      "note": ""
+    },
+    {
+      "id": "d_ap_specialist_6_0600",
+      "role_id": "ap_specialist",
+      "day": 6,
+      "start": 600,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_backroom_6_0480",
+      "role_id": "backroom",
+      "day": 6,
+      "start": 480,
+      "end": 720,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cart_attendant_6_0600",
+      "role_id": "cart_attendant",
+      "day": 6,
+      "start": 600,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_6_0480",
+      "role_id": "cashier",
+      "day": 6,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_6_0660",
+      "role_id": "cashier",
+      "day": 6,
+      "start": 660,
+      "end": 840,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_6_0840",
+      "role_id": "cashier",
+      "day": 6,
+      "start": 840,
+      "end": 960,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_6_0960",
+      "role_id": "cashier",
+      "day": 6,
+      "start": 960,
+      "end": 1140,
+      "headcount": 4,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_cashier_6_1140",
+      "role_id": "cashier",
+      "day": 6,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_6_0540",
+      "role_id": "drive_up",
+      "day": 6,
+      "start": 540,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_6_0660",
+      "role_id": "drive_up",
+      "day": 6,
+      "start": 660,
+      "end": 840,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_6_0840",
+      "role_id": "drive_up",
+      "day": 6,
+      "start": 840,
+      "end": 960,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_6_0960",
+      "role_id": "drive_up",
+      "day": 6,
+      "start": 960,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_drive_up_6_1140",
+      "role_id": "drive_up",
+      "day": 6,
+      "start": 1140,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_fitting_room_6_0600",
+      "role_id": "fitting_room",
+      "day": 6,
+      "start": 600,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_6_0360",
+      "role_id": "grocery_stock",
+      "day": 6,
+      "start": 360,
+      "end": 720,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_grocery_stock_6_0720",
+      "role_id": "grocery_stock",
+      "day": 6,
+      "start": 720,
+      "end": 1200,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_6_0480",
+      "role_id": "guest_service_desk",
+      "day": 6,
+      "start": 480,
+      "end": 660,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_6_0660",
+      "role_id": "guest_service_desk",
+      "day": 6,
+      "start": 660,
+      "end": 1140,
+      "headcount": 2,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_guest_service_desk_6_1140",
+      "role_id": "guest_service_desk",
+      "day": 6,
+      "start": 1140,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_hardlines_6_0540",
+      "role_id": "hardlines",
+      "day": 6,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_leader_on_duty_6_0480",
+      "role_id": "leader_on_duty",
+      "day": 6,
+      "start": 480,
+      "end": 1320,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_6_0420",
+      "role_id": "order_picker",
+      "day": 6,
+      "start": 420,
+      "end": 780,
+      "headcount": 3,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_order_picker_6_0780",
+      "role_id": "order_picker",
+      "day": 6,
+      "start": 780,
+      "end": 1140,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    },
+    {
+      "id": "d_softlines_6_0540",
+      "role_id": "softlines",
+      "day": 6,
+      "start": 540,
+      "end": 1260,
+      "headcount": 1,
+      "source": "corporate",
+      "event_id": null,
+      "note": ""
+    }
+  ],
+  "events": [
+    {
+      "id": "ev_truck_1",
+      "kind": "truck",
+      "day": 1,
+      "start": 240,
+      "end": 600,
+      "note": "Tuesday truck, 04:00-10:00."
+    },
+    {
+      "id": "ev_truck_3",
+      "kind": "truck",
+      "day": 3,
+      "start": 240,
+      "end": 600,
+      "note": "Thursday truck, 04:00-10:00."
+    },
+    {
+      "id": "ev_truck_5",
+      "kind": "truck",
+      "day": 5,
+      "start": 240,
+      "end": 600,
+      "note": "Saturday truck, 04:00-10:00."
+    }
+  ],
+  "budget": {
+    "weekly_hours_cap": 1393.5,
+    "weekly_dollar_cap": null,
+    "overtime_allowed": false,
+    "approvals": []
+  },
+  "constraints": [
+    {
+      "id": "c_min_shift",
+      "kind": "min_shift_length",
+      "params": {
+        "minutes": 240
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "default",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Shifts are at least 4 hours."
+    },
+    {
+      "id": "c_max_shift",
+      "kind": "max_shift_length",
+      "params": {
+        "minutes": 600
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "default",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Shifts are at most 10 hours."
+    },
+    {
+      "id": "c_min_rest",
+      "kind": "min_rest_between_shifts",
+      "params": {
+        "minutes": 600
+      },
+      "strength": "soft",
+      "weight_dollars": 30.0,
+      "applies_to_employee_ids": null,
+      "source": "default",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Try to leave 10 hours between shifts (avoid clopens)."
+    },
+    {
+      "id": "c_max_days",
+      "kind": "max_days_per_week",
+      "params": {
+        "days": 5
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "corporate",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Nobody works more than 5 days a week."
+    },
+    {
+      "id": "c_lod_always",
+      "kind": "always_staffed",
+      "params": {
+        "role_id": "leader_on_duty",
+        "windows": "store_hours"
+      },
+      "strength": "hard",
+      "weight_dollars": 0.0,
+      "applies_to_employee_ids": null,
+      "source": "corporate",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "A leader on duty whenever the store is open."
+    },
+    {
+      "id": "c_min_hours",
+      "kind": "min_hours_week",
+      "params": {},
+      "strength": "soft",
+      "weight_dollars": 10.0,
+      "applies_to_employee_ids": null,
+      "source": "corporate",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Give people their minimum hours."
+    },
+    {
+      "id": "c_fair_close",
+      "kind": "fair_spread",
+      "params": {
+        "shift_class": "close",
+        "max_per_employee": 3
+      },
+      "strength": "soft",
+      "weight_dollars": 10.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Spread closes: at most 3 per person."
+    },
+    {
+      "id": "c_fair_open",
+      "kind": "fair_spread",
+      "params": {
+        "shift_class": "open",
+        "max_per_employee": 3
+      },
+      "strength": "soft",
+      "weight_dollars": 10.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Spread opens: at most 3 per person."
+    },
+    {
+      "id": "c_not_together_1",
+      "kind": "not_together",
+      "params": {
+        "employee_ids": [
+          "e007",
+          "e019"
+        ]
+      },
+      "strength": "soft",
+      "weight_dollars": 25.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Jordan and Casey shouldn't close together."
+    },
+    {
+      "id": "c_pref_role_1",
+      "kind": "preferred_role",
+      "params": {
+        "employee_id": "e035",
+        "role_id": "truck_unload"
+      },
+      "strength": "soft",
+      "weight_dollars": 5.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Reese prefers Truck Unload."
+    },
+    {
+      "id": "c_pref_role_2",
+      "kind": "preferred_role",
+      "params": {
+        "employee_id": "e008",
+        "role_id": "cart_attendant"
+      },
+      "strength": "soft",
+      "weight_dollars": 5.0,
+      "applies_to_employee_ids": null,
+      "source": "leader",
+      "status": "confirmed",
+      "citation": null,
+      "evidence": null,
+      "note": "Toni prefers Cart Attendant."
+    }
+  ],
+  "unmodeled": [],
+  "law_pack": null
+}
