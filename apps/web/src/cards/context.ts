@@ -1,9 +1,10 @@
 import { createContext, useContext } from 'react'
 import type { Api } from '../api/client'
 import type { Sector } from '../contracts'
+import type { RuleNames } from '../lib/ruleNames'
 
-/** What cards that talk to the API directly (csv_import) need. */
-export type CardEnv = { api: Api; storeId: string; onConfigChanged: () => void; sector?: Sector | null }
+/** What cards that talk to the API directly (csv_import) need; `ruleNames` names rules in conflict_menu. */
+export type CardEnv = { api: Api; storeId: string; onConfigChanged: () => void; sector?: Sector | null; ruleNames?: RuleNames }
 
 export const CardEnvContext = createContext<CardEnv | null>(null)
 

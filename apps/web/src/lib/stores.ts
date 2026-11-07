@@ -94,10 +94,7 @@ export const SECTOR_CHOICES: { sector: Sector; label: string }[] = [
 
 export const sectorLabel = (s: Sector | null | undefined) => SECTOR_CHOICES.find((c) => c.sector === s)?.label ?? null
 
-export function placeLabel(city: string | null | undefined, state: string | null | undefined): string {
-  const c = city ? city.replace(/\b\w/g, (ch) => ch.toUpperCase()) : ''
-  return [c, state].filter(Boolean).join(', ')
-}
+export { placeLabel } from './format'
 
 export const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA',

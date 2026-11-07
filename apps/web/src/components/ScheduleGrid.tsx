@@ -361,7 +361,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
           >
             {shiftDetail(pinned.e, pinned.s, true)}
             {(pinned.s.why ?? []).length === 0 && (
-              <p className="mt-1 text-xs text-muted">The solver didn't record reasons for this shift.</p>
+              <p className="mt-1 text-xs text-muted">No reasons were recorded for this shift.</p>
             )}
             <button type="button" onClick={() => setPinned(null)} className="mt-2 text-xs text-muted hover:text-ink">
               Close

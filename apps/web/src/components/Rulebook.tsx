@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Constraint, LawPack, LawRule, StoreConfig } from '../contracts'
-import { fmtMoney } from '../lib/format'
+import { fmtMoney, placeLabel } from '../lib/format'
+import { describeConstraint } from '../lib/ruleNames'
 import { tagLabel } from '../lib/vocab'
 
 type Props = {
@@ -38,41 +39,8 @@ const SOURCE_LABEL: Record<Constraint['source'], string> = {
 }
 
 /** Plain-language fallback when a rule has no note. Built only from the rule's own fields. */
-function describe(c: Constraint, names: Map<string, string>, roles: Map<string, string>): string {
-  if (c.note) return c.note
-  const p = (c.params ?? {}) as Record<string, unknown>
-  const n = (id: unknown) => names.get(String(id)) ?? String(id)
-  const hrs = (m: unknown) => `${Number(m) / 60} hours`
-  switch (c.kind) {
-    case 'min_shift_length':
-      return `Shifts are at least ${hrs(p.minutes)}.`
-    case 'max_shift_length':
-      return `Shifts are at most ${hrs(p.minutes)}.`
-    case 'min_rest_between_shifts':
-      return `At least ${hrs(p.minutes)} between shifts.`
-    case 'max_days_per_week':
-      return `At most ${String(p.days)} days a week.`
-    case 'max_consecutive_days':
-      return `At most ${String(p.days)} days in a row.`
-    case 'min_hours_week':
-      return 'Give people their minimum hours.'
-    case 'not_together':
-      return `${((p.employee_ids as unknown[]) ?? []).map(n).join(' and ')} not on the same shift.`
-    case 'fair_spread':
-      return `At most ${String(p.max_per_employee)} ${String(p.shift_class)} shifts per person.`
-    case 'always_staffed':
-      return `${roles.get(String(p.role_id)) ?? String(p.role_id)} always staffed.`
-    case 'preferred_role':
-      return `${n(p.employee_id)} prefers ${roles.get(String(p.role_id)) ?? String(p.role_id)}.`
-    case 'week_stability':
-      return 'Keep the week close to last week.'
-  }
-  return c.kind
-}
 
 export function Rulebook({ config, lawPack, lawError, onSetStatus }: Props) {
-  const names = new Map(config.employees.map((e) => [e.id, e.name]))
-  const roles = new Map(config.roles.map((r) => [r.id, r.name]))
   const constraints = (config.constraints ?? []).filter((c) => c.status !== 'rejected')
   const rejected = (config.constraints ?? []).length - constraints.length
   const groups: Group[] = [
@@ -91,8 +59,11 @@ export function Rulebook({ config, lawPack, lawError, onSetStatus }: Props) {
   return (
     <div className="space-y-4">
       <section>
-        <GroupHeading label="Law" count={lawRules.length + groups[0].constraints.length} />
-        {lawError && <p className="text-xs text-gap">Couldn't load the law pack: {lawError}</p>}
+        <GroupHeading
+          label={`Labor rules for ${placeLabel(config.store.jurisdiction.city, config.store.jurisdiction.state)}`}
+          count={lawRules.length + groups[0].constraints.length}
+        />
+        {lawError && <p className="text-xs text-gap">Couldn't load the labor rules: {lawError}</p>}
         {lawPack && lawPack.coverage !== 'full' && (
           <p className="mb-1.5 text-xs text-warn">
             {lawPack.coverage === 'state_only' ? 'City law not on file; state and federal only.' : 'State law not on file; federal only.'}
@@ -108,7 +79,7 @@ export function Rulebook({ config, lawPack, lawError, onSetStatus }: Props) {
             <LawLine key={r.id} rule={r} config={config} />
           ))}
           {groups[0].constraints.map((c) => (
-            <RuleLine key={c.id} c={c} text={describe(c, names, roles)} onSetStatus={onSetStatus} />
+            <RuleLine key={c.id} c={c} text={describeConstraint(c, config)} onSetStatus={onSetStatus} />
           ))}
         </ul>
         {!lawPack && !lawError && <p className="text-xs text-muted">Loading…</p>}
@@ -122,7 +93,7 @@ export function Rulebook({ config, lawPack, lawError, onSetStatus }: Props) {
           ) : (
             <ul className="space-y-1">
               {g.constraints.map((c) => (
-                <RuleLine key={c.id} c={c} text={describe(c, names, roles)} onSetStatus={onSetStatus} />
+                <RuleLine key={c.id} c={c} text={describeConstraint(c, config)} onSetStatus={onSetStatus} />
               ))}
             </ul>
           )}

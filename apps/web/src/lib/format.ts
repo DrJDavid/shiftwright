@@ -45,3 +45,9 @@ export function fmtDayDate(weekStart: string, day: number): { weekday: string; d
 }
 
 export const WEEKDAY_NAMES = WEEKDAYS
+
+/** "Chicago, IL" from a jurisdiction (cities are stored lower-case). */
+export function placeLabel(city: string | null | undefined, state: string | null | undefined): string {
+  const c = city ? city.replace(/\b\w/g, (ch) => ch.toUpperCase()) : ''
+  return [c, state].filter(Boolean).join(', ')
+}

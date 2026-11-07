@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiMode } from './api'
 import { ApiError } from './api/client'
@@ -18,6 +18,7 @@ import { StoreTab } from './components/StoreTab'
 import { ReceiptTab } from './components/ReceiptTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
+import { ruleNames as makeRuleNames } from './lib/ruleNames'
 import { placeLabel, rememberStore } from './lib/stores'
 
 type Tab = 'schedule' | 'callouts' | 'team' | 'compliance'
@@ -52,6 +53,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const lawState = config?.store.jurisdiction.state
   const lawCity = config?.store.jurisdiction.city ?? null
   const embeddedLaw = config?.law_pack ?? null
+  const ruleNames = useMemo(() => (config ? makeRuleNames(config, lawPack?.rules) : undefined), [config, lawPack])
 
   useEffect(() => {
     if (embeddedLaw) {
@@ -367,6 +369,8 @@ export function Workspace({ storeId: id }: { storeId: string }) {
             onBuild={() => void runSolve()}
             roles={config.roles}
             onEquipment={onEquipment}
+            plain={ruleNames?.plain}
+            place={placeLabel(juris.city, juris.state)}
           />
         ) : (
           workspaceMain
@@ -399,6 +403,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
               mode="onboard"
               onConfigChanged={() => void onConfigChanged()}
               onScheduleChanged={() => void refreshSchedule(config.store.id)}
+              ruleNames={ruleNames}
             />
           </div>
         </div>

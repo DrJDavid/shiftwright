@@ -674,7 +674,7 @@ function ModeBanner({
       ) : label ? (
         <p className="mt-0.5 text-ink-2">Premiums below come from {label}; the outreach confirms whether they're owed.</p>
       ) : noScheduleLaw ? (
-        <p className="mt-0.5 text-ink-2">No predictive-scheduling law in this location's law pack, so changes today carry no premium.</p>
+        <p className="mt-0.5 text-ink-2">No predictive-scheduling law in this location's labor rules, so changes today carry no premium.</p>
       ) : null}
     </div>
   )

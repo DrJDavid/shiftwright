@@ -45,7 +45,7 @@ export function RolesCard({ props, status, result, onSubmit, onCancel }: CardPro
     <CardFrame title="Departments and roles" status={status} summary={summary} onCancel={onCancel} submitLabel="Save roles" canSubmit={valid} formId={formId}>
       <form id={formId} onSubmit={submit} className="space-y-3">
         <p className="text-sm text-ink-2">
-          Gap cost is what an uncovered hour of the role is worth to you. The solver weighs it against wages when it has to leave a gap.
+          Gap cost is what an uncovered hour of the role is worth to you. Shiftwright weighs it against wages when it has to leave a gap.
         </p>
         <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
           {depts.map((d) => (

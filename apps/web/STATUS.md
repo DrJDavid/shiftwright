@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B5: routes, accounts, create workplace, switcher, guided setup, workspace tabs), branch
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B6: routes, accounts, create workplace, switcher, guided setup, workspace tabs, plain language), branch
 `cursor/B1-web-shell` off main 9413f5e. Built against the PUNCHLIST A1 endpoint table; A1 isn't on main yet._
 
 ## How David runs it locally
@@ -58,6 +58,21 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
   contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
   the mock now uses the same suffix. A contract field would be safer.
 
+## Plain language (B6)
+
+- Rule names come from data the app already has (`src/lib/ruleNames.ts`, tested): law rules by their law-pack
+  `summary`; store rules by their `note`, else a sentence built from their own params; role tags by `ROLE_TAG_LABEL`
+  (`lib/vocab.ts`, mirroring the `ROLE_TAGS` comments in contracts). Inline prose (setup step details) swaps law ids
+  for "Chicago minimum wage rule" (place + type from the rule itself), tag ids for labels, "N-min slots" for
+  "N-minute time blocks".
+- The conflict menu lists involved rules by name (tested); the gap sheet, receipt and store rules show the
+  constraint description instead of `kind`; minor-protection lines name the law rule instead of its id. Law
+  citations and links are unchanged.
+- Copy: "validator" → "compliance check", "law pack" → "labor rules", "the engine/solver" → "Shiftwright",
+  "slot" → "time block". Engine numbers and reasons are untouched; only labels changed.
+- Still raw on purpose: rule ids in the Fix tab's premium line fall back to the id only when the rule isn't in the
+  loaded law pack.
+
 ## Assumptions about the backend (Lane A)
 
 - Exactly the A1 table: `POST /api/auth/signup {email,password,name}` → `{user}`; `POST /api/auth/login` → `{user}`, 401
@@ -84,11 +99,12 @@ copies the Austin fixture (`demo`/`tiny` only) as "Sample: …". Stores created 
 `/workplaces`, `/workplaces/new`, `/w/:id`; landing creates no store; signup inline errors → `/workplaces/new`; taken
 email; wrong password; create-workplace required fields; create posts `{template: empty, name, sector, business_description,
 jurisdiction}` and opens `/w/:id` with the switcher listing it checked; explore a sample. `src/mock/mock.test.ts`: mock
-accounts + ownership. 40 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+accounts + ownership. Plus setup steps, call-in badge, rule names, conflict-menu names, and the setup → workspace
+switch (chat survives). 51 tests total; `npm run build`, `npm run lint`, `npm test` clean.
 
 ## Next (Lane B)
 
-- B6 plain-language pass (PUNCHLIST).
+- A contract field for call-in shifts (today keyed off the `-callin` id suffix).
 - Wire-up check against the real A1 once it lands (cookie on the chat SSE + CSV upload, 401 handling).
 
 ## Running it (details)

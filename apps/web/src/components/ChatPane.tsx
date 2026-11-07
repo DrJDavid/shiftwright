@@ -6,6 +6,7 @@ import type { CardStatus } from '../cards/CardFrame'
 import type { Sector } from '../contracts'
 import { CardEnvContext } from '../cards/context'
 import { guessKind } from '../cards/csvKind'
+import type { RuleNames } from '../lib/ruleNames'
 
 type Item =
   | { kind: 'user'; id: number; text: string }
@@ -36,17 +37,19 @@ type Props = {
   onHide?: () => void
   /** v1.5 Store.sector, so cards can order choices (event kinds). */
   sector?: Sector | null
+  /** Plain names for law/store rule ids (conflict_menu). */
+  ruleNames?: RuleNames
 }
 
 const STARTERS = ['Set up my store', 'Build the schedule']
 
-export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide, sector }: Props) {
+export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide, sector, ruleNames }: Props) {
   const [items, setItems] = useState<Item[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [activity, setActivity] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  const env = useMemo(() => ({ api, storeId, onConfigChanged, sector }), [api, storeId, onConfigChanged, sector])
+  const env = useMemo(() => ({ api, storeId, onConfigChanged, sector, ruleNames }), [api, storeId, onConfigChanged, sector, ruleNames])
   const seq = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Readiness } from '../api/protocol'
-import { setupSteps, type StepState } from '../lib/setupSteps'
+import { setupSteps, type Check, type StepState } from '../lib/setupSteps'
 import { EquipmentReview } from './EquipmentReview'
 import { SolveButton, type SolveState } from './SolveButton'
 
@@ -11,11 +11,16 @@ type Props = {
   onBuild: () => void
   roles: { id: string; name: string }[]
   onEquipment: (roleId: string, decision: 'confirm' | 'reject') => Promise<void>
+  /** Swaps rule ids and tag ids in check details for plain words (lib/ruleNames). */
+  plain?: (text: string) => string
+  /** "Chicago, IL": the resolved-law check reads "Labor rules for Chicago, IL". */
+  place: string
 }
 
 /** Setup mode's left rail: Business → Hours & budget → Team → Staffing → Rules → Build. */
-export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipment }: Props) {
+export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipment, plain = (t) => t, place }: Props) {
   const steps = setupSteps(readiness)
+  const detail = (c: Check) => (c.id === 'jurisdiction' && c.ok ? `Labor rules for ${place}` : plain(c.detail))
   const current = steps.find((s) => !s.done)?.id
   const ready = readiness?.ready ?? false
   const equipment = readiness?.checks.find((c) => c.id === 'equipment_roles')
@@ -28,7 +33,7 @@ export function SetupSteps({ readiness, error, solve, onBuild, roles, onEquipmen
       </div>
       <ol className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {steps.map((s, i) => (
-          <Step key={s.id} n={i + 1} step={s} current={s.id === current}>
+          <Step key={s.id} n={i + 1} step={s} current={s.id === current} detail={detail}>
             {s.id === 'team' && <EquipmentReview check={equipment} roles={roles} onDecide={onEquipment} />}
           </Step>
         ))}
@@ -76,7 +81,19 @@ function Dot({ n, state }: { n: number; state: 'done' | 'current' | 'todo' | 'at
   )
 }
 
-function Step({ n, step, current, children }: { n: number; step: StepState; current: boolean; children?: ReactNode }) {
+function Step({
+  n,
+  step,
+  current,
+  detail,
+  children,
+}: {
+  n: number
+  step: StepState
+  current: boolean
+  detail: (c: Check) => string
+  children?: ReactNode
+}) {
   const state = step.done ? (step.attention ? 'attention' : 'done') : current ? 'current' : 'todo'
   const open = step.checks.filter((c) => !c.ok)
   return (
@@ -89,7 +106,7 @@ function Step({ n, step, current, children }: { n: number; step: StepState; curr
         <Dot n={n} state={state} />
         <div className="min-w-0">
           <span className={`block text-sm font-semibold ${step.done || current ? 'text-ink' : 'text-ink-2'}`}>{step.label}</span>
-          {current && open[0] && <span className="block text-xs text-ink-2">{open[0].detail}</span>}
+          {current && open[0] && <span className="block text-xs text-ink-2">{detail(open[0])}</span>}
           {children && <div className="mt-1">{children}</div>}
         </div>
       </div>
@@ -106,7 +123,7 @@ function Step({ n, step, current, children }: { n: number; step: StepState; curr
                 </span>
                 <span>
                   <span className="font-medium">{c.label}</span>
-                  {c.detail && <span className="block text-xs text-ink-2">{c.detail}</span>}
+                  {c.detail && <span className="block text-xs text-ink-2">{detail(c)}</span>}
                 </span>
               </li>
             ))}
