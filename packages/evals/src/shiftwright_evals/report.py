@@ -45,14 +45,23 @@ def fmt(x, nd=1, suffix="") -> str:
     return f"{x}{suffix}"
 
 
+def fmt_duration(sec) -> str:
+    if sec is None:
+        return "–"
+    if sec < 120:
+        return f"{sec:.0f} s"
+    return f"{sec / 60:.0f} min"
+
+
 # --------------------------------------------------------------------------- #
 # Charts
 # --------------------------------------------------------------------------- #
-def bar_chart(items: list[tuple[str, float | None, str, str]], title: str, unit: str = "%", vmax: float = 100) -> str:
+def bar_chart(items: list[tuple[str, float | None, str, str]], title: str, unit: str = "%", vmax: float = 100,
+              caption_w: int = 140) -> str:
     """Horizontal bars. items = (label, value or None, color, caption)."""
     w, lw, row = 900, 230, 56
     h = 60 + row * len(items)
-    bw = w - lw - 140
+    bw = w - lw - caption_w
     parts = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" aria-label="{esc(title)}" style="{FONT}">',
              f'<text x="0" y="30" font-size="24" font-weight="700" fill="#222">{esc(title)}</text>']
     for i, (label, value, color, caption) in enumerate(items):
@@ -68,7 +77,7 @@ def bar_chart(items: list[tuple[str, float | None, str, str]], title: str, unit:
         tx = lw + bwv - 10 if inside else lw + bwv + 10
         parts.append(f'<text x="{tx:.1f}" y="{y + 31}" font-size="22" font-weight="700" '
                      f'fill="{"#fff" if inside else "#222"}" text-anchor="{"end" if inside else "start"}">'
-                     f'{value:.0f}{unit}</text>')
+                     f'{value:.{1 if unit == " min" and value < 10 else 0}f}{unit}</text>')
         if caption:
             parts.append(f'<text x="{w}" y="{y + 31}" font-size="16" text-anchor="end" fill="#555">{esc(caption)}</text>')
     parts.append("</svg>")
@@ -119,6 +128,21 @@ def stacked_codes(agg: dict, systems: list[str], suite: str, title: str) -> str:
         parts.append(f'<text x="{lx + 28}" y="{yy + 17}" font-size="17" fill="#333">{esc(code)}</text>')
     parts.append("</svg>")
     return "".join(parts)
+
+
+def cost_time_chart(agg: dict, systems: list[str], colors: dict[str, str]) -> str:
+    """Median time per weekly schedule, with each system's schedule cost (vs Shiftwright) and pass rate
+    in the caption, so cost is never shown without time and legality."""
+    items = []
+    for s in systems:
+        a = agg[s]["weekly"]
+        if not a["median_latency_s"]:
+            items.append((short(s), None, colors[s], "not run"))
+            continue
+        cost = fmt(a["median_cost_vs_sw"], 2, "× cost") if s != "shiftwright" else "1.00× cost"
+        items.append((short(s), a["median_latency_s"] / 60, colors[s], f'{cost} · {a["passed"]}/{a["scored"]} legal'))
+    vmax = max([v for _, v, _, _ in items if v] + [1])
+    return bar_chart(items, "Minutes per weekly schedule (median), with schedule cost", unit=" min", vmax=vmax, caption_w=230)
 
 
 def scatter(rows: list[dict], systems: list[str], colors: dict[str, str]) -> str:
@@ -206,13 +230,13 @@ def _summary_table(agg, systems, colors) -> str:
     out = ['<table class="summary"><tr><th>System</th><th class="n">Runs</th><th class="n">0 hard violations</th>'
            '<th class="n">Hard violations</th><th class="n">Unparseable</th><th class="n">Truncated</th>'
            '<th class="n">Budget respected</th><th class="n">Median coverage<br>(readable)</th>'
-           '<th class="n">Median cost vs Shiftwright</th><th class="n">Median latency</th>'
-           '<th class="n">API cost, all suites</th></tr>']
+           '<th class="n">Median cost vs Shiftwright</th><th class="n">Median time per schedule</th>'
+           '<th class="n">Total time (weekly)</th><th class="n">API cost, all suites</th></tr>']
     for s in systems:
         a = agg[s]["weekly"]
         if a["scored"] == 0:
             out.append(f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
-                       f'<td colspan="10" class="note">not run ({esc(_why_unavailable(agg, s))})</td></tr>')
+                       f'<td colspan="11" class="note">not run ({esc(_why_unavailable(agg, s))})</td></tr>')
             continue
         out.append(
             f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
@@ -220,6 +244,7 @@ def _summary_table(agg, systems, colors) -> str:
             f'<td class="n">{a["hard_total"]}</td><td class="n">{a["unparseable"]}</td><td class="n">{a["truncated"]}</td>'
             f'<td class="n">{a["budget_ok"]} / {a["parsed"]}</td><td class="n">{fmt(a["median_coverage"], 1, "%")}</td>'
             f'<td class="n">{fmt(a["median_cost_vs_sw"], 2, "×")}</td><td class="n">{fmt(a["median_latency_s"], 1, " s")}</td>'
+            f'<td class="n">{fmt_duration(a["total_latency_s"])}</td>'
             f'<td class="n">{"$%.2f" % agg[s]["cost_usd"] if s != "shiftwright" else "–"}</td></tr>')
     out.append("</table>")
     return "".join(out)
@@ -382,6 +407,25 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     if spend:
         p.append(f'<p class="note">OpenRouter cost of the baseline responses in this report (sum of '
                  f'<code>usage.cost</code> in run.json): <b>${spend:.2f}</b>. Cached replies are reused, not re-billed.</p>')
+    if manifest.get("rescored_from"):
+        reused = sorted({r["scenario"] for r in rows if r.get("reused_from")})
+        p.append(f'<div class="banner" style="background:#e8f1fb;border-color:#3a6ea5">Baseline rows are '
+                 f'<b>re-scored</b> from run <code>{esc(manifest["rescored_from"])}</code>: the models\' replies to that '
+                 f'run\'s prompts, re-validated against the current scenarios ({len(reused)} scenarios, matched by '
+                 f'scenario id and model). No new API calls. Shiftwright was re-run on the current engine. '
+                 f'Call-out inputs are reused, so every system repairs the same schedule.</div>')
+        changed = {}
+        for sid in reused:
+            f = run_dir / "_inputs" / sid / "config_changes.json"
+            if f.exists():
+                changed[sid] = json.loads(f.read_text())
+        fields = sorted({c for v in changed.values() for c in v["changed"]})
+        if fields:
+            p.append('<p class="note">Store config fields that differ from the prompts the models saw: '
+                     + ", ".join(f"<code>{esc(c)}</code>" for c in fields) + '. Replies are scored under the current rules.</p>')
+        for name, sids in sorted((manifest.get("not_rescored") or {}).items()):
+            p.append(f'<p class="note"><b>Not re-scored for {esc(short(name))}</b> (would need a new prompt): '
+                     + ", ".join(f"<code>{esc(x)}</code>" for x in sids) + '</p>')
     if manifest["mock_baselines"]:
         p.append('<div class="banner">MOCK BASELINES: the baseline rows are canned bad outputs used to test the '
                  'harness. They are not results from any real model.</div>')
@@ -398,8 +442,11 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
              'where both schedules pass every hard rule.</p>')
     p.append("<h2>Coverage and cost</h2><div class='charts'>")
     p.append(bar_chart(cov_items, "Median coverage of demand, schedules with no hard violations"))
+    p.append(cost_time_chart(agg, names, colors))
     p.append(scatter(rows, names, colors))
-    p.append("</div><p class='note'>Filled dot = no hard violations; hollow = breaks at least one hard rule. "
+    p.append("</div><p class='note'>Cost vs Shiftwright: median ratio of validator-recomputed objectives, over "
+             "scenarios where both schedules break no hard rule; below 1.00× = cheaper than Shiftwright. "
+             "Filled dot = no hard violations; hollow = breaks at least one hard rule. "
              "Right of the dashed line = over the corporate hours budget.</p>")
     p.append("<h2>Honesty on impossible stores</h2>")
     p.append('<p class="note">Infeasible scenarios (hard rules conflict, so no legal schedule exists). '

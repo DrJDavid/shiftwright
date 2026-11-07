@@ -19,7 +19,7 @@ from .mock import MOCK_MODELS
 from .report import build
 from .runner import run_all
 from .suites import SUITES, build_cases
-from .systems import BaselineSystem, ShiftwrightSystem
+from .systems import BaselineSystem, ReplaySystem, ShiftwrightSystem
 
 PKG_ROOT = Path(__file__).resolve().parents[2]  # packages/evals
 
@@ -31,7 +31,7 @@ def parse_args(argv):
     p.add_argument("--suites", default="weekly,honesty,repair", help=f"comma list from {SUITES}")
     p.add_argument("--models", default=None, help="override BASELINE_MODELS (comma list)")
     p.add_argument("--no-engine", action="store_true", help="skip the Shiftwright engine (reported unavailable)")
-    p.add_argument("--engine-time-limit", default="S=30,M=30,L=60",
+    p.add_argument("--engine-time-limit", default="S=120,M=120,L=120",
                    help="seconds per solve: a number, or per size like S=30,M=30,L=60")
     p.add_argument("--fix-time-limit", type=float, default=10.0)
     p.add_argument("--engine-workers", type=int, default=2, help="concurrent engine solves")
@@ -45,6 +45,9 @@ def parse_args(argv):
     p.add_argument("--cache-dir", type=Path, default=PKG_ROOT / ".cache")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--run-id", default=None)
+    p.add_argument("--rescore-from", metavar="RUN_ID", default=None,
+                   help="re-validate that run's baseline replies against the current scenarios (no API calls); "
+                        "also reuses its call-out inputs")
     p.add_argument("--report-only", metavar="RUN_ID", default=None,
                    help="rebuild the report for an existing run folder; runs nothing")
     return p.parse_args(argv)
@@ -71,7 +74,15 @@ async def _amain(args) -> int:
     notes = []
     real_client = None
     guard = None
-    if args.mock_baselines:
+    reuse_inputs = None
+    if args.rescore_from:
+        old_dir = args.out_dir / args.rescore_from
+        old_manifest = json.loads((old_dir / "manifest.json").read_text())
+        systems += [ReplaySystem(s["name"], old_dir) for s in old_manifest["systems"]
+                    if s["name"].startswith("baseline:")]
+        reuse_inputs = old_dir / "_inputs"
+        client = CachedClient(MockClient(), None)
+    elif args.mock_baselines:
         client = CachedClient(MockClient(), cache_dir / "llm-mock" if cache_dir else None)
         systems += [BaselineSystem(m, client, mock=True) for m in MOCK_MODELS]
     else:
@@ -95,13 +106,13 @@ async def _amain(args) -> int:
     if not engine.available:
         print(f"note: shiftwright unavailable: {engine.unavailable_reason}", file=sys.stderr)
     try:
-        await run_all(cases, systems, run_dir, concurrency=args.concurrency)
+        await run_all(cases, systems, run_dir, concurrency=args.concurrency, reuse_inputs=reuse_inputs)
     finally:
         if real_client:
             await real_client.aclose()
 
     manifest = {
-        "run_id": run_id, "quick": args.quick, "mock_baselines": args.mock_baselines, "suites": suites,
+        "run_id": run_id, "quick": args.quick, "mock_baselines": args.mock_baselines and not args.rescore_from, "suites": suites,
         "scenarios": [c.scenario_id for c in cases],
         "systems": [{"name": s.name, "available": s.available, "unavailable_reason": s.unavailable_reason,
                      **({"engine_source_hash": s.src_hash, "fix_day": s.can_fix} if s is engine else {})}
@@ -111,6 +122,8 @@ async def _amain(args) -> int:
         "openrouter_spend_usd": round(guard.spent, 4) if guard else None,
         "budget_stopped": guard.stopped if guard else None,
         "notes": notes,
+        "rescored_from": args.rescore_from,
+        "not_rescored": {s.name: s.missing for s in systems if getattr(s, "replay", False) and s.missing},
         "started": datetime.now().isoformat(timespec="seconds"),
         "wall_s": round(time.perf_counter() - t0, 1),
     }

@@ -99,6 +99,7 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
         "path": folder.relative_to(run_dir).as_posix(),
         "expected_infeasible": meta["expected_infeasible"],
         "expected_suspect": meta.get("expected_suspect"),
+        "reused_from": meta.get("reused_from"),
         "cost_usd": round(sum(float((a.get("usage") or {}).get("cost") or 0) for a in meta.get("attempts", [])), 4),
     }
     if val is None:
@@ -191,6 +192,7 @@ def aggregate(rows: list[dict], systems: list[str]) -> dict:
                 "parsed": len(parsed),
                 "median_cost_vs_sw": _median([r.get("cost_vs_sw") for r in parsed if r.get("passed")]),
                 "median_latency_s": _median([r["latency_s"] for r in scored]),
+                "total_latency_s": round(sum(r["latency_s"] or 0 for r in scored), 1),
             }
         per_suite["cost_usd"] = round(sum(r.get("cost_usd") or 0 for r in mine), 2)
         hon = Counter(r["honesty"] for r in mine if r.get("honesty") and r["suite"] == "honesty")

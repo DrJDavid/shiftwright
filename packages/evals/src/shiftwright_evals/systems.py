@@ -233,3 +233,58 @@ class BaselineSystem:
 
     async def repair(self, config: StoreConfig, schedule: Schedule, callouts: list[CallOut], day: int, now: int) -> Output:
         return await self._ask(prompts.repair_messages(config, schedule, callouts, day, now), want_wrapper=True)
+
+
+# --------------------------------------------------------------------------- #
+# Replay: re-score a previous run's baseline replies against the current scenarios (no API calls)
+# --------------------------------------------------------------------------- #
+class ReplaySystem:
+    """Reuses `<old_run>/<system>/<scenario>/raw_output.txt` for the same system and scenario id, and
+    re-validates it against the *current* config. The reply was produced from the old prompt (copied as
+    prompt.txt), so the report marks every such row as re-scored. Keyed on scenario identity, never on
+    prompt text."""
+
+    replay = True
+
+    def __init__(self, name: str, old_run_dir: Path):
+        self.name = name
+        self.old = old_run_dir
+        self.available = True
+        self.unavailable_reason = None
+        self.missing: list[str] = []
+        self.blocked: dict[str, str] = {}
+
+    def folder(self, scenario_id: str) -> Path:
+        return self.old / self.name.replace(":", "_").replace("/", "__") / scenario_id
+
+    def run(self, scenario_id: str) -> Output:
+        f = self.folder(scenario_id)
+        if scenario_id in self.blocked:
+            self.missing.append(scenario_id)
+            return Output("", outcome="unavailable",
+                          note=f"store changed since {self.old.name} ({self.blocked[scenario_id]}); needs a new prompt")
+        if not (f / "run.json").exists():
+            self.missing.append(scenario_id)
+            return Output("", outcome="unavailable",
+                          note=f"no reply for this scenario in {self.old.name}; not re-prompted (no new spend)")
+        meta = json.loads((f / "run.json").read_text())
+        raw = (f / "raw_output.txt").read_text()
+        out = Output((f / "prompt.txt").read_text(), raw_text=raw, latency_s=meta.get("latency_s"),
+                     attempts=meta.get("attempts", []), outcome=meta["outcome"],
+                     note=f"re-scored from {self.old.name} (reply to that run's prompt)")
+        for extra in f.glob("raw_output.attempt*.txt"):
+            out.extra_files[extra.name] = extra.read_text()
+        if out.outcome == "error":
+            return out
+        data, _ = extract_json(raw)
+        want_wrapper = meta["suite"] == "repair"
+        if data is not None and want_wrapper and not isinstance(data.get("schedule"), dict) and "shifts" not in data:
+            data = None
+        if data is None:
+            out.schedule_input = raw
+            return out
+        if want_wrapper and isinstance(data.get("schedule"), dict):
+            out.call_list = data.get("call_list") if isinstance(data.get("call_list"), list) else []
+            data = data["schedule"]
+        out.schedule_input = data
+        return out
