@@ -42,12 +42,14 @@ def _say(c, sid, text, mode="onboard"):
 def test_sam_better_with_customers(live):
     c, rec = live
     sid = make_store(c, template="bigbox_small")["store"]["id"]
-    _say(c, sid, "Sam is better with customers.")
+    r = _say(c, sid, "Sam is better with customers.")
+    assert r.status_code == 200 and "event: error" not in r.text, r.text[-500:]
     assert "log_unmodeled" in rec.tool_names or "propose_rule" in rec.tool_names
 
 
 def test_overtime_question_uses_lookup_law(live):
     c, rec = live
     sid = make_store(c, template="bigbox_small")["store"]["id"]
-    _say(c, sid, "What's the overtime law here?", mode="review")
+    r = _say(c, sid, "What's the overtime law here?", mode="review")
+    assert r.status_code == 200 and "event: error" not in r.text, r.text[-500:]
     assert "lookup_law" in rec.tool_names
