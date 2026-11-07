@@ -289,6 +289,7 @@ export default function App() {
               api={api}
               config={config}
               result={result}
+              lawPack={lawPack}
               onSchedule={(schedule) => setResult({ schedule, validation: null })}
             />
           </div>

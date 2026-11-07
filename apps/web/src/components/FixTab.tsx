@@ -3,7 +3,7 @@ import type { Api } from '../api/client'
 import { ApiError } from '../api/client'
 import { apiMode } from '../api'
 import type { OutreachState, SolveResponse } from '../api/protocol'
-import type { FixAction, FixPlan, InboundMessage, OutboundMessage, Schedule, StoreConfig } from '../contracts'
+import type { FixAction, FixPlan, InboundMessage, LawPack, LawRule, OutboundMessage, Schedule, StoreConfig } from '../contracts'
 import { fmtMoney, fmtPct, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
 
@@ -11,6 +11,7 @@ type Props = {
   api: Api
   config: StoreConfig
   result: SolveResponse | null
+  lawPack: LawPack | null
   /** Outreach accepted someone: show the updated schedule (not re-validated yet). */
   onSchedule: (s: Schedule) => void
 }
@@ -28,7 +29,7 @@ const LEVER: Record<FixAction['lever'], string> = {
 type Msg = OutboundMessage | InboundMessage
 const isOut = (m: Msg): m is OutboundMessage => 'to_employee_id' in m
 
-export function FixTab({ api, config, result, onSchedule }: Props) {
+export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
   const storeId = config.store.id
   const hasDemo = DEMO.ids.every((id) => config.employees.some((e) => e.id === id))
   const [day, setDay] = useState(hasDemo ? DEMO.day : 0)
@@ -262,7 +263,7 @@ export function FixTab({ api, config, result, onSchedule }: Props) {
           </div>
         )}
 
-        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} />}
+        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} lawPack={lawPack} />}
       </div>
 
       {plan && (
@@ -294,12 +295,16 @@ function PlanView({
   config,
   roleName,
   outreach,
+  lawPack,
 }: {
   plan: FixPlan
   config: StoreConfig
   roleName: Map<string, string>
   outreach: OutreachState | null
+  lawPack: LawPack | null
 }) {
+  const lawById = new Map((lawPack?.rules ?? []).map((r) => [r.id, r]))
+  const hasScheduleLaw = (lawPack?.rules ?? []).some((r) => r.type === 'predictive_scheduling')
   const emp = new Map(config.employees.map((e) => [e.id, e]))
   const texted = new Set((outreach?.messages ?? []).filter(isOut).map((m) => m.to_employee_id))
   const accepted = new Set(outreach?.accepted_employee_ids ?? [])
@@ -341,9 +346,7 @@ function PlanView({
                   {fmtRange(a.start, a.end)}
                 </span>
                 <span className="block text-ink-2">{a.rationale}</span>
-                {(a.law_rule_ids ?? []).length > 0 && (
-                  <span className="block text-xs text-muted">Law: {(a.law_rule_ids ?? []).join(', ')}</span>
-                )}
+                <PremiumLine action={a} lawById={lawById} hasScheduleLaw={hasScheduleLaw} lawLoaded={!!lawPack} />
               </span>
               <span className="shrink-0 text-right tabular-nums">
                 {a.added_cost_dollars ? `+${fmtMoney(a.added_cost_dollars)}` : '—'}
@@ -402,6 +405,62 @@ function PlanView({
       </section>
     </div>
   )
+}
+
+function lawLabel(r: LawRule | undefined, id: string): string {
+  if (!r) return id
+  const place =
+    r.level === 'city' && r.jurisdiction.city
+      ? r.jurisdiction.city.replace(/\b\w/g, (c) => c.toUpperCase())
+      : r.level === 'federal'
+        ? 'Federal'
+        : r.jurisdiction.state
+  const kind = r.type === 'predictive_scheduling' ? 'predictability pay' : r.type.replace(/_/g, ' ')
+  return `${place} ${kind}`
+}
+
+/** Premium per action (SEMANTICS #17): the engine's amount and law, or why there is none. Never computed here. */
+function PremiumLine({
+  action: a,
+  lawById,
+  hasScheduleLaw,
+  lawLoaded,
+}: {
+  action: FixAction
+  lawById: Map<string, LawRule>
+  hasScheduleLaw: boolean
+  lawLoaded: boolean
+}) {
+  const ids = a.law_rule_ids ?? []
+  const premium = a.premium_pay_dollars ?? 0
+  if (premium > 0)
+    return (
+      <span className="mt-1 flex flex-wrap gap-1">
+        {(ids.length ? ids : ['']).map((id) => {
+          const r = lawById.get(id)
+          return (
+            <span key={id} className="rounded bg-warn-wash px-1.5 py-0.5 text-xs font-semibold text-warn" title={r?.summary}>
+              +{fmtMoney(premium, { cents: true })} {id ? lawLabel(r, id) : 'premium pay'}
+              {r && (
+                <a href={r.citation.url} target="_blank" rel="noreferrer" className="ml-1 font-normal underline">
+                  source
+                </a>
+              )}
+            </span>
+          )
+        })}
+      </span>
+    )
+  if (ids.length > 0)
+    return (
+      <span className="mt-1 block text-xs">
+        <span className="rounded bg-pine-wash px-1.5 py-0.5 font-semibold text-pine-dark">No premium</span>{' '}
+        <span className="text-muted">{ids.map((id) => lawLabel(lawById.get(id), id)).join(', ')} checked</span>
+      </span>
+    )
+  if (lawLoaded && !hasScheduleLaw && a.lever !== 'drop_coverage')
+    return <span className="mt-1 block text-xs text-muted">No predictive-scheduling law in this location's law pack.</span>
+  return null
 }
 
 function Big({ label, value, tone }: { label: string; value: string; tone: string }) {
