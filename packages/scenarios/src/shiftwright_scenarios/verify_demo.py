@@ -1,9 +1,9 @@
 """Check the demo store against a real engine schedule (SPEC §7, Saturday 06:04).
 
-    uv run python -m shiftwright_scenarios.verify_demo [time_limit_s]
+    uv run python -m shiftwright_scenarios.verify_demo [time_limit_s] [locality|all]
 
-Checks:
-  1. solve_week returns a schedule (optimal/feasible).
+Checks (per demo locality: austin, chicago, seattle, sf):
+  1. solve_week returns a schedule (optimal/feasible), and WS2's validator finds 0 hard violations.
   2. Each demo call-out (expected.demo.callout_employee_ids) has a Saturday shift still running
      at 06:04 that starts by 12:00 ("Saturday morning").
   3. The repair is possible but not trivial:
@@ -31,7 +31,7 @@ from shiftwright_contracts.models import (
 
 from .callouts import DEFAULT_REPORTED_AT, pick_callouts
 from .demo import SATURDAY
-from .fixtures import load_demo_scenario
+from .fixtures import DEMO_LOCALITIES, load_demo_scenario
 
 MORNING_END = 12 * 60
 MIN_PLAUSIBLE = 3        # "several" call-in candidates
@@ -95,8 +95,9 @@ def callin_candidates(cfg: StoreConfig, sched: Schedule, callout_ids: list[str],
 
 
 def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
-           fix_day: Optional[Callable] = None, schedule: Optional[Schedule] = None) -> dict[str, Any]:
-    sc = load_demo_scenario()
+           fix_day: Optional[Callable] = None, schedule: Optional[Schedule] = None,
+           locality: str = "austin") -> dict[str, Any]:
+    sc = load_demo_scenario(locality)
     cfg = with_law_pack(sc.config)
     demo = sc.expected["demo"]
     callout_ids: list[str] = demo["callout_employee_ids"]
@@ -106,10 +107,19 @@ def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
         if solve_week is None:
             raise RuntimeError("shiftwright_engine.solve_week not available")
         schedule = solve_week(cfg, time_limit_s=time_limit_s)
-    rep: dict[str, Any] = {"status": getattr(schedule.status, "value", schedule.status)}
+    rep: dict[str, Any] = {"locality": locality, "status": getattr(schedule.status, "value", schedule.status)}
     if schedule.metrics is not None:
         rep["metrics"] = schedule.metrics.model_dump(include={"coverage_pct", "total_hours", "total_wage_cost",
-                                                              "gap_penalty_dollars"})
+                                                              "premium_pay_dollars", "gap_penalty_dollars"})
+    try:
+        from shiftwright_validator import validate
+    except ImportError:
+        rep["validator"] = None
+    else:
+        vr = validate(cfg, schedule)
+        rep["validator"] = {"passed": vr.passed, "hard_count": vr.hard_count,
+                            "hard": [f"{v.code.value}: {v.message}" for v in vr.violations
+                                     if getattr(v.severity, "value", v.severity) == "hard"][:10]}
 
     morning: dict[str, Any] = {}
     lost: dict[str, float] = {}
@@ -155,4 +165,7 @@ def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
 
 
 if __name__ == "__main__":
-    print(json.dumps(verify(float(sys.argv[1]) if len(sys.argv) > 1 else 30), indent=2, default=str))
+    t = float(sys.argv[1]) if len(sys.argv) > 1 else 30
+    which = sys.argv[2] if len(sys.argv) > 2 else "austin"
+    for loc in (DEMO_LOCALITIES if which == "all" else (which,)):
+        print(json.dumps(verify(t, locality=loc), indent=2, default=str))

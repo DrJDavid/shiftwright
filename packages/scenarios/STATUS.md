@@ -59,6 +59,36 @@
     (placeholder phones, Saturday preferred_off $60/h, one-off time off, raised call-in records, the
     cap of everyone else's record at 0.7) and `apply_demo_phones` are gone. Phones are the generated
     fake 555 numbers; attendance stats are the generator's.
+- **Demo localities** (`build_demo_scenario(locality)`, `demo.LOCALITIES`, `DEMO_LOCALITIES`):
+
+  | locality | store | fixtures | loader |
+  |---|---|---|---|
+  | `austin` (default) | Store #0417, Austin TX | `demo_store.json`, `demo_scenario.json` | `load_demo_store()` / `load_demo_scenario()` |
+  | `chicago` | Store #1123, Chicago IL | `demo_store_chicago.json`, `demo_scenario_chicago.json` | `load_demo_store("chicago")` |
+  | `seattle` | Store #2231, Seattle WA | `demo_store_seattle.json`, `demo_scenario_seattle.json` | `load_demo_store("seattle")` |
+  | `sf` | Store #3305, San Francisco CA (city `san francisco`) | `demo_store_sf.json`, `demo_scenario_sf.json` | `load_demo_store("sf")` |
+
+  - Every variant: generated as Austin, so e001–e060, demand, history shifts and the e034/e052/e053
+    call-outs are identical. `school_week=True`, `employer_employee_count=400_000` (synthetic, a
+    national big-box chain; noted in `expected.notes`), `schedule_posted_on = week_start − 14 d`.
+    Austin also got the two v1.3 fields; otherwise Austin is unchanged (cap 1,393, narrative as before).
+  - Per locality, all from `shiftwright_laws.resolve(jur, on=week_start)`: wages shifted up to the
+    minimum (`_lift_wages`), local phone area code (fake 555 numbers), timezone.
+  - Narrative: Austin unchanged; the others get leader-voice sentences built only from the pack's
+    rule params (`locality_sentences`): predictive-scheduling notice days + change premium, city
+    rest-between-shifts premium multiplier, meal/rest break minutes, daily OT threshold, city
+    minimum wage. Each is recorded in `expected.law_context` with its `law_rule_id` (not in
+    `narrative_facts`: it's context to look up, not a store constraint).
+  - Break-law stores need more paid hours and heads to cover the same floor (seen with the engine:
+    without this, Seattle/SF hit 77–79% coverage at 30 s with 0 hard violations):
+    - `budget.weekly_hours_cap` × `break_allowance(pack)` = 1 + paid rest duration/per_minutes_worked
+      + first meal duration/480 (Austin 1.0 → 1,393 h; Chicago 1.0417 → 1,451; Seattle/SF 1.1042 → 1,538).
+    - `Role.gap_penalty_per_hour` × local average wage / Austin average wage, to the nearest $5
+      (`expected.gap_penalty_scale`): the value of an uncovered hour in local dollars.
+    - New part-time hires after the history weeks (`expected.new_hire_ids`): 60 × (allowance − 1),
+      +4 where the pack has daily OT and OT isn't allowed. Chicago +3 (e061–e063), Seattle +6, SF +10.
+  - SF Formula Retail predictive scheduling has `min_locations: 40`; there's no store field for the
+    chain's location count, so it isn't modeled (a 400k-employee chain has far more than 40).
 - CSV exports: `fixtures/exports/{roster,training,availability,forecast,history}.csv`, corporate style
   (`TM_ID`, `Dept`, `Wage Rate`, `Avail Mon`, DOB instead of age, job codes, 12-hour times). The mapping
   tables and format notes are in the `shiftwright_scenarios.exports` docstring.
@@ -84,6 +114,21 @@
   - 120 s, 1 run: coverage 94.6%; same call-outs on Saturday morning; 9 callable, 4 plausible.
   - Note: e052 is PIT-trained, but the engine puts PIT on someone else, so the call-outs cost truck,
     softlines and cashier hours, not PIT. No re-pick needed.
+- **Localities with the engine on main (f06af98, no fix_day yet), Sat Nov 7:** all feasible, validator
+  0 hard, all 3 call-outs on Saturday-morning shifts, repair not trivial, ≥ 3 plausible call-ins:
+
+  | locality | 30 s coverage | 120 s coverage |
+  |---|---|---|
+  | austin | 93.3–93.7% | 94.6% |
+  | chicago | 91.8% | 96.2% |
+  | seattle | 88.6% | 89.6% (only 2 plausible call-ins in that run) |
+  | sf | 88.2% | 89.7% |
+
+  Seattle/SF candidate sets are large (130–160k shifts), and the engine's 30 s solves still stop at a
+  large optimality gap; once a Seattle 30 s solve (before the extra hires) returned no schedule at
+  all ("No schedule found within the time limit"). That's for WS1. `tests/test_demo_engine.py` is
+  parametrized by locality with coverage floors (austin 90, chicago 88, seattle/sf 85); non-Austin
+  cases run only with `SW_DEMO_ENGINE_ALL=1` (+~90 s). `verify_demo` also runs WS2's `validate()`.
 - `test_easy_engine_coverage`: 4 runs of S/easy/seed 1 at 30 s gave 97.8–98.9% (the engine stops at
   a 4–6% optimality gap, and multi-worker CP-SAT under a time limit isn't deterministic). The test
   now asserts coverage ≥ 97%, budget hours used ≤ 90% of the cap, and no gap in any role with

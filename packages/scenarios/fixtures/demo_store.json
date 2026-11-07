@@ -51,8 +51,8 @@
     "pre_open_minutes": 240,
     "post_close_minutes": 60,
     "school_week": true,
-    "employer_employee_count": null,
-    "schedule_posted_on": null
+    "employer_employee_count": 400000,
+    "schedule_posted_on": "2026-10-26"
   },
   "departments": [
     {
