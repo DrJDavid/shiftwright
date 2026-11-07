@@ -11,32 +11,12 @@
     "Mercantile establishments must give 24 consecutive hours of rest each week (DOL table).",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "Minors: NY 16-17 school-week 4 h cap applies to days preceding a school day (Sun-Thu, but Sunday is excepted, 8 h); the validator treats Mon-Fri as school days, so Friday is enforced at 4 h (stricter than law).",
+    "Minors: 16-17 may work to midnight before a school day only with written parental consent + school academic-standing certificate (and before a non-school day with parental consent); encoded latest_end = 10 p.m.",
+    "Minors: extra param key max_days_week (6) for NY; NY 16-17 non-school-week alternative schedule (10 h one day, 9 h four days, max 48 h) not encoded.",
+    "Minimum wage from 2027 is CPI-indexed (Lab. Law \u00a7 652(1-b)); NYS DOL says the 2027 rate stays $16.00 / $17.00 (off-ramp met): https://dol.ny.gov/minimum-wage-0."
   ],
   "rules": [
-    {
-      "id": "NY.minimum_wage.1",
-      "jurisdiction": {
-        "state": "NY",
-        "city": null
-      },
-      "level": "state",
-      "type": "minimum_wage",
-      "params": {
-        "dollars_per_hour": 16.0,
-        "effective": "2026-11-05"
-      },
-      "summary": "New York's basic minimum wage is $16.00 an hour (DOL table, Nov. 2026).",
-      "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Basic Minimum Rate (per hour): $16.00",
-        "last_verified": "2026-11-06"
-      },
-      "confidence": "medium",
-      "verified": false
-    },
     {
       "id": "NY.weekly_overtime.1",
       "jurisdiction": {
@@ -82,6 +62,146 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "NY.minor_limits.1",
+      "jurisdiction": {
+        "state": "NY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "While school is in session, 14- and 15-year-olds may work at most 3 hours on a school day, 8 on a non-school day, 18 hours and 6 days a week, between 7 a.m. and 7 p.m.",
+      "citation": {
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/142",
+        "title": "N.Y. Lab. Law \u00a7 142 \u2014 Hours of work for minors 14 and 15",
+        "excerpt": "When school is in session ... More than three hours on any school day; b. More than eight hours on any day when school is not in session; c. More than eighteen hours a week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NY.minor_limits.2",
+      "jurisdiction": {
+        "state": "NY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "When school is not in session, 14- and 15-year-olds may work at most 8 hours a day, 40 hours and 6 days a week, 7 a.m.-7 p.m. (9 p.m. from June 21 to Labor Day).",
+      "citation": {
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/142",
+        "title": "N.Y. Lab. Law \u00a7 142 \u2014 Hours of work for minors 14 and 15",
+        "excerpt": "When school is not in session ... a. More than eight hours a day; b. More than six days a week; c. More than forty hours a week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NY.minor_limits.3",
+      "jurisdiction": {
+        "state": "NY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 4,
+        "max_hours_week": 28,
+        "earliest_start": 360,
+        "latest_end": 1320,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "While school is in session, 16- and 17-year-olds may work at most 4 hours on a day before a school day, 8 on Fri/Sat/Sun/holidays, 28 hours and 6 days a week, 6 a.m.-10 p.m. (midnight with parent consent and school certificate).",
+      "citation": {
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/143",
+        "title": "N.Y. Lab. Law \u00a7 143 \u2014 Hours of work for minors 16 and 17",
+        "excerpt": "More than four hours on any day preceding a school day, other than on a Sunday or holiday ... More than eight hours on a Friday, Saturday, Sunday or holiday; c. More than twenty-eight hours a week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NY.minor_limits.4",
+      "jurisdiction": {
+        "state": "NY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 360,
+        "latest_end": 1440,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "When school is not in session, 16- and 17-year-olds may work at most 8 hours a day (10 on one day / 9 on four days to make shorter days), 48 hours and 6 days a week, not between midnight and 6 a.m.",
+      "citation": {
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/143",
+        "title": "N.Y. Lab. Law \u00a7 143 \u2014 Hours of work for minors 16 and 17",
+        "excerpt": "When school is not in session ... a. More than eight hours a day ... b. More than forty-eight hours a week; c. More than six days a week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NY.minimum_wage.1",
+      "jurisdiction": {
+        "state": "NY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 16.0,
+        "effective": "2026-01-01"
+      },
+      "summary": "New York's minimum wage is $16.00 an hour outside NYC, Nassau, Suffolk and Westchester from January 1, 2026 (unchanged on Jan. 1, 2027 per NYS DOL).",
+      "citation": {
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/652",
+        "title": "N.Y. Lab. Law \u00a7 652(1-a)(c) \u2014 Minimum wage, remainder of state",
+        "excerpt": "every employer shall pay ... for each hour worked outside the city of New York and the counties of Nassau, Suffolk, and Westchester ... $16.00 on and after January 1, 2026",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

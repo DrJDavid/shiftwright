@@ -9,9 +9,11 @@
     "Illinois rest-break rule in the DOL table covers only hotel room attendants (Cook County); not encoded.",
     "Chicago and Evanston have city files.",
     "No state daily overtime listed in the DOL table.",
-    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "Upgraded to primary sources (ILCS) on 2026-11-06: minimum wage, weekly OT, meal periods, minors.",
+    "Minimum wage: employers may pay up to 50 cents less during an adult employee's first 90 days (820 ILCS 105/4(a)(2)); not encoded. Under-18 rate differs; not encoded.",
+    "Minors: the Child Labor Law of 2024 defines 'minor' as under 16, so Illinois sets no hour limits for 16-17 (federal has none either).",
+    "Minors: under-16 may work 8 h on Saturday and Sunday of a school week only if no more than 24 h/week outside school and 6 consecutive days (820 ILCS 206/30(a)); encoded weekly cap 18 h (Sec. 25).",
+    "Minors: under-16 need a 30-minute meal period after 5 continuous hours (820 ILCS 206/35(d)), and must be supervised on site by an adult 21+ (206/35(c)); not encoded (no rule type)."
   ],
   "rules": [
     {
@@ -24,16 +26,16 @@
       "type": "minimum_wage",
       "params": {
         "dollars_per_hour": 15.0,
-        "effective": "2026-11-05"
+        "effective": "2025-01-01"
       },
-      "summary": "Illinois's basic minimum wage is $15.00 an hour (DOL table, Nov. 2026).",
+      "summary": "Illinois's minimum wage is $15.00 an hour for employees 18 and older from January 1, 2025.",
       "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Basic Minimum Rate (per hour): $15.00",
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=2400&ChapterID=68",
+        "title": "820 ILCS 105/4(a)(1) \u2014 Minimum Wage Law",
+        "excerpt": "on and after January 1, 2025, every employer shall pay to each of his or her employees who is 18 years of age or older in every occupation wages of not less than $15 per hour",
         "last_verified": "2026-11-06"
       },
-      "confidence": "medium",
+      "confidence": "high",
       "verified": false
     },
     {
@@ -48,14 +50,14 @@
         "threshold_hours": 40,
         "multiplier": 1.5
       },
-      "summary": "Illinois requires 1.5x pay after 40 hours in a workweek.",
+      "summary": "Illinois requires 1.5x the regular rate after 40 hours in a workweek.",
       "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=2400&ChapterID=68",
+        "title": "820 ILCS 105/4a(1) \u2014 Minimum Wage Law, overtime",
+        "excerpt": "no employer shall employ any of his employees for a workweek of more than 40 hours unless such employee receives compensation ... not less than 1 1/2 times the regular rate",
         "last_verified": "2026-11-06"
       },
-      "confidence": "medium",
+      "confidence": "high",
       "verified": false
     },
     {
@@ -73,14 +75,96 @@
         "latest_start_minute_of_shift": 300,
         "waivable_under_minutes": null
       },
-      "summary": "Illinois requires a 20-minute meal period for work over 7.5 hours.",
+      "summary": "Employees working 7.5 continuous hours get at least a 20-minute meal period starting no later than 5 hours into the work period.",
       "citation": {
-        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
-        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
-        "excerpt": "At least 20 minutes, no later than 5 hours after the start of the work period, to employees who work 7 \u00bd continuous hours or more",
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=2407&ChapterID=68",
+        "title": "820 ILCS 140/3 \u2014 One Day Rest In Seven Act, meal periods",
+        "excerpt": "employees who are to work for 7 1/2 continuous hours ... at least 20 minutes for a meal period beginning no later than 5 hours after the start of the work period",
         "last_verified": "2026-11-06"
       },
-      "confidence": "medium",
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.meal_break.2",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 720,
+        "duration": 20,
+        "paid": false,
+        "latest_start_minute_of_shift": null,
+        "waivable_under_minutes": null
+      },
+      "summary": "An additional 20-minute meal period is due for every additional 4.5 continuous hours beyond 7.5 (i.e. a second at 12 hours).",
+      "citation": {
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=2407&ChapterID=68",
+        "title": "820 ILCS 140/3 \u2014 One Day Rest In Seven Act, meal periods",
+        "excerpt": "An employee who works in excess of 7 1/2 continuous hours shall be entitled to an additional 20-minute meal period for every additional 4 1/2 continuous hours worked",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.minor_limits.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_hours_non_school_day": 8
+      },
+      "summary": "During a school week, minors under 16 may work at most 3 hours on a school day (8 h work + school combined), 8 hours on a non-school day, 18 hours a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=4524&ChapterID=68",
+        "title": "820 ILCS 206/25 \u2014 Child Labor Law of 2024, Allowable work hours",
+        "excerpt": "more than 18 hours during a week when school is in session ... between 7 p.m. and 7 a.m. from Labor Day until June 1 ... more than 3 hours per day ... on days when school is in session",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.minor_limits.2",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "When school is not in session, minors under 16 may work at most 8 hours in a 24-hour period and 40 hours a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=4524&ChapterID=68",
+        "title": "820 ILCS 206/25 \u2014 Child Labor Law of 2024, Allowable work hours",
+        "excerpt": "more than 40 hours during a week when school is not in session; (3) more than 8 hours in any single 24-hour period; (4) between 7 p.m. and 7 a.m.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

@@ -10,8 +10,11 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minimum wage: $16.48 from 2027-01-01 confirmed on NJDOL site (rule NJ.minimum_wage.2, ignored until in effect). The 2026 rate ($15.92) is still from the DOL table.",
+    "Minors: NJ 16-17 summer allowance (10 h/day, 50 h/week from the last school day to Labor Day, N.J.S.A. 34:2-21.3(b)) is not encoded; NJ.minor_limits.4 enforces the year-round 8 h/40 h, so legal summer schedules over 40 h will be flagged.",
+    "Minors: any minor under 18 needs a 30-minute lunch after 6 continuous hours (N.J.S.A. 34:2-21.4); not encoded (no minor-break rule type). Extra param key max_days_week.",
+    "Minors: NJDOL notes its statute reprint page is being updated; text fetched 2026-11-06 already includes the P.L.2022 changes."
   ],
   "rules": [
     {
@@ -56,6 +59,145 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "NJ.minimum_wage.2",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 16.48,
+        "effective": "2027-01-01"
+      },
+      "summary": "New Jersey's minimum wage for most workers rises to $16.48 an hour on January 1, 2027.",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/",
+        "title": "NJDOL \u2014 Wage & Hour Compliance",
+        "excerpt": "Effective January 1, 2027, New Jersey's minimum wage is $16.48/hour for most workers.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NJ.minor_limits.1",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": null,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "During the school year, 14- and 15-year-olds may work outside school hours at most 3 hours on a school day, 8 on a non-school day, 18 hours and 6 days a week, 7 a.m.-7 p.m.",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/tools-resources/laws/childlaborlaws.shtml#2-21.3",
+        "title": "N.J.S.A. 34:2-21.3 \u2014 Limitations on minors' working hours (NJDOL statute reprint)",
+        "excerpt": "during the school year, a minor who is at least 14 or 15 years of age may work ... for no more than three hours on a school day and no more than 18 hours in a school week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NJ.minor_limits.2",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "Outside the school year, 14- and 15-year-olds may work at most 8 hours a day, 40 hours and 6 days a week, 7 a.m.-7 p.m. (9 p.m. from the last day of school to Labor Day).",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/tools-resources/laws/childlaborlaws.shtml#2-21.3",
+        "title": "N.J.S.A. 34:2-21.3 \u2014 Limitations on minors' working hours (NJDOL statute reprint)",
+        "excerpt": "no minor under 18 years of age shall be employed ... more than six consecutive days in any one week, or more than 40 hours in any one week, or more than eight hours in any one day",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NJ.minor_limits.3",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 360,
+        "latest_end": 1380,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "16- and 17-year-olds may work at most 8 hours a day, 40 hours and 6 days a week, not before 6 a.m. or after 11 p.m. on a day before a school day.",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/tools-resources/laws/childlaborlaws.shtml#2-21.3",
+        "title": "N.J.S.A. 34:2-21.3 \u2014 Limitations on minors' working hours (NJDOL statute reprint)",
+        "excerpt": "nor shall any minor between 16 and 18 years of age be so employed ... before 6 a.m. or after 11 p.m. of any day; provided that ... may be employed after 11 p.m. during any regular vacation season",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NJ.minor_limits.4",
+      "jurisdiction": {
+        "state": "NJ",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 360,
+        "latest_end": null,
+        "latest_end_summer": null,
+        "max_days_week": 6
+      },
+      "summary": "Outside school weeks, 16- and 17-year-olds may work at most 8 hours a day, 40 hours and 6 days a week (10 h/day and 50 h/week from the last day of school to Labor Day), not before 6 a.m.",
+      "citation": {
+        "url": "https://www.nj.gov/labor/wageandhour/tools-resources/laws/childlaborlaws.shtml#2-21.3",
+        "title": "N.J.S.A. 34:2-21.3 \u2014 Limitations on minors' working hours (NJDOL statute reprint)",
+        "excerpt": "a minor between 16 and 18 years of age may work up to 50 hours in one week and up to 10 hours in one day during the period beginning on the last day of the minor\u2019s school year",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

@@ -9,7 +9,7 @@
     "Retail rules are prohibitions, not premiums: schedules 72 h ahead; no on-call shifts; no cancel/cut of >15 min within 72 h (exceptions); added time within 72 h only with written consent. Encoded as change_premium_hours=0 with extra key changes_restricted_within_notice=true.",
     "Violation of the 72-hour schedule notice may cost $300 per affected worker (DCWP FAQ).",
     "No retail rest-between-shifts rule (NYC's clopening rule applies to fast food, out of scope).",
-    "Minimum wage effective date not stated on the source page; rate confirmed in effect as of last_verified (page says it stays the same on Jan 1, 2027)."
+    "Minimum wage effective date from Lab. Law \u00a7 652(1-a)(a); NYS DOL confirms the rate stays $17.00 on Jan. 1, 2027."
   ],
   "rules": [
     {
@@ -48,13 +48,13 @@
       "type": "minimum_wage",
       "params": {
         "dollars_per_hour": 17.0,
-        "effective": "2026-11-06"
+        "effective": "2026-01-01"
       },
-      "summary": "The minimum wage in New York City is $17.00 an hour.",
+      "summary": "The minimum wage in New York City is $17.00 an hour from January 1, 2026 (unchanged on Jan. 1, 2027 per NYS DOL).",
       "citation": {
-        "url": "https://dol.ny.gov/minimum-wage-0",
-        "title": "NY Department of Labor \u2014 Minimum Wage",
-        "excerpt": "$17.00 per hour in New York City, Long Island, and Westchester County (stays the same on January 1, 2027)",
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/652",
+        "title": "N.Y. Lab. Law \u00a7 652(1-a)(a) \u2014 Minimum wage, New York City",
+        "excerpt": "every employer regardless of size shall pay to each of its employees for each hour worked in the city of New York a wage of not less than ... $17.00 on and after January 1, 2026",
         "last_verified": "2026-11-06"
       },
       "confidence": "high",

@@ -10,8 +10,9 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "Minors researched 2026-11-06 (Va. Code \u00a7 40.1-80.1, https://law.lis.virginia.gov/vacode/title40.1/chapter5/section40.1-80.1/): under-16 hour limits are set by regulation incorporating the federal FLSA standards (federal.json applies); no extra state hour limits for 16-17.",
+    "Minors: no child may work more than 5 hours continuously without a 30-minute lunch period (\u00a7 40.1-80.1(B)); not encoded (no minor-break rule type).",
+    "Minimum wage scheduled to reach $15.00 on Jan. 1, 2028 (\u00a7 40.1-28.10(D)); not encoded."
   ],
   "rules": [
     {
@@ -24,16 +25,38 @@
       "type": "minimum_wage",
       "params": {
         "dollars_per_hour": 12.77,
-        "effective": "2026-11-05"
+        "effective": "2026-01-01"
       },
-      "summary": "Virginia's basic minimum wage is $12.77 an hour (DOL table, Nov. 2026).",
+      "summary": "Virginia's minimum wage is $12.77 an hour from January 1, 2026 until January 1, 2027.",
       "citation": {
-        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
-        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
-        "excerpt": "Basic Minimum Rate (per hour): $12.77",
+        "url": "https://law.lis.virginia.gov/vacode/title40.1/chapter3/section40.1-28.10/",
+        "title": "Va. Code \u00a7 40.1-28.10 \u2014 Minimum wages",
+        "excerpt": "From January 1, 2026, until January 1, 2027, every employer shall pay to each of its employees wages at a rate not less than the greater of (i) $12.77 per hour",
         "last_verified": "2026-11-06"
       },
-      "confidence": "medium",
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "VA.minimum_wage.2",
+      "jurisdiction": {
+        "state": "VA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 13.75,
+        "effective": "2027-01-01"
+      },
+      "summary": "Virginia's minimum wage rises to $13.75 an hour on January 1, 2027.",
+      "citation": {
+        "url": "https://law.lis.virginia.gov/vacode/title40.1/chapter3/section40.1-28.10/",
+        "title": "Va. Code \u00a7 40.1-28.10 \u2014 Minimum wages",
+        "excerpt": "From January 1, 2027, until January 1, 2028, every employer shall pay to each of its employees wages at a rate not less than the greater of (i) $13.75 per hour",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]

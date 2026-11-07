@@ -9,8 +9,9 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors: Wisconsin sets no hour limits for 16-17 (the former DWD 270.11 limits were repealed by CR 26-015, eff. 2026-06-01); 16-17 may not work during required school hours (Wis. Stat. \u00a7 103.68(1)).",
+    "Minors: no minor under 18 may work more than 6 consecutive hours without a 30-minute meal period (\u00a7 103.68(3)); not encoded (no minor-break rule type). Extra param key max_days_week."
   ],
   "rules": [
     {
@@ -55,6 +56,65 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "WI.minor_limits.1",
+      "jurisdiction": {
+        "state": "WI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_hours_non_school_day": 8,
+        "max_days_week": 6
+      },
+      "summary": "During a school week, minors under 16 may work at most 3 hours on a school day, 8 on a non-school day, 18 hours and 6 days a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://docs.legis.wisconsin.gov/statutes/statutes/103/68",
+        "title": "Wis. Stat. \u00a7 103.68 \u2014 Hours of labor for minors",
+        "excerpt": "(a) For more than 3 hours on a school day or 8 hours on a nonschool day. (b) For more than 18 hours in a school week or 40 hours in a nonschool week.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WI.minor_limits.2",
+      "jurisdiction": {
+        "state": "WI",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260,
+        "max_days_week": 6
+      },
+      "summary": "During a non-school week, minors under 16 may work at most 8 hours a day, 40 hours and 6 days a week, 7 a.m.-7 p.m. (9 p.m. June 1-Labor Day).",
+      "citation": {
+        "url": "https://docs.legis.wisconsin.gov/statutes/statutes/103/68",
+        "title": "Wis. Stat. \u00a7 103.68 \u2014 Hours of labor for minors",
+        "excerpt": "Before 7:00 a.m. or after 7:00 p.m. from the day after Labor Day to May 31. (e) Before 7:00 a.m. or after 9:00 p.m. from June 1 to Labor Day.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
