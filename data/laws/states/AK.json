@@ -11,7 +11,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors (AS 23.10.340): the 9 h daily cap counts school + work combined (school-day work cap not encodable without school hours); whether the 23 h weekly cap applies in vacation weeks is unclear, so it is encoded for school weeks only. Federal 3 h/18 h/7 p.m. limits (federal.json) also apply.",
-    "Minors (AS 23.10.350): under-18 may work at most 6 days a week and need a 30-minute break when scheduled 6+ consecutive hours (not encoded: no minor-break type)."
+    "Minors (AS 23.10.350): under-18 may work at most 6 days a week and need a 30-minute break when scheduled 6+ consecutive hours (not encoded: no minor-break type).",
+    "No tip credit: 'An employer may not apply tips or gratuities bestowed upon employees as a credit toward payment of the minimum hourly wage' (AS 23.10.065(a), https://www.akleg.gov/basis/statutes.asp?media=print&secStart=23.10.065&secEnd=23.10.065). No tipped_minimum_wage rule. Same statute: $14.00 from July 1, 2026, $15.00 from July 1, 2027."
   ],
   "rules": [
     {

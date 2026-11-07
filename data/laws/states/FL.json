@@ -15,7 +15,8 @@
     "Minors: \u00a7 450.081 does not apply to 16-17 graduates/GED holders, home-education or virtual-school students (16-17), or minors with a hardship waiver.",
     "Minors: 15 and under may not work more than 4 hours continuously without a 30-minute meal period; 16-17 working 8+ hours likewise (\u00a7 450.081(4)); not encoded (no minor-meal rule type).",
     "Minors: FL 14-15 school-day 3 h cap does not apply when there is no school the next day (Friday); validator treats Mon-Fri as school days (stricter). Extra param key max_days_week.",
-    "Minors: FL 16-17 8 h/day cap applies only on days before a school day (not holidays/Sundays); the validator applies it every day of a school week (stricter)."
+    "Minors: FL 16-17 8 h/day cap applies only on days before a school day (not holidays/Sundays); the validator applies it every day of a school week (stricter).",
+    "Tipped employees (Fla. Const. art. X, \u00a7 24(c)): employers may credit tips 'up to the amount of the allowable FLSA tip credit in 2003'; the dollar amount is not stated in the constitution and FloridaCommerce could not be fetched, so no tipped_minimum_wage rule yet (tipped employees treated as owed the full $15.00 \u2014 conservative)."
   ],
   "rules": [
     {

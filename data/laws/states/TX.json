@@ -10,7 +10,8 @@
     "Tex. Lab. Code \u00a7 62.0515(a): the state minimum wage supersedes city ordinances governing wages in private employment, so Texas cities have no separate private-sector minimum wage.",
     "Texas 14-15 hour limits (8/day, 48/week) are looser than federal FLSA limits; the resolver keeps the federal limits where stricter.",
     "Tex. Lab. Code \u00a7 1.005 (HB 2127, eff. Sept. 1, 2023) bars city/county ordinances on leave, breaks, benefits, and scheduling practices that exceed state or federal law: https://capitol.texas.gov/tlodocs/88R/billtext/html/HB02127F.HTM",
-    "Tipped minimum wage: Tex. Lab. Code \u00a7 62.052 incorporates FLSA \u00a7 3(m) ($2.13 cash wage, see federal.json citation); 'tipped employee' = customarily receives more than $20 a month in tips."
+    "Tipped minimum wage: Tex. Lab. Code \u00a7 62.052 incorporates FLSA \u00a7 3(m) ($2.13 cash wage, see federal.json citation); 'tipped employee' = customarily receives more than $20 a month in tips.",
+    "Hazardous occupations (Tex. Lab. Code \u00a7 51.014, TWC copy https://www.twc.texas.gov/sites/default/files/ui/docs/chapter-51-employment-of-children-twc.pdf): TWC declares hazardous only occupations already declared hazardous by a federal agency, so the federal HO role bans (federal.json) are the Texas list; no extra state minor_prohibited_roles. \u00a7 51.015 narrows motor-vehicle driving only for a child driving for a parent's business (federal HO 2 still applies to other employers). Alcohol server ages (Alcoholic Beverage Code ch. 106) not encoded: the statutes site could not be fetched (JS-only)."
   ],
   "rules": [
     {

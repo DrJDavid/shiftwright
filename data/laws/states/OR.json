@@ -19,7 +19,8 @@
     "Coverage (ORS 653.422): retail, hospitality or food-services establishments with 500+ employees worldwide (chains and integrated enterprises aggregated). ORS 653.490 preempts local scheduling laws.",
     "applies_to='both': retail, food services and hospitality (hotels/motels) establishments (ORS 653.412); hospitality not representable in applies_to yet.",
     "excludes_same_day_split=true: ORS 653.442(1): rest period is the first 10 hours after the end of 'the previous calendar day's work shift' or a shift spanning two calendar days.",
-    "exemption_applies_to: ORS 653.455(3)(k) covers any request to 'work additional hours' for unexpected absence or customer needs; an employee working a shift (extension) may be asked individually, one not on shift (call-in) only through a group communication."
+    "exemption_applies_to: ORS 653.455(3)(k) covers any request to 'work additional hours' for unexpected absence or customer needs; an employee working a shift (extension) may be asked individually, one not on shift (call-in) only through a group communication.",
+    "No tip credit: employers 'may not include any amount received by employees as tips in determining the amount of the minimum wage' (ORS 653.035(3)). No tipped_minimum_wage rule."
   ],
   "rules": [
     {

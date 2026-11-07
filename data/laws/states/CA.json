@@ -10,7 +10,9 @@
     "16-17 school-week weekly cap: Lab. Code \u00a7 1391 sets 48 h/week; a lower school-week cap may exist in the Education Code work-permit rules \u2014 not yet verified, so not encoded.",
     "Extra param keys: rest_break.not_required_under_minutes, reporting_time_pay.max_paid_hours, minor_limits.max_hours_non_school_day, minor_limits.latest_end_before_non_school_day.",
     "Wage Order 7 meal/rest premium: one hour of pay per workday a required rest (or meal) period is not provided.",
-    "No tip credit: 'An employer may not use an employee's tips as a credit toward its obligation to pay the minimum wage' (DIR/DLSE Minimum Wage FAQ Q8, https://www.dir.ca.gov/dlse/faq_minimumwage.htm; Lab. Code \u00a7 351). No tipped_minimum_wage rule: tipped employees get the full minimum wage."
+    "No tip credit: 'An employer may not use an employee's tips as a credit toward its obligation to pay the minimum wage' (DIR/DLSE Minimum Wage FAQ Q8, https://www.dir.ca.gov/dlse/faq_minimumwage.htm; Lab. Code \u00a7 351). No tipped_minimum_wage rule: tipped employees get the full minimum wage.",
+    "Alcohol (DLSE Child Labor Laws 2013, BPC 25663/25667): under-21s may not work at all, during business hours, in the part of premises primarily used for on-premises alcohol sales (bars) except as musicians; 18-20 may serve alcohol in the food-service area of a bona fide eating place but not as bartenders (no bartender role tag; not encoded). The rule encodes under-18 alcohol_service conservatively (packaged-goods sales under constant 21+ supervision are allowed).",
+    "Minor hazardous work: California follows the federal hazardous orders (LC 1294.1 cites 29 CFR 570); its 14-15 cooking allowance (in plain sight of customers, not the sole duty) is broader than federal 570.34(c), so the stricter federal rule (federal.json) applies to FLSA-covered employers. No extra CA role bans encoded."
   ],
   "rules": [
     {
@@ -289,6 +291,31 @@
         "title": "Cal. Lab. Code \u00a7 1391(a)(3) \u2014 Minors' hours",
         "excerpt": "more than eight hours in one day of 24 hours or more than 48 hours in one week, or before 5 a.m., or after 10 p.m. on any day preceding a schoolday",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.minor_prohibited_roles.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 18,
+        "role_tags": [
+          "alcohol_service"
+        ],
+        "exception_note": "Off-premises sellers (stores) may employ minors under 18 to sell alcohol only if constantly supervised by a person 21+ (BPC 25663(b))."
+      },
+      "summary": "In California only people 18 or older may serve alcohol in a restaurant (not as bartenders until 21); minors under 18 may sell packaged alcohol only under constant supervision by someone 21+.",
+      "citation": {
+        "url": "https://www.dir.ca.gov/dlse/ChildLaborLawPamphlet.pdf",
+        "title": "DIR/DLSE \u2014 Child Labor Laws (2013), Liquor and Lottery Sales (BPC 25663, 25667)",
+        "excerpt": "Persons 18 to 21 years of age may serve alcohol in a bona fide public eating establishment if the person is no employed as a bartender ...",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

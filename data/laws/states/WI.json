@@ -11,7 +11,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors: Wisconsin sets no hour limits for 16-17 (the former DWD 270.11 limits were repealed by CR 26-015, eff. 2026-06-01); 16-17 may not work during required school hours (Wis. Stat. \u00a7 103.68(1)).",
-    "Minors: no minor under 18 may work more than 6 consecutive hours without a 30-minute meal period (\u00a7 103.68(3)); not encoded (no minor-break rule type). Extra param key max_days_week."
+    "Minors: no minor under 18 may work more than 6 consecutive hours without a 30-minute meal period (\u00a7 103.68(3)); not encoded (no minor-break rule type). Extra param key max_days_week.",
+    "Tipped minimum wage: $2.33 cash wage (DWD 272.03(2)(a)); max_tip_credit 4.92 = $7.25 \u2212 $2.33. The employer needs a signed tip declaration each pay period. Effective date = date first seen in force (the rule text gives no start date)."
   ],
   "rules": [
     {
@@ -113,6 +114,29 @@
         "title": "Wis. Stat. \u00a7 103.68 \u2014 Hours of labor for minors",
         "excerpt": "Before 7:00 a.m. or after 7:00 p.m. from the day after Labor Day to May 31. (e) Before 7:00 a.m. or after 9:00 p.m. from June 1 to Labor Day.",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WI.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "WI",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 2.33,
+        "max_tip_credit_per_hour": 4.92,
+        "effective": "2026-11-05"
+      },
+      "summary": "Wisconsin's tipped minimum cash wage is $2.33 an hour (opportunity employees under 20: $2.13), with tips making up the rest of the minimum wage.",
+      "citation": {
+        "url": "https://docs.legis.wisconsin.gov/code/admin_code/dwd/270_279/272/03",
+        "title": "Wis. Admin. Code DWD 272.03(2)(a) \u2014 Minimum rates for tipped employees",
+        "excerpt": "Minimum rates for tipped employees. All employees except opportunity employees $2.33 per hr. DWD 272.03(2)(am) (am) Opportunity employees. Opportunity employees $2.13 per hour.",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

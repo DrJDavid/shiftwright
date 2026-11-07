@@ -12,7 +12,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "Minors researched 2026-11-06 (Va. Code \u00a7 40.1-80.1, https://law.lis.virginia.gov/vacode/title40.1/chapter5/section40.1-80.1/): under-16 hour limits are set by regulation incorporating the federal FLSA standards (federal.json applies); no extra state hour limits for 16-17.",
     "Minors: no child may work more than 5 hours continuously without a 30-minute lunch period (\u00a7 40.1-80.1(B)); not encoded (no minor-break rule type).",
-    "Minimum wage scheduled to reach $15.00 on Jan. 1, 2028 (\u00a7 40.1-28.10(D)); not encoded."
+    "Minimum wage scheduled to reach $15.00 on Jan. 1, 2028 (\u00a7 40.1-28.10(D)); not encoded.",
+    "Tipped employees (Va. Code \u00a7 40.1-28.9(B), versions through 2030): wages are 'deemed to be increased on account of tips by an amount determined by the employer'; the statute sets no fixed cash wage, so no tipped_minimum_wage rule is encoded (tipped employees treated as owed the full $12.77 \u2014 conservative)."
   ],
   "rules": [
     {

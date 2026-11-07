@@ -14,7 +14,8 @@
     "Minors: NY 16-17 school-week 4 h cap applies to days preceding a school day (Sun-Thu, but Sunday is excepted, 8 h); the validator treats Mon-Fri as school days, so Friday is enforced at 4 h (stricter than law).",
     "Minors: 16-17 may work to midnight before a school day only with written parental consent + school academic-standing certificate (and before a non-school day with parental consent); encoded latest_end = 10 p.m.",
     "Minors: extra param key max_days_week (6) for NY; NY 16-17 non-school-week alternative schedule (10 h one day, 9 h four days, max 48 h) not encoded.",
-    "Minimum wage from 2027 is CPI-indexed (Lab. Law \u00a7 652(1-b)); NYS DOL says the 2027 rate stays $16.00 / $17.00 (off-ramp met): https://dol.ny.gov/minimum-wage-0."
+    "Minimum wage from 2027 is CPI-indexed (Lab. Law \u00a7 652(1-b)); NYS DOL says the 2027 rate stays $16.00 / $17.00 (off-ramp met): https://dol.ny.gov/minimum-wage-0.",
+    "Tipped minimum wage: NYS DOL lists food service workers at $10.70 cash / $5.30 tip credit (rest of state) 'as of 01/01/2027'; the page gives no earlier date, so the rule takes effect 2027-01-01 and until then tipped workers are treated as owed the full minimum wage (conservative). Only hospitality employers may take a tip credit; tipped service employees (non-food) have a $13.30 cash wage (not encoded)."
   ],
   "rules": [
     {
@@ -200,6 +201,29 @@
         "title": "N.Y. Lab. Law \u00a7 652(1-a)(c) \u2014 Minimum wage, remainder of state",
         "excerpt": "every employer shall pay ... for each hour worked outside the city of New York and the counties of Nassau, Suffolk, and Westchester ... $16.00 on and after January 1, 2026",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "NY.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "NY",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 10.7,
+        "max_tip_credit_per_hour": 5.3,
+        "effective": "2027-01-01"
+      },
+      "summary": "Outside NYC, Long Island and Westchester, tipped food service workers in New York get a $10.70 cash wage with a $5.30 tip credit (rates as of Jan. 1, 2027).",
+      "citation": {
+        "url": "https://dol.ny.gov/minimum-wage-0",
+        "title": "NYS DOL \u2014 Your New York State Minimum Wage (rates as of 01/01/2027)",
+        "excerpt": "Remainder of New York State $16.00 $13.30 Cash Wage $2.70 Tip Credit $10.70 Cash Wage $5.30 Tip Credit",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

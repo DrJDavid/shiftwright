@@ -12,7 +12,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors (Child Labor Act \u00a7 3): no minor may work more than 5 hours continuously without a 30-minute break, or more than 6 consecutive days; the break is not encoded (no minor-break rule type). Extra param key max_days_week.",
-    "Minors: 16-17 school-week hours do not apply to high school graduates or those exempt from compulsory attendance; 16-17 hours over 44 in a vacation week must be voluntary."
+    "Minors: 16-17 school-week hours do not apply to high school graduates or those exempt from compulsory attendance; 16-17 hours over 44 in a vacation week must be voluntary.",
+    "Tipped employees (Minimum Wage Act of 1968 \u00a7 3(d), https://www.palegis.us/statutes/unconsolidated/law-information/view-statute?txtType=HTM&SessYr=1968&ActNum=0005.&SessInd=0): cash wage must be at least 'the cash wage required to be paid the employe on the date immediately prior to the effective date of this subparagraph'; the dollar amount is not stated in the text, so no tipped_minimum_wage rule (tipped employees treated as owed the full minimum wage \u2014 conservative)."
   ],
   "rules": [
     {

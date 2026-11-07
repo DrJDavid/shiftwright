@@ -10,8 +10,9 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors (WAC 296-125-101, eff. 2026-07-01): the school-day cap applies to school days preceding another school day, so Friday is 8 h; the validator treats Friday as a school day (stricter). Minors working past 8 p.m. in service jobs need an adult supervisor on site. Extra param key max_days_week.",
-    "Minors: separate meal/rest-break rules for minors (WAC 296-125-111, -121) and prohibited jobs (WAC 296-125-131, -141) not yet encoded; federal HO 7 applies.",
-    "No tip credit: 'Tips and service charges paid to an employee are in addition to, and may not count towards, the employee's hourly minimum wage' (RCW 49.46.020(3), https://app.leg.wa.gov/RCW/default.aspx?cite=49.46.020). No tipped_minimum_wage rule."
+    "No tip credit: 'Tips and service charges paid to an employee are in addition to, and may not count towards, the employee's hourly minimum wage' (RCW 49.46.020(3), https://app.leg.wa.gov/RCW/default.aspx?cite=49.46.020). No tipped_minimum_wage rule.",
+    "Minor hazardous work (WAC 296-125-131, all minors): mirrors the federal under-18 orders (motor-vehicle driving with the 17-year-old incidental exception, meat-processing machines, bakery machines, balers/compactors, power saws), so federal.json covers them. Under-16 (WAC 296-125-141) is stricter than federal: cooking and baking are banned outright, as is work with or near any power-driven machinery (WA.minor_prohibited_roles.1).",
+    "Alcohol (RCW 66.44.340, .350): only 18+ may serve or sell; 18-20s may not bartend or work in bars/lounges beyond passing through for duties, and grocery sales by 18-20s need a 21+ supervisor on duty (two for spirits). Encoded as under-18 alcohol_service (bar-only roles for 18-20 not representable)."
   ],
   "rules": [
     {
@@ -224,6 +225,63 @@
         "title": "WAC 296-125-101 \u2014 Hours of work for minors (eff. July 1, 2026)",
         "excerpt": "during nonschool weeks: (i) Maximum of eight hours per day; (ii) Maximum of six days per week; (iii) Maximum of 48 hours per week; (iv) No earlier than 5:00 a.m.; and (v) No later than 12:00 a.m.",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WA.minor_prohibited_roles.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 16,
+        "role_tags": [
+          "cooking",
+          "fryer",
+          "bakery_machine",
+          "ladder_scaffold",
+          "meat_slicer",
+          "baler_compactor",
+          "power_saw",
+          "motor_vehicle_driving",
+          "powered_industrial_truck"
+        ]
+      },
+      "summary": "In Washington minors under 16 may not cook or bake (no federal grill/auto-fryer exception), use ladders or scaffolds, work with or near any power-driven machinery, or drive.",
+      "citation": {
+        "url": "https://app.leg.wa.gov/wac/default.aspx?cite=296-125-141",
+        "title": "WAC 296-125-141 \u2014 Prohibited and hazardous employment, special restrictions for minors under 16",
+        "excerpt": "(5) In occupations involving operation or repair, oiling, cleaning, adjusting, or setting up of or working in proximity to any power-driven machinery. (6) ... motor vehicles ... (8) ... ladders, scaffolds ... (9) ... baking. (10) ... cooking.",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WA.minor_prohibited_roles.2",
+      "jurisdiction": {
+        "state": "WA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 18,
+        "role_tags": [
+          "alcohol_service"
+        ],
+        "exception_note": "18-20-year-olds may take orders for, serve and sell liquor in restaurants, clubs, snack bars, caterers and sports venues outside bars/lounges (RCW 66.44.350), and sell/stock in grocery or beer/wine shops with a 21+ supervisor on duty (two for spirits) (RCW 66.44.340)."
+      },
+      "summary": "In Washington, serving or selling alcohol starts at 18: 18-20-year-olds may serve in restaurant dining areas (not bars or lounges) and sell in grocery stores with a 21+ supervisor on duty.",
+      "citation": {
+        "url": "https://app.leg.wa.gov/RCW/default.aspx?cite=66.44.350",
+        "title": "RCW 66.44.350 \u2014 Employees 18 and over allowed to serve and carry liquor",
+        "excerpt": "employees ... who are between eighteen and twenty-one years of age may take orders for, serve, and sell liquor in any part of the licensed premises except cocktail lounges, bars, or other areas classified ... off-limits",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
