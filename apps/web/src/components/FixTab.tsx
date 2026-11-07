@@ -609,7 +609,7 @@ function ModeBanner({
         {outreach && (outreach.wave ?? 0) > 0 && <span className="ml-2 font-normal text-muted">Round {outreach.wave}</span>}
       </div>
       {prem ? (
-        <p className={`mt-0.5 ${prem.status === 'owed' ? 'text-warn' : 'text-ink-2'}`}>
+        <div className={`mt-0.5 ${prem.status === 'owed' ? 'text-warn' : 'text-ink-2'}`}>
           <span className="font-semibold">
             {prem.status === 'owed'
               ? `Premium owed${total ? `: ${fmtMoney(total, { cents: true })} so far` : ''}`
@@ -619,7 +619,7 @@ function ModeBanner({
             {label ? ` · ${label}` : ''}.
           </span>{' '}
           <NoteWithSource text={h(prem.note)} />
-        </p>
+        </div>
       ) : label ? (
         <p className="mt-0.5 text-ink-2">Premiums below come from {label}; the outreach confirms whether they're owed.</p>
       ) : noScheduleLaw ? (

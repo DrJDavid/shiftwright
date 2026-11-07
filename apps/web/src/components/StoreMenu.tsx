@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, apiMode } from '../api'
-import { LOCALITIES, missingTemplates } from '../lib/stores'
+import { LOCALITIES, missingTemplates, type BlankStore } from '../lib/stores'
 
-type Props = { onNew: (template: string) => Promise<void> }
+type Props = { onNew: (template: string, blank?: BlankStore) => Promise<void> }
 
 /** Header menu: load a demo store for a locality, or start an empty store. Each choice creates a new store. */
 export function StoreMenu({ onNew }: Props) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [blank, setBlank] = useState<BlankStore>({ name: '', state: '', city: '' })
   const [missing, setMissing] = useState(() => missingTemplates())
   // v1.4: the server lists its templates; older servers / the mock fall back to the built-in list.
   const [served, setServed] = useState<{ template: string; label: string }[] | null>(null)
@@ -33,10 +34,10 @@ export function StoreMenu({ onNew }: Props) {
   }, [open])
 
   const pick = async (template: string, label: string) => {
-    setBusy(template === 'empty' ? 'Creating store…' : `Loading ${label}…`)
+    setBusy(template === 'empty' || template === 'blank' ? 'Creating store…' : `Loading ${label}…`)
     setError(null)
     try {
-      await onNew(template)
+      await onNew(template, template === 'blank' ? blank : undefined)
       setOpen(false)
     } catch (e) {
       setError(`${label}: ${(e as Error).message}`)
@@ -65,9 +66,50 @@ export function StoreMenu({ onNew }: Props) {
             <MenuItem key={l.template} title={l.label} detail="Demo store with its local law pack" onClick={() => void pick(l.template, l.label)} disabled={!!busy} />
           ))}
           <div className="my-1 border-t border-rule-soft" />
+          <form
+            className="rounded-md px-2.5 py-2 hover:bg-paper"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (/^[A-Za-z]{2}$/.test(blank.state)) void pick('blank', 'New business')
+            }}
+          >
+            <span className="block text-sm font-semibold">Start from scratch</span>
+            <span className="block text-xs text-muted">Any kind of business. The chat asks what it is and sets up roles and staffing.</span>
+            <div className="mt-1.5 grid grid-cols-[1fr_3rem_6rem] gap-1">
+              <input
+                aria-label="Business name"
+                placeholder="Business name"
+                className="min-w-0 rounded border border-rule px-1.5 py-1 text-sm"
+                value={blank.name}
+                onChange={(e) => setBlank({ ...blank, name: e.target.value })}
+              />
+              <input
+                aria-label="State"
+                placeholder="ST"
+                maxLength={2}
+                className="rounded border border-rule px-1.5 py-1 text-sm uppercase"
+                value={blank.state}
+                onChange={(e) => setBlank({ ...blank, state: e.target.value })}
+              />
+              <input
+                aria-label="City"
+                placeholder="City"
+                className="min-w-0 rounded border border-rule px-1.5 py-1 text-sm"
+                value={blank.city}
+                onChange={(e) => setBlank({ ...blank, city: e.target.value })}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!!busy || !/^[A-Za-z]{2}$/.test(blank.state)}
+              className="mt-1.5 rounded bg-ink px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              Start
+            </button>
+          </form>
           <MenuItem
-            title="Start an empty store"
-            detail="Default departments and roles; set up the rest in the chat."
+            title="Start a big-box store"
+            detail="Default retail departments and roles; set up the rest in the chat."
             onClick={() => void pick('empty', 'Empty store')}
             disabled={!!busy}
           />

@@ -140,7 +140,7 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
                       type="time"
                       step={slot * 60}
                       aria-label={`${WEEKDAY_NAMES[day]} open`}
-                      className="w-[7.5rem] rounded border border-rule px-1 py-0.5"
+                      className="w-[6.25rem] rounded border border-rule px-1 py-0.5 text-xs"
                       value={toHHMM(r.open)}
                       onChange={(e) => setRow(day, { open: fromHHMM(e.target.value) })}
                     />
@@ -149,7 +149,7 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
                       type="time"
                       step={slot * 60}
                       aria-label={`${WEEKDAY_NAMES[day]} close`}
-                      className="w-[7.5rem] rounded border border-rule px-1 py-0.5"
+                      className="w-[6.25rem] rounded border border-rule px-1 py-0.5 text-xs"
                       value={toHHMM(r.close)}
                       onChange={(e) => setRow(day, { close: fromHHMM(e.target.value) })}
                     />
