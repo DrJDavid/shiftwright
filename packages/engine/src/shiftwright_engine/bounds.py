@@ -12,6 +12,7 @@ from typing import Optional
 
 from shiftwright_contracts.models import AvailabilityKind, ConstraintKind, Infeasibility, Strength
 
+from .model import max_shifts_per_day
 from .prep import DAY, Prep, _avail_for_day
 
 
@@ -24,9 +25,10 @@ def _maximal(masks: set[int]) -> list[int]:
     return out
 
 
-def _day_min_shifts(cands: list, slots: list[int], subs: list) -> int:
-    """Exact minimum number of shifts (one per person) whose worked slots cover every slot, capped
-    at 3 (returns 3 for "3 or more"); 0 if no slots, -1 if no cover exists at all."""
+def _day_min_shifts(cands: list, slots: list[int], subs: list, split: bool = False) -> int:
+    """Exact minimum number of shifts (one per person, or with `split` possibly two by the same
+    person) whose worked slots cover every slot, capped at 3 (returns 3 for "3 or more"); 0 if no
+    slots, -1 if no cover exists at all."""
     if not slots:
         return 0
     nsub = len(subs)
@@ -55,7 +57,7 @@ def _day_min_shifts(cands: list, slots: list[int], subs: list) -> int:
         return 1
     emps = sorted(masks)
     for i, e1 in enumerate(emps):
-        for e2 in emps[i + 1:]:
+        for e2 in emps[i if split else i + 1:]:
             for a in masks[e1]:
                 need = full & ~a
                 if any(b & need == need for b in masks[e2]):
@@ -76,17 +78,18 @@ def always_staffed_conflict(p: Prep) -> Optional[Infeasibility]:
         cands = [c for c in p.cands if c.emp in elig]
         if any(c.abs_end > (c.day + 1) * DAY for c in cands):
             continue  # overnight shifts: per-day bound would not be valid
-        need_shifts = need_min = 0
+        per_day = max_shifts_per_day(p)
+        need_shifts = need_min = 0  # need_shifts: person-days (each gives at most per_day shifts)
         for d, (lo, hi) in sorted((p.store_open if which == "store_hours" else p.windows).items()):
             slots = [d * DAY + t for t in range(lo - lo % p.slot, hi, p.slot)]
-            n = _day_min_shifts([c for c in cands if c.day == d], slots, p.sub_bounds())
+            n = _day_min_shifts([c for c in cands if c.day == d], slots, p.sub_bounds(), per_day > 1)
             if n == -1:
                 unavail = [f"employee:{e}.availability" for e in elig
                            if any(a.kind == AvailabilityKind.unavailable for a in _avail_for_day(p, p.emps[e], d))]
                 return _report(p, con, elig, f"On {DAY_NAMES[d]}, nobody who may work {rid} can keep it staffed "
                                              f"for the whole window (availability, shift length and breaks).",
                                hours=False, extra_other=unavail)
-            need_shifts += n
+            need_shifts += -(-n // per_day)
             need_min += len(slots) * p.slot
         hour_cap = sum(min(c for c, _, _ in p.effective_max_minutes(p.emps[eid])) for eid in elig)
         if need_min > hour_cap:
@@ -105,8 +108,10 @@ def always_staffed_conflict(p: Prep) -> Optional[Infeasibility]:
                         max_days_ids.append(c.id)
             day_cap += lim
         if need_shifts > day_cap:
+            what = (f"{need_shifts} shifts" if per_day == 1 else
+                    f"{need_shifts} working days (at most {per_day} shifts per person per day)")
             return _report(p, con, elig,
-                           f"Keeping {rid} staffed all week needs at least {need_shifts} shifts by people who "
+                           f"Keeping {rid} staffed all week needs at least {what} by people who "
                            f"may work it (breaks must be covered too), but {_people(elig)} can work "
                            f"at most {day_cap} days in total.", hours=False,
                            extra_cons=sorted(set(max_days_ids)))
