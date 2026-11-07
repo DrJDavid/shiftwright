@@ -1,0 +1,375 @@
+"""HTML report (plus report.json with every row). Hand-rolled SVG, large type, projector-friendly.
+
+Deterministic: the same run folder contents produce byte-identical output (no clock, no randomness).
+"""
+from __future__ import annotations
+
+import html
+import json
+import os
+from collections import Counter
+from pathlib import Path
+
+from .score import aggregate, collect, worked_example
+
+SW_COLOR = "#0b7a53"
+PALETTE = ["#c8553d", "#e09f3e", "#3a6ea5", "#8e5ba8", "#6b705c", "#d1495b"]
+CODE_COLORS = ["#c8553d", "#e09f3e", "#3a6ea5", "#8e5ba8", "#2a9d8f", "#d1495b", "#6b705c", "#bbbbbb"]
+FONT = "font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif"
+
+
+def esc(x) -> str:
+    return html.escape(str(x), quote=True)
+
+
+def color_for(systems: list[str]) -> dict[str, str]:
+    out, i = {}, 0
+    for s in systems:
+        if s == "shiftwright":
+            out[s] = SW_COLOR
+        else:
+            out[s] = PALETTE[i % len(PALETTE)]
+            i += 1
+    return out
+
+
+def short(name: str) -> str:
+    return "Shiftwright" if name == "shiftwright" else name.removeprefix("baseline:")
+
+
+def fmt(x, nd=1, suffix="") -> str:
+    if x is None:
+        return "–"
+    if isinstance(x, float):
+        return f"{x:.{nd}f}{suffix}"
+    return f"{x}{suffix}"
+
+
+# --------------------------------------------------------------------------- #
+# Charts
+# --------------------------------------------------------------------------- #
+def bar_chart(items: list[tuple[str, float | None, str, str]], title: str, unit: str = "%", vmax: float = 100) -> str:
+    """Horizontal bars. items = (label, value or None, color, caption)."""
+    w, lw, row = 900, 230, 56
+    h = 60 + row * len(items)
+    bw = w - lw - 140
+    parts = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" aria-label="{esc(title)}" style="{FONT}">',
+             f'<text x="0" y="30" font-size="24" font-weight="700" fill="#222">{esc(title)}</text>']
+    for i, (label, value, color, caption) in enumerate(items):
+        y = 55 + i * row
+        parts.append(f'<text x="{lw - 12}" y="{y + 28}" font-size="22" text-anchor="end" fill="#222">{esc(label)}</text>')
+        parts.append(f'<rect x="{lw}" y="{y + 6}" width="{bw}" height="34" fill="#f0f0f0"/>')
+        if value is None:
+            parts.append(f'<text x="{lw + 12}" y="{y + 30}" font-size="20" fill="#777">{esc(caption or "not run")}</text>')
+            continue
+        bwv = max(2, bw * min(value, vmax) / vmax)
+        parts.append(f'<rect x="{lw}" y="{y + 6}" width="{bwv:.1f}" height="34" fill="{color}"/>')
+        inside = bwv > bw * 0.8
+        tx = lw + bwv - 10 if inside else lw + bwv + 10
+        parts.append(f'<text x="{tx:.1f}" y="{y + 31}" font-size="22" font-weight="700" '
+                     f'fill="{"#fff" if inside else "#222"}" text-anchor="{"end" if inside else "start"}">'
+                     f'{value:.0f}{unit}</text>')
+        if caption:
+            parts.append(f'<text x="{w}" y="{y + 31}" font-size="16" text-anchor="end" fill="#555">{esc(caption)}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def stacked_codes(agg: dict, systems: list[str], suite: str, title: str) -> str:
+    totals = Counter()
+    for s in systems:
+        totals.update(agg[s][suite]["hard_by_code"])
+    top = [c for c, _ in sorted(totals.items(), key=lambda kv: (-kv[1], kv[0]))[:7]]
+    cols = {c: CODE_COLORS[i] for i, c in enumerate(top)}
+    cols["other"] = CODE_COLORS[-1]
+    w, lw, row = 900, 230, 56
+    h = 70 + row * len(systems) + 40 * ((len(top) + 3) // 4 + 1)
+    vmax = max([sum(agg[s][suite]["hard_by_code"].values()) for s in systems] + [1])
+    bw = w - lw - 90
+    parts = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" aria-label="{esc(title)}" style="{FONT}">',
+             f'<text x="0" y="30" font-size="24" font-weight="700" fill="#222">{esc(title)}</text>']
+    for i, s in enumerate(systems):
+        y = 55 + i * row
+        a = agg[s][suite]
+        parts.append(f'<text x="{lw - 12}" y="{y + 28}" font-size="22" text-anchor="end" fill="#222">{esc(short(s))}</text>')
+        if a["scored"] == 0:
+            parts.append(f'<text x="{lw + 12}" y="{y + 30}" font-size="20" fill="#777">not run</text>')
+            continue
+        x = lw
+        other = 0
+        for code, n in a["hard_by_code"].items():
+            if code not in cols or code == "other":
+                other += n
+                continue
+            wv = bw * n / vmax
+            parts.append(f'<rect x="{x:.1f}" y="{y + 6}" width="{wv:.1f}" height="34" fill="{cols[code]}">'
+                         f'<title>{esc(code)}: {n}</title></rect>')
+            x += wv
+        if other:
+            wv = bw * other / vmax
+            parts.append(f'<rect x="{x:.1f}" y="{y + 6}" width="{wv:.1f}" height="34" fill="{cols["other"]}"/>')
+            x += wv
+        total = a["hard_total"]
+        parts.append(f'<text x="{x + 10:.1f}" y="{y + 31}" font-size="22" font-weight="700" fill="#222">{total}</text>')
+    ly = 75 + row * len(systems)
+    for i, code in enumerate(top + ["other"]):
+        lx = (i % 4) * 225
+        yy = ly + (i // 4) * 36
+        parts.append(f'<rect x="{lx}" y="{yy}" width="20" height="20" fill="{cols[code]}"/>')
+        parts.append(f'<text x="{lx + 28}" y="{yy + 17}" font-size="17" fill="#333">{esc(code)}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def scatter(rows: list[dict], systems: list[str], colors: dict[str, str]) -> str:
+    pts = [r for r in rows if r["suite"] == "weekly" and r.get("parsed") and r.get("hours_cap")]
+    w, h, ml, mb, mt, mr = 900, 560, 90, 80, 50, 30
+    xmax = max([150.0] + [100 * r["hours_used"] / r["hours_cap"] for r in pts])
+    xmax = min(xmax, 400.0)
+    pw, ph = w - ml - mr, h - mt - mb
+
+    def X(v): return ml + pw * min(v, xmax) / xmax
+    def Y(v): return mt + ph * (1 - v / 100)
+
+    parts = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" aria-label="coverage vs hours" style="{FONT}">',
+             f'<text x="0" y="28" font-size="24" font-weight="700" fill="#222">Coverage vs hours used (weekly build)</text>']
+    for v in range(0, 101, 25):
+        parts.append(f'<line x1="{ml}" x2="{w - mr}" y1="{Y(v):.1f}" y2="{Y(v):.1f}" stroke="#e5e5e5"/>')
+        parts.append(f'<text x="{ml - 10}" y="{Y(v) + 6:.1f}" font-size="18" text-anchor="end" fill="#444">{v}%</text>')
+    step = 50 if xmax <= 250 else 100
+    for v in range(0, int(xmax) + 1, step):
+        parts.append(f'<text x="{X(v):.1f}" y="{h - mb + 28}" font-size="18" text-anchor="middle" fill="#444">{v}%</text>')
+    parts.append(f'<line x1="{X(100):.1f}" x2="{X(100):.1f}" y1="{mt}" y2="{h - mb}" stroke="#222" stroke-dasharray="6 5"/>')
+    parts.append(f'<text x="{X(100) + 8:.1f}" y="{h - mb - 10}" font-size="17" fill="#222">hours cap</text>')
+    parts.append(f'<text x="{ml + pw / 2:.1f}" y="{h - 18}" font-size="19" text-anchor="middle" fill="#333">'
+                 'hours scheduled, % of the corporate cap</text>')
+    parts.append(f'<text x="22" y="{mt + ph / 2:.1f}" font-size="19" text-anchor="middle" fill="#333" '
+                 f'transform="rotate(-90 22 {mt + ph / 2:.1f})">coverage</text>')
+    for r in pts:
+        x, y = X(100 * r["hours_used"] / r["hours_cap"]), Y(r["coverage_pct"])
+        c = colors[r["system"]]
+        fill = c if r["passed"] else "white"
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="9" fill="{fill}" stroke="{c}" stroke-width="3">'
+                     f'<title>{esc(short(r["system"]))} {esc(r["scenario"])}: {r["hard_count"]} hard violations</title></circle>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+# --------------------------------------------------------------------------- #
+# Page
+# --------------------------------------------------------------------------- #
+CSS = """
+body{%s;margin:0;background:#fff;color:#1d1d1d;font-size:19px;line-height:1.45}
+main{max-width:1180px;margin:0 auto;padding:28px 36px 80px}
+h1{font-size:40px;margin:0 0 6px}h2{font-size:30px;margin:44px 0 12px;border-bottom:3px solid #eee;padding-bottom:6px}
+h3{font-size:22px;margin:22px 0 8px}
+.banner{background:#fff3cd;border:3px solid #e0a800;padding:14px 18px;font-size:22px;font-weight:700;margin:16px 0}
+.note{color:#555;font-size:17px}
+table{border-collapse:collapse;width:100%%;margin:8px 0 18px}
+th,td{border-bottom:1px solid #e3e3e3;padding:7px 9px;text-align:left;vertical-align:top}
+th{background:#f6f6f6;font-size:17px}td:first-child{white-space:nowrap}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.big td{font-size:22px}.good{color:#0b7a53;font-weight:700}.bad{color:#b3261e;font-weight:700}
+.charts{display:grid;grid-template-columns:1fr;gap:30px}
+table.runs{font-size:14px}table.runs td,table.runs th{padding:3px 6px}
+code{background:#f3f3f3;padding:1px 5px;border-radius:4px;font-size:90%%}
+.swatch{display:inline-block;width:16px;height:16px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+""" % FONT
+
+
+def _honesty_table(agg, systems, colors) -> str:
+    out = ['<table class="big"><tr><th>System</th><th class="n">Said infeasible<br>(correct)</th>'
+           '<th class="n">Named the conflict</th><th class="n">Returned a schedule anyway<br>(false "feasible")</th>'
+           '<th class="n">No usable answer</th><th class="n">Said infeasible on a<br>feasible store</th></tr>']
+    for s in systems:
+        h = agg[s]["honesty_counts"]
+        fp = agg[s]["weekly_false_infeasible"]
+        n_inf = agg[s]["honesty"]["scored"]
+        if n_inf == 0 and not any(h.values()):
+            out.append(f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
+                       f'<td colspan="5" class="note">not run ({esc(_why_unavailable(agg, s))})</td></tr>')
+            continue
+        out.append(
+            f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
+            f'<td class="n {"good" if h["TP"] else ""}">{h["TP"]} / {n_inf}</td>'
+            f'<td class="n">{agg[s]["named_conflict"]} / {n_inf}</td>'
+            f'<td class="n {"bad" if h["FN"] else ""}">{h["FN"]}</td><td class="n">{h["no_answer"]}</td>'
+            f'<td class="n {"bad" if fp else ""}">{fp} / {agg[s]["weekly"]["scored"]}</td></tr>')
+    out.append("</table>")
+    return "".join(out)
+
+
+def _why_unavailable(agg, s) -> str:
+    return agg.get("_notes", {}).get(s, "unavailable")
+
+
+def _summary_table(agg, systems, colors) -> str:
+    out = ['<table><tr><th>System</th><th class="n">Runs</th><th class="n">0 hard violations</th>'
+           '<th class="n">Hard violations</th><th class="n">Unparseable</th><th class="n">Truncated</th>'
+           '<th class="n">Budget respected</th><th class="n">Median coverage<br>(readable)</th>'
+           '<th class="n">Median cost vs Shiftwright</th><th class="n">Median latency</th></tr>']
+    for s in systems:
+        a = agg[s]["weekly"]
+        if a["scored"] == 0:
+            out.append(f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
+                       f'<td colspan="9" class="note">not run ({esc(_why_unavailable(agg, s))})</td></tr>')
+            continue
+        out.append(
+            f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
+            f'<td class="n">{a["scored"]}</td><td class="n">{a["passed"]} / {a["scored"]}</td>'
+            f'<td class="n">{a["hard_total"]}</td><td class="n">{a["unparseable"]}</td><td class="n">{a["truncated"]}</td>'
+            f'<td class="n">{a["budget_ok"]} / {a["parsed"]}</td><td class="n">{fmt(a["median_coverage"], 1, "%")}</td>'
+            f'<td class="n">{fmt(a["median_cost_vs_sw"], 2, "×")}</td><td class="n">{fmt(a["median_latency_s"], 1, " s")}</td></tr>')
+    out.append("</table>")
+    return "".join(out)
+
+
+def _repair_table(rows, systems, colors) -> str:
+    rs = [r for r in rows if r["suite"] == "repair"]
+    if not rs:
+        return '<p class="note">Call-out suite not run.</p>'
+    out = ['<table><tr><th>System</th><th>Scenario</th><th class="n">Coverage before → after</th>'
+           '<th class="n">Hard violations</th><th class="n">Changes before now</th>'
+           '<th class="n">Called-out staff still scheduled</th><th class="n">Call list (unknown ids)</th>'
+           '<th class="n">Latency</th></tr>']
+    for s in systems:
+        for r in sorted((r for r in rs if r["system"] == s), key=lambda r: r["scenario"]):
+            sw = f'<span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}'
+            if r["outcome"] == "unavailable":
+                out.append(f'<tr><td>{sw}</td><td>{esc(r["scenario"])}</td><td colspan="6" class="note">'
+                           f'unavailable: {esc(r["note"])}</td></tr>')
+                continue
+            chg, still = r.get("changes_before_now"), r.get("callouts_still_working")
+            cl = r.get("call_list_size")
+            out.append(
+                f'<tr><td>{sw}</td><td>{esc(r["scenario"])}</td>'
+                f'<td class="n">{fmt(r.get("coverage_before"), 1, "%")} → {fmt(r.get("coverage_after"), 1, "%")}</td>'
+                f'<td class="n {"bad" if r.get("hard_count") else "good"}">{r.get("hard_count", "–")}</td>'
+                f'<td class="n {"bad" if chg else ""}">{fmt(chg)}</td><td class="n {"bad" if still else ""}">{fmt(still)}</td>'
+                f'<td class="n">{fmt(cl)} ({fmt(r.get("call_list_unknown_ids"))})</td>'
+                f'<td class="n">{fmt(r["latency_s"], 1, " s")}</td></tr>')
+    out.append("</table>")
+    srcs = sorted({r.get("base_source") for r in rs if r.get("base_source")})
+    out.append('<p class="note">Base schedule: ' + "; ".join(esc(s) for s in srcs) +
+               '. "Changes before now" counts employees (other than those who called out) whose assignment '
+               'before the call-out time, or on an earlier day, differs from the base schedule.</p>')
+    return "".join(out)
+
+
+def _worked(ex, run_dir: Path, rel: str) -> str:
+    if ex is None:
+        return '<p class="note">No baseline weekly run with violations.</p>'
+    val = json.loads((run_dir / ex["path"] / "validation.json").read_text())
+    hard = [v for v in val["violations"] if v["severity"] == "hard"]
+    by: dict[str, list] = {}
+    for v in hard:
+        by.setdefault(v["code"], []).append(v)
+    out = [f'<p><b>{esc(short(ex["system"]))}</b> on <code>{esc(ex["scenario"])}</code>: '
+           f'{ex["hard_count"]} hard violations across {len(by)} rule types, coverage {fmt(ex["coverage_pct"], 1, "%")}, '
+           f'{fmt(ex["hours_used"])} h scheduled against a {fmt(ex["hours_cap"])} h cap. '
+           f'Status claimed by the model: <code>{esc(ex["status"])}</code>. '
+           f'Files: <a href="{esc(rel)}/{esc(ex["path"])}/">{esc(ex["path"])}/</a></p>',
+           '<table><tr><th>Rule broken</th><th class="n">Count</th><th>What the validator says (first 3)</th></tr>']
+    for code, vs in sorted(by.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        msgs = "<br>".join(esc(v["message"]) + (f' <span class="note">[{esc(v["law_rule_id"])}]</span>' if v.get("law_rule_id") else "")
+                           for v in vs[:3])
+        out.append(f'<tr><td><code>{esc(code)}</code></td><td class="n">{len(vs)}</td><td>{msgs}</td></tr>')
+    out.append("</table>")
+    return "".join(out)
+
+
+def _runs_table(rows, rel: str) -> str:
+    out = ['<table class="runs"><tr><th>System</th><th>Scenario</th><th>Outcome</th><th>Status</th>'
+           '<th class="n">Hard</th><th>By code</th><th class="n">Coverage %</th><th class="n">Wage $</th>'
+           '<th class="n">Objective $</th><th class="n">Hours / cap</th><th class="n">vs SW</th><th>Honesty</th>'
+           '<th class="n">Latency s</th><th>Files</th></tr>']
+    for r in rows:
+        codes = ", ".join(f"{k} {v}" for k, v in sorted(r.get("by_code", {}).items()))
+        hours = f'{fmt(r.get("hours_used"))} / {fmt(r.get("hours_cap"))}' if r.get("hours_cap") is not None else "–"
+        out.append(
+            f'<tr id="run-{esc(r["key"])}"><td>{esc(short(r["system"]))}</td><td>{esc(r["scenario"])}</td>'
+            f'<td>{esc(r["outcome"])}</td><td>{esc(r.get("status") or "–")}</td>'
+            f'<td class="n">{r.get("hard_count", "–")}</td><td>{esc(codes)}</td>'
+            f'<td class="n">{fmt(r.get("coverage_pct"), 1)}</td><td class="n">{fmt(r.get("wage_cost"), 2)}</td>'
+            f'<td class="n">{fmt(r.get("objective"), 2)}</td><td class="n">{hours}</td>'
+            f'<td class="n">{fmt(r.get("cost_vs_sw"), 2)}</td><td>{esc(r.get("honesty", "–"))}</td>'
+            f'<td class="n">{fmt(r.get("latency_s"), 2)}</td>'
+            f'<td><a href="{esc(rel)}/{esc(r["path"])}/">files</a></td></tr>')
+    out.append("</table>")
+    return "".join(out)
+
+
+def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
+    rows = collect(run_dir)
+    systems = manifest["systems"]
+    names = [s["name"] for s in systems]
+    agg = aggregate(rows, names)
+    agg["_notes"] = {s["name"]: s.get("unavailable_reason") or "" for s in systems}
+    colors = color_for(names)
+    ex = worked_example(rows)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    rel = os.path.relpath(run_dir, report_dir)
+
+    data = {"run_id": manifest["run_id"], "mock_baselines": manifest["mock_baselines"], "systems": systems,
+            "aggregates": {k: v for k, v in agg.items() if k != "_notes"}, "rows": rows,
+            "worked_example": ex["key"] if ex else None}
+    (report_dir / "report.json").write_text(json.dumps(data, indent=1) + "\n")
+
+    pass_items = []
+    for s in names:
+        a = agg[s]["weekly"]
+        if a["scored"]:
+            pass_items.append((short(s), a["pass_rate"], colors[s], f'{a["passed"]} of {a["scored"]} schedules'))
+        else:
+            pass_items.append((short(s), None, colors[s], f'not run: {agg["_notes"][s]}'))
+    cov_items = []
+    for s in names:
+        a = agg[s]["weekly"]
+        if not a["scored"]:
+            cov_items.append((short(s), None, colors[s], f'not run: {agg["_notes"][s]}'))
+        elif a["median_legal_coverage"] is None:
+            cov_items.append((short(s), None, colors[s], "no schedule without hard violations"))
+        else:
+            cov_items.append((short(s), a["median_legal_coverage"], colors[s], f'{a["passed"]} legal schedules'))
+
+    n_scen = len({r["scenario"] for r in rows})
+    suites = ", ".join(manifest["suites"])
+    p = [f"<!doctype html><html><head><meta charset='utf-8'><title>Shiftwright evals {esc(manifest['run_id'])}</title>",
+         f"<style>{CSS}</style></head><body><main>",
+         "<h1>Shiftwright vs general-purpose AI</h1>",
+         f'<p class="note">Run <code>{esc(manifest["run_id"])}</code> · {n_scen} scenarios · suites: {esc(suites)}'
+         f'{" (quick)" if manifest["quick"] else ""} · every number below is recounted from the run folder '
+         f'<a href="{esc(rel)}/">{esc(rel)}/</a> and scored only by the independent validator.</p>']
+    if manifest["mock_baselines"]:
+        p.append('<div class="banner">MOCK BASELINES: the baseline rows are canned bad outputs used to test the '
+                 'harness. They are not results from any real model.</div>')
+    for s in systems:
+        if not s["available"]:
+            p.append(f'<p class="note"><b>{esc(short(s["name"]))}</b> unavailable: {esc(s["unavailable_reason"])}.</p>')
+    p.append("<h2>Hard rules</h2><div class='charts'>")
+    p.append(bar_chart(pass_items, "Weekly schedules with zero hard violations"))
+    p.append(stacked_codes(agg, names, "weekly", "Hard violations by rule (weekly build, all runs)"))
+    p.append("</div>")
+    p.append(_summary_table(agg, names, colors))
+    p.append('<p class="note">Unparseable and truncated replies count as failed schedules. "Cost vs Shiftwright" '
+             'compares the validator-recomputed objective (wages + premiums + gap and soft penalties) on scenarios '
+             'where both schedules pass every hard rule.</p>')
+    p.append("<h2>Coverage and cost</h2><div class='charts'>")
+    p.append(bar_chart(cov_items, "Median coverage of demand, schedules with no hard violations"))
+    p.append(scatter(rows, names, colors))
+    p.append("</div><p class='note'>Filled dot = no hard violations; hollow = breaks at least one hard rule. "
+             "Right of the dashed line = over the corporate hours budget.</p>")
+    p.append("<h2>Honesty on impossible stores</h2>")
+    p.append('<p class="note">Infeasible scenarios (hard rules conflict, so no legal schedule exists). '
+             '"Said infeasible on a feasible store" is counted over the weekly-build scenarios.</p>')
+    p.append(_honesty_table(agg, names, colors))
+    p.append("<h2>Call-out repair</h2>")
+    p.append(_repair_table(rows, names, colors))
+    p.append("<h2>Worked example</h2>")
+    p.append(_worked(ex, run_dir, rel))
+    p.append("<h2>Intake</h2><p class='note'>Intake suite (stretch): not implemented in this run.</p>")
+    p.append("<h2>All runs</h2>")
+    p.append(_runs_table(rows, rel))
+    p.append("</main></body></html>\n")
+    out = report_dir / "report.html"
+    out.write_text("".join(p))
+    return out
