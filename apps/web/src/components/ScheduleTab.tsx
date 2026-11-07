@@ -51,6 +51,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
           <span key={r.id} className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: colors.get(r.id) }} />
             {r.name}
+            {r.tipped && <span className="text-warn">(tipped)</span>}
           </span>
         ))}
         <span className="flex items-center gap-1.5 text-muted">

@@ -497,7 +497,7 @@ function PlanView({
                     <span className="whitespace-nowrap">
                       {[...new Set(sh.segments.map((g) => roleName.get(g.role_id) ?? g.role_id))].join(', ')} {fmtRange(sh.start, sh.end)}
                     </span>
-                    {(sh.why ?? []).length > 0 && <span className="block text-xs text-muted">{sh.why![0]}</span>}
+                    {(sh.why ?? []).length > 0 && <span className="block text-xs text-muted">{h(sh.why![0])}</span>}
                   </td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(c.added_cost_dollars, { cents: true })}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{Math.round(c.est_accept_prob * 100)}%</td>

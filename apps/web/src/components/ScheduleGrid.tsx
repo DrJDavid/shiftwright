@@ -3,6 +3,7 @@ import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
 import { shiftWage } from '../lib/vocab'
+import { humanizer } from '../lib/humanize'
 
 type Props = {
   schedule: Schedule
@@ -25,6 +26,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
   const roleById = useMemo(() => new Map(config.roles.map((r) => [r.id, r])), [config.roles])
+  const h = useMemo(() => humanizer(config), [config])
   const shifts = useMemo(() => schedule.shifts ?? [], [schedule.shifts])
   const gaps = schedule.gaps ?? []
   const days = [0, 1, 2, 3, 4, 5, 6]
@@ -98,7 +100,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
           </ul>
         ) : (
           <div className="font-medium text-pine-dark">
-            {s.why![0]}
+            {h(s.why![0])}
             {s.why!.length > 1 && <span className="font-normal text-muted"> · click for {s.why!.length - 1} more</span>}
           </div>
         ))}
