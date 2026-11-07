@@ -26,8 +26,8 @@ export function Workplaces() {
     }
   }, [api])
 
-  const mine = list?.filter((w) => !isSample(w.name)) ?? []
-  const sampleCopies = list?.filter((w) => isSample(w.name)) ?? []
+  const mine = list?.filter((w) => !isSample(w)) ?? []
+  const sampleCopies = list?.filter((w) => isSample(w)) ?? []
 
   return (
     <PageShell wide right={<AccountLinks />}>

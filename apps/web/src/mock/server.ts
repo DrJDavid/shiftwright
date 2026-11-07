@@ -32,6 +32,7 @@ type StoreState = {
   outreach: MockOutreach
   /** PUNCHLIST A1: null = created without a session (older mock tests); open to everyone. */
   ownerId: string | null
+  sampleOf: string | null
   updatedAt: string
 }
 
@@ -45,7 +46,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
   const ok = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
   const notFound = (detail: string) => ok({ detail }, 404)
-  const unauthorized = () => ok({ detail: 'Not signed in' }, 401)
+  const unauthorized = () => ok({ detail: 'Sign in first.' }, 401)
 
   // Accounts (PUNCHLIST A1). One browser = one cookie jar, so the mock keeps a single session.
   const users = new Map<string, { user: User; password: string }>()
@@ -66,6 +67,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       plans: new Map(),
       outreach: new MockOutreach(),
       ownerId: session?.id ?? null,
+      sampleOf: null,
       updatedAt: new Date().toISOString(),
     }
     stores.set(config.store.id, st)
@@ -108,6 +110,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
           state: st.config.store.jurisdiction.state,
           updated_at: st.updatedAt,
           has_schedule: st.latest != null,
+          sample_of: st.sampleOf,
         }))
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
       return ok({ workplaces: mine })
@@ -119,7 +122,9 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       if (template !== 'demo' && template !== 'tiny') return ok({ detail: `Template ${template} not available in the mock` }, 422)
       const cfg = mockStoreConfig(`mock-${stores.size + 1}`, template === 'demo' ? 'bigbox_mid' : 'bigbox_small', '', '', null, true)
       cfg.store = { ...cfg.store, name: `Sample: ${cfg.store.name}` }
-      return ok(newStore(cfg).config)
+      const st = newStore(cfg)
+      st.sampleOf = template
+      return ok(st.config)
     }
     return null
   }

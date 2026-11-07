@@ -133,6 +133,8 @@ export type WorkplaceSummary = {
   state: string | null
   updated_at: string
   has_schedule: boolean
+  /** Demo template id this is a private copy of; null for your own workplaces. */
+  sample_of: string | null
 }
 
 /** `validation` is null when GET /schedule has a stored schedule that was never validated. */

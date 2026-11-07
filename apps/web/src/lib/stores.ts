@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { apiMode } from '../api'
 import type { Api } from '../api/client'
+import type { WorkplaceSummary } from '../api/protocol'
 import type { Sector } from '../contracts'
 
 /** Last workplace opened in this mode; the phone-sized employee view falls back to it. */
@@ -81,8 +82,8 @@ export function useSampleTemplates(api: Api): SampleTemplate[] {
   return LOCALITIES.filter((l) => !missing.has(l.template) && (apiMode === 'live' || l.template === 'demo'))
 }
 
-/** A1 names sample copies "Sample: …"; they're listed under "Explore a sample", not with your own. */
-export const isSample = (name: string) => name.startsWith('Sample: ')
+/** Sample copies (A1 `sample_of`) are listed under "Explore a sample", not with your own. */
+export const isSample = (w: WorkplaceSummary) => w.sample_of != null
 
 /** "What kind of business?" → `Store.sector`. */
 export const SECTOR_CHOICES: { sector: Sector; label: string }[] = [

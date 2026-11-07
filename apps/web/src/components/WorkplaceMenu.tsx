@@ -37,8 +37,8 @@ export function WorkplaceMenu({ currentId }: { currentId: string }) {
     setOpen(false)
     if (id !== currentId) navigate(`/w/${encodeURIComponent(id)}`)
   }
-  const mine = list?.filter((w) => !isSample(w.name)) ?? []
-  const sampleCopies = list?.filter((w) => isSample(w.name)) ?? []
+  const mine = list?.filter((w) => !isSample(w)) ?? []
+  const sampleCopies = list?.filter((w) => isSample(w)) ?? []
   const user = auth.state.status === 'in' ? auth.state.user : null
 
   return (

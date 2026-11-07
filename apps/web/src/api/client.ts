@@ -76,7 +76,7 @@ export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
     },
     me: () => json<{ user: User }>('/auth/me'),
     workplaces: () => json<{ workplaces: WorkplaceSummary[] }>('/workplaces'),
-    /** A copy of a demo store, owned by the caller, named "Sample: …". */
+    /** A copy of a demo store, owned by the caller, named "Sample: …" (listed with `sample_of` set). */
     sampleWorkplace: (template: string) => post<StoreConfig>('/workplaces/sample', { template }),
     createStore: (req: CreateStoreRequest) => post<StoreConfig>('/stores', req),
     getConfig: (id: string) => json<StoreConfig>(`${s(id)}/config`),

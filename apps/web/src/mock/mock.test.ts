@@ -93,7 +93,9 @@ describe('mock accounts (PUNCHLIST A1)', () => {
     expect(mine.store.business_description).toBe('seafood')
     const sample = await a.sampleWorkplace('demo')
     expect(sample.store.name).toMatch(/^Sample: /)
-    expect((await a.workplaces()).workplaces.map((w) => w.id).sort()).toEqual([mine.store.id, sample.store.id].sort())
+    const listed = (await a.workplaces()).workplaces
+    expect(listed.map((w) => w.id).sort()).toEqual([mine.store.id, sample.store.id].sort())
+    expect(Object.fromEntries(listed.map((w) => [w.id, w.sample_of]))).toEqual({ [mine.store.id]: null, [sample.store.id]: 'demo' })
     await a.logout()
 
     await a.signup({ email: 'b@x.com', password: 'longenough', name: 'B' })
