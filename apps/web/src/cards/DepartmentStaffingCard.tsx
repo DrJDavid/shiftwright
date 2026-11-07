@@ -4,15 +4,15 @@ import { fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
 import { headcountRange, staffAt } from '../lib/staffing'
 import { CardFrame, type CardProps } from './CardFrame'
+import { dayGroupLabel } from '../lib/vocab'
 import { fromHHMM, toHHMM } from './time'
 
-const GROUP_LABEL: Record<string, string> = { weekday: 'Weekdays', saturday: 'Saturday', sunday: 'Sunday' }
 const EMPTY: RoleStaffing = { base: 1, peaks: [], open: null, close: null }
 const same = (a: RoleStaffing | undefined, b: RoleStaffing | undefined) => JSON.stringify(a) === JSON.stringify(b)
 
 function describe(r: RoleStaffing): string {
   const parts = [`${r.base} most of the day`]
-  for (const p of r.peaks) parts.push(`${p.headcount} ${GROUP_LABEL[p.day_group] ?? p.day_group} ${fmtRange(p.start, p.end)}`)
+  for (const p of r.peaks) parts.push(`${p.headcount} ${dayGroupLabel(p.day_group)} ${fmtRange(p.start, p.end)}`)
   if (r.open) parts.push(`${r.open.headcount} opening`)
   if (r.close) parts.push(`${r.close.headcount} closing`)
   return parts.join(' · ')
@@ -28,6 +28,8 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
   const [staff, setStaff] = useState<Record<string, RoleStaffing>>(() =>
     Object.fromEntries(roles.map((r) => [r.id, structuredClone(suggested[r.id] ?? EMPTY)])),
   )
+  // v1.5: the server's day groups first, then every day and each single day (a busy time can be "Fri" only).
+  const dayOptions = [...new Set([...groups.map((g) => g.id), 'all', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])]
   const [previewGroup, setPreviewGroup] = useState(groups[0]?.id ?? 'weekday')
   const colors = useMemo(() => roleColors(p?.roles ?? []), [p?.roles])
   const set = (rid: string, fn: (r: RoleStaffing) => RoleStaffing) => setStaff((s) => ({ ...s, [rid]: fn(structuredClone(s[rid])) }))
@@ -84,7 +86,7 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
       >
         <div className="flex items-start gap-2">
           <p className="flex-1 text-sm text-ink-2">
-            I filled in suggestions. Change any number that's off, or accept them all. Trucks and events come later.
+            These are my guesses, not a forecast. Change any number that's off, or accept them all. Deliveries and events come later.
           </p>
           <button
             type="button"
@@ -107,6 +109,7 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
                 <div className="mb-1.5 flex items-center gap-2">
                   <span className="inline-block size-2.5 rounded-sm" style={{ background: colors.get(role.id) }} />
                   <span className="font-semibold">{role.name}</span>
+                  {role.tipped && <span className="rounded bg-warn-wash px-1 text-[10px] font-semibold text-warn">Tipped</span>}
                   {sug &&
                     (isSug ? (
                       <span className="ml-auto rounded bg-rule-soft px-1.5 text-[11px] text-ink-2">Suggested</span>
@@ -122,6 +125,7 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
                     ))}
                 </div>
 
+                {p?.rationale?.[role.id] && <p className="mb-1 text-xs text-muted italic">Suggested because: {p.rationale[role.id]}</p>}
                 <Row>
                   <span className="w-28 text-ink-2">Most of the day</span>
                   <Num value={r.base} onChange={(n) => set(role.id, (x) => ({ ...x, base: n }))} label={`${role.name} most of the day`} />
@@ -144,9 +148,9 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
                         value={k.day_group}
                         onChange={(e) => set(role.id, (x) => ((x.peaks[i].day_group = e.target.value), x))}
                       >
-                        {groups.map((gr) => (
-                          <option key={gr.id} value={gr.id}>
-                            {GROUP_LABEL[gr.id] ?? gr.id}
+                        {[...new Set([...dayOptions, k.day_group])].map((id) => (
+                          <option key={id} value={id}>
+                            {dayGroupLabel(id, groups)}
                           </option>
                         ))}
                       </select>
@@ -260,7 +264,7 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
                 onClick={() => setPreviewGroup(gr.id)}
                 className={`rounded px-1.5 py-0.5 ${previewGroup === gr.id ? 'bg-ink text-white' : 'text-ink-2 hover:bg-paper'}`}
               >
-                {GROUP_LABEL[gr.id] ?? gr.id}
+                {dayGroupLabel(gr.id, groups)}
               </button>
             ))}
             <span className="ml-auto text-muted">
@@ -291,7 +295,7 @@ export function DepartmentStaffingCard({ props, status, result, onSubmit, onCanc
                       {role.name}
                     </th>
                     {times.map((t) => {
-                      const n = staffAt(staff[role.id], g?.id, hours, t + step / 2)
+                      const n = staffAt(staff[role.id], g?.days[0] ?? 0, hours, t + step / 2, groups)
                       const inside = t >= hours.open && t < hours.close
                       return (
                         <td key={t} className="p-0" title={`${role.name} ${fmtRange(t, t + step)}: ${n}`}>

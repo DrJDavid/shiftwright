@@ -48,10 +48,21 @@ const EMPTY = {
   jurisdiction: { state: 'TX', city: 'austin' },
 }
 
-/** `template` = "empty" or a demo template ("demo", "demo_chicago", …). Remembers the new store id. */
-export async function createStore(template: string): Promise<StoreConfig> {
+export type BlankStore = { name: string; state: string; city: string }
+
+/**
+ * `template` = "empty" (big-box roles, legacy default), "blank" (no roles: any business, set up in chat; needs
+ * `blank`), or a demo template ("demo", "demo_chicago", …). Remembers the new store id.
+ */
+export async function createStore(template: string, blank?: BlankStore): Promise<StoreConfig> {
   let cfg: StoreConfig
-  if (template === 'empty') {
+  if (template === 'blank' && blank) {
+    cfg = await api.createStore({
+      template: 'empty',
+      name: blank.name.trim() || 'My business',
+      jurisdiction: { state: blank.state.trim().toUpperCase(), city: blank.city.trim() ? blank.city.trim().toLowerCase() : null },
+    })
+  } else if (template === 'empty') {
     cfg = await api.createStore(EMPTY)
   } else {
     try {

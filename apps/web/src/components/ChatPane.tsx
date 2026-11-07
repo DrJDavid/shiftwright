@@ -3,6 +3,7 @@ import type { Api } from '../api/client'
 import type { CardType, ChatEvent, ChatMode } from '../api/protocol'
 import { ChatCard } from '../cards'
 import type { CardStatus } from '../cards/CardFrame'
+import type { Sector } from '../contracts'
 import { CardEnvContext } from '../cards/context'
 import { guessKind } from '../cards/csvKind'
 
@@ -33,17 +34,19 @@ type Props = {
   onScheduleChanged: () => void
   /** Collapse the chat column (e.g. to give the Store tab room). */
   onHide?: () => void
+  /** v1.5 Store.sector, so cards can order choices (event kinds). */
+  sector?: Sector | null
 }
 
 const STARTERS = ['Set up my store', 'Build the schedule']
 
-export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide }: Props) {
+export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide, sector }: Props) {
   const [items, setItems] = useState<Item[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [activity, setActivity] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  const env = useMemo(() => ({ api, storeId, onConfigChanged }), [api, storeId, onConfigChanged])
+  const env = useMemo(() => ({ api, storeId, onConfigChanged, sector }), [api, storeId, onConfigChanged, sector])
   const seq = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -98,9 +101,19 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
     }
   }
 
+  // API v1.2: a new message while the turn is paused on an agent card cancels that card and starts a new turn.
+  const openAgentCard = items.some((x) => x.kind === 'card' && !x.local && x.status === 'open')
+  const canSend = !busy || openAgentCard
+  const turn = useRef(0)
+
   const send = async (text: string) => {
     const content = text.trim()
-    if (!content || busy) return
+    if (!content || !canSend) return
+    if (busy) {
+      setItems((xs) => xs.map((x) => (x.kind === 'card' && !x.local && x.status === 'open' ? { ...x, status: 'cancelled' } : x)))
+      abortRef.current?.abort()
+    }
+    const myTurn = ++turn.current
     setDraft('')
     push({ kind: 'user', text: content })
     newBubble.current = true
@@ -117,7 +130,7 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
           text: `Chat connection failed: ${(err as Error).message}`,
         })
     } finally {
-      setBusy(false)
+      if (turn.current === myTurn) setBusy(false)
     }
   }
 
@@ -277,14 +290,14 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={busy ? 'Waiting for the current step…' : 'Message Shiftwright'}
-              disabled={busy}
+              placeholder={busy ? (openAgentCard ? 'Or type an answer instead of using the card' : 'Waiting for the current step…') : 'Message Shiftwright'}
+              disabled={!canSend}
               aria-label="Message"
               className="min-w-0 flex-1 rounded-md border border-rule bg-panel px-3 py-2 focus:border-pine focus:outline-none focus:ring-2 focus:ring-pine/20 disabled:bg-paper"
             />
             <button
               type="submit"
-              disabled={busy || !draft.trim()}
+              disabled={!canSend || !draft.trim()}
               className="rounded-md bg-ink px-4 py-2 font-semibold text-white disabled:opacity-40"
             >
               Send

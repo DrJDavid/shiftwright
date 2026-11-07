@@ -15,7 +15,7 @@ import { StoreTab } from './components/StoreTab'
 import { ReceiptTab } from './components/ReceiptTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
-import { createStore, STORE_KEY, templateFromDemoParam } from './lib/stores'
+import { createStore, STORE_KEY, templateFromDemoParam, type BlankStore } from './lib/stores'
 
 type Tab = 'schedule' | 'coverage' | 'store' | 'fix' | 'receipt'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
@@ -101,8 +101,8 @@ export default function App() {
   }, [embeddedLaw, lawState, lawCity])
 
   // Errors (e.g. a locality template not on the server yet) surface in the Store menu.
-  const switchStore = useCallback(async (template: string) => {
-    const cfg = await createStore(template)
+  const switchStore = useCallback(async (template: string, blank?: BlankStore) => {
+    const cfg = await createStore(template, blank)
     setResult(null)
     setSolve({ status: 'idle' })
     setOpenGap(null)
@@ -249,6 +249,7 @@ export default function App() {
         <div className={chatOpen ? 'contents' : 'hidden'}>
           <ChatPane
             key={config.store.id}
+            sector={config.store.sector}
             api={api}
             storeId={config.store.id}
             mode="onboard"

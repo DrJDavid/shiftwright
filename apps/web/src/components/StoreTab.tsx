@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import type { AvailabilityEntry, Employee, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
+import { eventName, SECTOR_LABEL, tagLabel } from '../lib/vocab'
 
 type Section = 'people' | 'roles' | 'training' | 'demand' | 'availability' | 'budget'
 const SECTIONS: { id: Section; label: string }[] = [
@@ -168,7 +169,14 @@ function People({ config, roleName, deptName }: { config: StoreConfig; roleName:
                   {e.age < 18 && <span className="ml-1.5 rounded bg-warn-wash px-1 text-[10px] font-semibold text-warn">Minor</span>}
                 </td>
                 <td className="border-b border-rule-soft px-3 py-1.5 whitespace-nowrap text-ink-2">{STATUS[e.status] ?? e.status}</td>
-                <td className="border-b border-rule-soft px-3 py-1.5 text-right tabular-nums">{fmtMoney(e.wage_per_hour, { cents: true })}</td>
+                <td className="border-b border-rule-soft px-3 py-1.5 text-right tabular-nums">
+                  {fmtMoney(e.wage_per_hour, { cents: true })}
+                  {e.tipped_wage_per_hour != null && (
+                    <span className="block text-[11px] text-warn" title="Cash wage for shifts entirely in tipped roles">
+                      {fmtMoney(e.tipped_wage_per_hour, { cents: true })} tipped
+                    </span>
+                  )}
+                </td>
                 <td className="border-b border-rule-soft px-3 py-1.5 whitespace-nowrap tabular-nums text-ink-2">
                   {e.min_hours_week ? `${e.min_hours_week}–` : 'up to '}
                   {e.max_hours_week != null ? fmtHours(e.max_hours_week) : '—'}
@@ -230,9 +238,10 @@ function Roles({ config, colors }: { config: StoreConfig; colors: Map<string, st
                       <td className="px-3 py-1.5">
                         <span className="mr-1.5 inline-block size-2.5 rounded-sm" style={{ background: colors.get(r.id) }} />
                         {r.name}
+                        {r.tipped && <span className="ml-1.5 rounded bg-warn-wash px-1 text-[10px] font-semibold text-warn">Tipped</span>}
                         {(tags[r.id] ?? []).map((t) => (
-                          <span key={t} className="ml-1.5 rounded bg-rule-soft px-1 text-[10px] text-ink-2">
-                            {t.replace(/_/g, ' ')}
+                          <span key={t} className="ml-1.5 rounded bg-rule-soft px-1 text-[10px] text-ink-2" title={`Tag: ${t}`}>
+                            {tagLabel(t)}
                           </span>
                         ))}
                       </td>
@@ -320,7 +329,6 @@ function Training({ config, deptName }: { config: StoreConfig; deptName: Map<str
 
 // ------------------------------------------------------------------ Demand
 
-const EVENT_LABEL: Record<string, string> = { truck: 'Truck', floor_set: 'Floor set', promo: 'Promo', online_surge: 'Online surge', other: 'Event' }
 
 function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, string> }) {
   const [day, setDay] = useState(0)
@@ -356,7 +364,7 @@ function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, s
               <span className="font-semibold">{w}</span> <span className={day === d ? 'text-white/70' : 'text-muted'}>{fmtDayDate(config.store.week_start, d).date.split(' ')[1]}</span>
               <span className={`block text-xs ${day === d ? 'text-white/70' : 'text-muted'}`}>
                 {fmtHours(dayHours(d))}
-                {evs.length ? ` · ${evs.map((e) => EVENT_LABEL[e.kind] ?? e.kind).join(', ')}` : ''}
+                {evs.length ? ` · ${evs.map((e) => eventName(e)).join(', ')}` : ''}
               </span>
             </button>
           )
@@ -366,7 +374,7 @@ function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, s
         {hours ? `Open ${fmtRange(hours.open, hours.close)}.` : 'Closed.'} Staff-hours needed: {fmtHours(dayHours(day))}.
         {events.map((e) => (
           <span key={e.id} className="ml-2 rounded bg-warn-wash px-1.5 py-0.5 text-xs font-semibold text-warn">
-            {EVENT_LABEL[e.kind] ?? e.kind} {fmtRange(e.start, e.end)}
+            {eventName(e)} {fmtRange(e.start, e.end)}
             {e.note ? ` · ${e.note}` : ''}
           </span>
         ))}
@@ -393,7 +401,7 @@ function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, s
                 const open = hours && hours.open <= t && t < hours.close
                 const ev = events.find((e) => e.start <= t && t < e.end)
                 return (
-                  <th key={t} className="p-0" title={ev ? `${EVENT_LABEL[ev.kind] ?? ev.kind} ${fmtRange(ev.start, ev.end)}` : undefined}>
+                  <th key={t} className="p-0" title={ev ? `${eventName(ev)} ${fmtRange(ev.start, ev.end)}` : undefined}>
                     <span className={`block h-2 ${ev ? 'bg-warn' : open ? 'bg-ink/30' : 'bg-transparent'}`} />
                   </th>
                 )
@@ -409,11 +417,12 @@ function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, s
                 </th>
                 {times.map((t) => {
                   const n = need(rid, t)
+                  const draft = demand.some((d) => d.role_id === rid && d.source === 'estimate' && d.start <= t && t < d.end)
                   return (
-                    <td key={t} className="p-0" title={`${fmtRange(t, t + slot)}: ${n} needed`}>
+                    <td key={t} className="p-0" title={`${fmtRange(t, t + slot)}: ${n} needed${draft ? ' (draft estimate, not confirmed)' : ''}`}>
                       <span
-                        className={`block h-6 text-center leading-6 ${n ? 'text-white' : 'bg-rule-soft'}`}
-                        style={n ? { background: `rgb(21 35 45 / ${0.25 + Math.min(n, 6) * 0.12})` } : undefined}
+                        className={`block h-6 text-center leading-6 ${n ? 'text-white' : 'bg-rule-soft'} ${draft ? 'outline-1 -outline-offset-2 outline-dashed outline-white/80' : ''}`}
+                        style={n ? { background: `rgb(${draft ? '143 82 0' : '21 35 45'} / ${0.25 + Math.min(n, 6) * 0.12})` } : undefined}
                       >
                         {n || ''}
                       </span>
@@ -425,7 +434,12 @@ function Demand({ config, colors }: { config: StoreConfig; colors: Map<string, s
           </tbody>
         </table>
       )}
-      <p className="mt-2 text-xs text-muted">Each cell is how many people the role needs in that {slot}-minute slot.</p>
+      <p className="mt-2 text-xs text-muted">
+        Each cell is how many people the role needs in that {slot}-minute slot.
+        {config.demand.some((d) => d.source === 'estimate') && (
+          <span className="ml-1 font-semibold text-warn">Amber dashed cells are a draft estimate: confirm them in the chat before relying on them.</span>
+        )}
+      </p>
     </div>
   )
 }
@@ -604,7 +618,11 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
         <p className="mt-3 text-xs text-muted">Labor law for {config.store.jurisdiction.state} is listed in the rulebook with citations.</p>
       </section>
       <section className="col-span-2 rounded-lg border border-rule p-4 text-sm">
-        <h3 className="font-semibold">Store hours</h3>
+        <h3 className="font-semibold">Business and hours</h3>
+        <p className="mt-1 text-ink-2">
+          {config.store.sector ? SECTOR_LABEL[config.store.sector] : 'Business type not set (all sector-specific laws are applied)'}
+          {config.store.business_description ? ` · ${config.store.business_description}` : ''}
+        </p>
         <div className="mt-2 grid grid-cols-7 gap-2">
           {WEEKDAY_NAMES.map((w, d) => {
             const h = config.store.hours.find((x) => x.day === d)
@@ -619,7 +637,10 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
         <p className="mt-2 text-xs text-muted">
           Staff can start up to {fmtMinutes(config.store.pre_open_minutes ?? 0)} before open and stay {fmtMinutes(config.store.post_close_minutes ?? 0)} after
           close.
-          Schedules use {config.store.slot_minutes}-minute slots.
+          Schedules use {config.store.slot_minutes}-minute slots.{' '}
+          {(config.store.max_shifts_per_day ?? 1) > 1
+            ? `Split shifts allowed: up to ${config.store.max_shifts_per_day} shifts per person per day.`
+            : 'One shift per person per day (no split shifts).'}
         </p>
       </section>
     </div>

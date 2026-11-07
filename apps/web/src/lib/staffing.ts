@@ -4,16 +4,19 @@
 // "Preview" heatmap and the mock API.
 import type { DayHours } from '../contracts'
 import type { DepartmentStaffingProps, RoleStaffing } from '../api/protocol'
+import { dayGroupDays } from './vocab'
 
 export type Interval = { role_id: string; day: number; start: number; end: number; headcount: number }
 
-/** Headcount for one role on one day at minute t. */
-export function staffAt(r: RoleStaffing, dayGroup: string | undefined, hours: DayHours | undefined, t: number): number {
+type Groups = { id: string; days: number[] }[]
+
+/** Headcount for one role on day `day` at minute t. A peak applies on the days of its day_group (v1.5 values). */
+export function staffAt(r: RoleStaffing, day: number, hours: DayHours | undefined, t: number, groups?: Groups): number {
   if (!hours || hours.close <= hours.open) return 0
   if (r.open && t >= hours.open - r.open.minutes_before_open && t < hours.open) return r.open.headcount
   if (r.close && t >= hours.close && t < hours.close + r.close.minutes_after_close) return r.close.headcount
   if (t < hours.open || t >= hours.close) return 0
-  const peak = r.peaks.find((p) => p.day_group === dayGroup && p.start <= t && t < p.end)
+  const peak = r.peaks.find((p) => p.start <= t && t < p.end && dayGroupDays(p.day_group, groups).includes(day))
   return peak ? peak.headcount : r.base
 }
 
@@ -24,25 +27,25 @@ export function staffingToIntervals(
   step = 5,
 ): Interval[] {
   const out: Interval[] = []
-  for (const g of props.day_groups)
-    for (const day of g.days) {
-      const h = props.hours.find((x) => x.day === day)
-      if (!h || h.close <= h.open) continue
-      for (const [role_id, r] of Object.entries(staffing)) {
-        const lo = h.open - (r.open?.minutes_before_open ?? 0)
-        const hi = h.close + (r.close?.minutes_after_close ?? 0)
-        let cur: Interval | null = null
-        for (let t = lo; t < hi; t += step) {
-          const n = staffAt(r, g.id, h, t)
-          if (cur && cur.headcount === n && cur.end === t) cur.end = t + step
-          else {
-            if (cur && cur.headcount > 0) out.push(cur)
-            cur = { role_id, day, start: t, end: t + step, headcount: n }
-          }
+  const days = [...new Set(props.day_groups.flatMap((g) => g.days))].sort((a, b) => a - b)
+  for (const day of days) {
+    const h = props.hours.find((x) => x.day === day)
+    if (!h || h.close <= h.open) continue
+    for (const [role_id, r] of Object.entries(staffing)) {
+      const lo = h.open - (r.open?.minutes_before_open ?? 0)
+      const hi = h.close + (r.close?.minutes_after_close ?? 0)
+      let cur: Interval | null = null
+      for (let t = lo; t < hi; t += step) {
+        const n = staffAt(r, day, h, t, props.day_groups)
+        if (cur && cur.headcount === n && cur.end === t) cur.end = t + step
+        else {
+          if (cur && cur.headcount > 0) out.push(cur)
+          cur = { role_id, day, start: t, end: t + step, headcount: n }
         }
-        if (cur && cur.headcount > 0) out.push(cur)
       }
+      if (cur && cur.headcount > 0) out.push(cur)
     }
+  }
   return out
 }
 

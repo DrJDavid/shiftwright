@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, slice 5. Rebased on main d73494b (contracts/API v1.4, real fix_day)._day not yet)._
+_Updated Sat Nov 7, slice 6. Rebased on main 94567f6 (contracts v1.5)._day)._day not yet)._
 
 ## How David runs it locally
 
@@ -21,6 +21,29 @@ In the app: **Store ▾** (top right) lists the demo stores the server has (`GET
   remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
+
+**Slice 6 (contracts v1.5: any business)**
+- `store_basics`: "What kind of business is this?" (`sector`) and "In a few words" (`business_description`) first;
+  "Split shifts allowed" → `max_shifts_per_day` 2/1; summary shows the business type.
+- Store ▾ "Start from scratch": business name + state + city → template `empty` (no retail roles), so a taqueria
+  starts clean; the old big-box default is "Start a big-box store".
+- `department_staffing`: busy-time day choices = the server's `day_groups` plus Every day and each single day; any
+  v1.5 `day_group` (all / weekday / weekend / saturday / sunday / mon…sun / comma lists) is labelled and applied
+  per day in the preview (`src/lib/vocab.ts` `dayGroupDays`, tested); `rationale` shown per role ("Suggested
+  because: …"); copy says suggestions are guesses; Tipped badge on tipped roles.
+- `coverage_grid` `day_type: "custom"`: titled by its `days`.
+- Events: `Event.label` input and display everywhere (`eventName`), kinds ordered by `Store.sector`.
+- Tipped pay (SEMANTICS #20): Tipped badge on roles (Store tab, staffing card); People table shows the tipped cash
+  wage; shift tooltip prices tipped shifts at the tipped wage; receipt checks `tipped_minimum_wage` from its params.
+- ROLE_TAGS chips with friendly names (Forklift / powered truck, Fryer, Meat slicer, …) on roles in the Store tab and
+  on hazardous-job law lines in the rulebook (with the store roles carrying each tag); receipt honours `age_min`.
+- `estimate` demand: amber dashed cells + note in the Store tab Demand view.
+- Split shifts: all of a day's shifts on one track (two bars) with "11a–2p, 5p–9p" (render test); Store tab shows
+  the split-shift policy and the business type.
+- Chat stays usable while an agent card is open: sending cancels the card (API v1.2 supersede) and starts a new turn.
+- Re-checked Austin + Chicago beats at 1280×720 (build ~19 s, fix ~1.8 s, texts fill in ~40 s), plus a cold start
+  for "La Esquina, Chicago" (blank store → agent opens store basics with the business question).
+- Tests: 26.
 
 **Slice 5 (v1.4 + real fix_day + demo polish)**
 - Store ▾ from `GET /api/templates` (falls back to the built-in list on older servers / the mock).
@@ -148,6 +171,12 @@ solve → grid, stats, validator badge + report. (Solve runs WS6's engine stub u
   it only a little); a day-level number would need to come from the engine.
 - `conflict_menu` shows raw constraint/law ids under "Involved"; could map to rule notes.
 - Coverage heatmap: cells are slot-sized; a gap shorter than a slot still marks the whole cell red (hover shows the exact range).
+
+## Remaining demo issues
+
+Still open after slice 6 (WS6 is on 1–3): the badge shows "1 hard violation" after outreach (metrics_mismatch on
+soft-rule cost); called-out shifts stay in the saved schedule; extension actions aren't applied. New: a store
+with every day closed needs each "Closed" box unticked in store basics (no "open every day" shortcut).
 
 ## Remaining demo issues (slice 5)
 
