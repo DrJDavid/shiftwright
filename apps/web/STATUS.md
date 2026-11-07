@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B4: routes, accounts, create workplace, switcher, guided setup), branch
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B5: routes, accounts, create workplace, switcher, guided setup, workspace tabs), branch
 `cursor/B1-web-shell` off main 9413f5e. Built against the PUNCHLIST A1 endpoint table; A1 isn't on main yet._
 
 ## How David runs it locally
@@ -47,6 +47,17 @@ workplaces in memory, so a page reload signs you out (sign up again; any email +
 - **Build my schedule** is enabled when `ready`; otherwise it's disabled with "Build anyway" and a one-line warning.
 - The mock's readiness now emits the same ids (it used `law_pack` for `jurisdiction`) with `severity`.
 
+## Workspace mode (B5)
+
+- Tabs: **Schedule** (stats + week grid; a "Week / Coverage by hour" toggle shows the heatmap; clicking a day header
+  opens that day's coverage) · **Call-outs** (the Fix tab, still kept mounted so outreach survives tab switches) ·
+  **Team & rules** (Store tab + a Rules column with the rulebook and the equipment-role review) · **Compliance** (receipt).
+  The right-hand readiness rail is gone (`ReadinessRail.tsx` removed; setup checks live in setup mode).
+- Header: workplace name, location, week, and the My workplaces menu (plus the dev-only Mock API pill).
+- Call-in shifts get a **Call-in** badge in the grid and "Call-in: covering a call-out" in the shift detail. The
+  contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
+  the mock now uses the same suffix. A contract field would be safer.
+
 ## Assumptions about the backend (Lane A)
 
 - Exactly the A1 table: `POST /api/auth/signup {email,password,name}` → `{user}`; `POST /api/auth/login` → `{user}`, 401
@@ -77,7 +88,7 @@ accounts + ownership. 40 tests total; `npm run build`, `npm run lint`, `npm test
 
 ## Next (Lane B)
 
-- B4 guided setup, B5 workspace tabs/header, B6 plain-language pass (PUNCHLIST).
+- B6 plain-language pass (PUNCHLIST).
 - Wire-up check against the real A1 once it lands (cookie on the chat SSE + CSV upload, 401 handling).
 
 ## Running it (details)

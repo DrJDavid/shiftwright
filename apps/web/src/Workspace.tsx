@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiMode } from './api'
 import { ApiError } from './api/client'
@@ -9,7 +9,7 @@ import { ChatPane } from './components/ChatPane'
 import { CoverageTab } from './components/CoverageTab'
 import { FixTab } from './components/FixTab'
 import { GapSheet } from './components/GapSheet'
-import { ReadinessRail } from './components/ReadinessRail'
+import { EquipmentReview } from './components/EquipmentReview'
 import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
 import { SetupSteps } from './components/SetupSteps'
@@ -20,13 +20,12 @@ import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
 import { placeLabel, rememberStore } from './lib/stores'
 
-type Tab = 'schedule' | 'coverage' | 'store' | 'fix' | 'receipt'
-const TABS: { id: Tab; label: string; ready: boolean }[] = [
-  { id: 'schedule', label: 'Schedule', ready: true },
-  { id: 'coverage', label: 'Coverage', ready: true },
-  { id: 'store', label: 'Store', ready: true },
-  { id: 'fix', label: 'Fix call-outs', ready: true },
-  { id: 'receipt', label: 'Compliance receipt', ready: true },
+type Tab = 'schedule' | 'callouts' | 'team' | 'compliance'
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'callouts', label: 'Call-outs' },
+  { id: 'team', label: 'Team & rules' },
+  { id: 'compliance', label: 'Compliance' },
 ]
 
 /** `/w/:id`: the workspace for one workplace (chat, schedule, rulebook). Keyed by id, so switching resets it. */
@@ -39,7 +38,8 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const [result, setResult] = useState<SolveResponse | null>(null)
   const [solve, setSolve] = useState<SolveState>({ status: 'idle' })
   const [tab, setTab] = useState<Tab>('schedule')
-  const [railOpen, setRailOpen] = useState(true)
+  const [scheduleView, setScheduleView] = useState<'week' | 'coverage'>('week')
+  const rulesRef = useRef<HTMLElement>(null)
   const [chatOpen, setChatOpen] = useState(false)
   // B4: setup mode until a schedule exists (GET /schedule answered), then workspace mode.
   const [scheduleChecked, setScheduleChecked] = useState(false)
@@ -208,121 +208,134 @@ export function Workspace({ storeId: id }: { storeId: string }) {
     }
   }
 
-  const workspaceMain = (
-    <>
-      <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
-        <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              disabled={!t.ready}
-              title={t.ready ? undefined : 'Not built yet'}
-              onClick={() => {
-                setTab(t.id)
-                if (t.id === 'fix' || t.id === 'receipt' || t.id === 'store') setChatOpen(false)
-              }}
-              className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold ${
-                tab === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
-              } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted`}
-            >
-              {t.label}
-            </button>
-          ))}
-          <span className="ml-auto self-center" />
-          <button
-            type="button"
-            onClick={() => setChatOpen((o) => !o)}
-            aria-expanded={chatOpen}
-            className="self-center rounded-full border border-ink/25 bg-panel px-3 py-1 text-sm font-semibold hover:border-ink"
-          >
-            Ask Shiftwright
-          </button>
-        </nav>
-        {tab === 'schedule' && (
-          <ScheduleTab
-            config={config}
-            result={result}
-            solve={solve}
-            onSolve={() => void runSolve()}
-            onGapClick={setOpenGap}
-            callouts={callouts}
-            lawRules={lawPack?.rules}
-            onDayClick={(d) => {
-              setCoverageDay(d)
-              setTab('coverage')
-            }}
-          />
-        )}
-        {tab === 'coverage' && (
-          <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
-        )}
-        {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
-        {tab === 'receipt' && (
-          <ReceiptTab
-            api={api}
-            config={config}
-            result={result}
-            lawPack={lawPack}
-            onValidated={(validation) => setResult((r) => (r ? { ...r, validation } : r))}
-          />
-        )}
-        {/* Kept mounted so a running outreach survives tab switches. */}
-        <div className={tab === 'fix' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
-          <FixTab
-            key={config.store.id}
-            api={api}
-            config={config}
-            result={result}
-            lawPack={lawPack}
-            onCallouts={setCallouts}
-            onSchedule={(schedule) => {
-              // The API saves each accepted call-in with a fresh validator report; fall back to the state's copy.
-              api
-                .latestSchedule(config.store.id)
-                .then(setResult)
-                .catch(() => setResult({ schedule, validation: null }))
-            }}
-          />
-        </div>
-        {openGap && result && (
-          <GapSheet
-            api={api}
-            storeId={config.store.id}
-            gap={openGap}
-            weekStart={result.schedule.week_start}
-            config={config}
-            lawPack={lawPack}
-            onClose={() => setOpenGap(null)}
-          />
-        )}
-      </main>
+  const pendingEquipment = readiness?.checks.find((c) => c.id === 'equipment_roles')
 
-      <ReadinessRail
-        readiness={readiness}
-        error={readinessError}
-        solve={solve}
-        onSolve={() => void runSolve()}
-        open={railOpen}
-        onToggle={() => setRailOpen((o) => !o)}
-        roles={config.roles}
-        onEquipment={onEquipment}
-      >
-        <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
-      </ReadinessRail>
-    </>
+  const workspaceMain = (
+    <main className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-panel">
+      <nav className="flex gap-1 border-b border-rule px-3" role="tablist" aria-label="Views">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold ${
+              tab === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        <span className="ml-auto self-center" />
+        <button
+          type="button"
+          onClick={() => setChatOpen((o) => !o)}
+          aria-expanded={chatOpen}
+          className="self-center rounded-full border border-ink/25 bg-panel px-3 py-1 text-sm font-semibold hover:border-ink"
+        >
+          Ask Shiftwright
+        </button>
+      </nav>
+      {tab === 'schedule' && (
+        <>
+          <div className="flex items-center gap-1 border-b border-rule-soft px-3 py-1.5 text-sm" role="group" aria-label="Schedule view">
+            {(
+              [
+                ['week', 'Week'],
+                ['coverage', 'Coverage by hour'],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={scheduleView === v}
+                onClick={() => setScheduleView(v)}
+                className={`rounded px-2.5 py-1 font-medium ${scheduleView === v ? 'bg-ink text-white' : 'text-ink-2 hover:bg-paper'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {scheduleView === 'week' ? (
+            <ScheduleTab
+              config={config}
+              result={result}
+              solve={solve}
+              onSolve={() => void runSolve()}
+              onGapClick={setOpenGap}
+              callouts={callouts}
+              lawRules={lawPack?.rules}
+              onDayClick={(d) => {
+                setCoverageDay(d)
+                setScheduleView('coverage')
+              }}
+            />
+          ) : (
+            <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
+          )}
+        </>
+      )}
+      {tab === 'team' && (
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <StoreTab config={config} onOpenRulebook={() => rulesRef.current?.scrollIntoView?.({ behavior: 'smooth' })} />
+          </div>
+          <aside ref={rulesRef} className="w-80 shrink-0 overflow-y-auto border-l border-rule px-4 py-3" aria-label="Rules">
+            <h2 className="mb-2 font-semibold">Rules</h2>
+            {readinessError && <p className="mb-2 text-xs text-gap">{readinessError}</p>}
+            <div className="mb-3">
+              <EquipmentReview check={pendingEquipment} roles={config.roles} onDecide={onEquipment} />
+            </div>
+            <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
+          </aside>
+        </div>
+      )}
+      {tab === 'compliance' && (
+        <ReceiptTab
+          api={api}
+          config={config}
+          result={result}
+          lawPack={lawPack}
+          onValidated={(validation) => setResult((r) => (r ? { ...r, validation } : r))}
+        />
+      )}
+      {/* Kept mounted so a running outreach survives tab switches. */}
+      <div className={tab === 'callouts' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+        <FixTab
+          key={config.store.id}
+          api={api}
+          config={config}
+          result={result}
+          lawPack={lawPack}
+          onCallouts={setCallouts}
+          onSchedule={(schedule) => {
+            // The API saves each accepted call-in with a fresh validator report; fall back to the state's copy.
+            api
+              .latestSchedule(config.store.id)
+              .then(setResult)
+              .catch(() => setResult({ schedule, validation: null }))
+          }}
+        />
+      </div>
+      {openGap && result && (
+        <GapSheet
+          api={api}
+          storeId={config.store.id}
+          gap={openGap}
+          weekStart={result.schedule.week_start}
+          config={config}
+          lawPack={lawPack}
+          onClose={() => setOpenGap(null)}
+        />
+      )}
+    </main>
   )
 
   return (
     <div className="grid h-full grid-rows-[auto_1fr]">
       <header className="flex items-center gap-4 border-b border-ink bg-ink px-4 py-2 text-white">
-        <Link to="/workplaces" className="font-bold tracking-tight">
-          Shiftwright
-        </Link>
-        <span className="h-5 w-px bg-white/25" aria-hidden />
-        <span className="font-medium">{config.store.name}</span>
+        <span className="font-semibold">{config.store.name}</span>
         <span className="text-white/70">{placeLabel(juris.city, juris.state)}</span>
         <span className="text-white/70">
           Week of {week.date} to {end.date}
@@ -356,7 +369,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
             onEquipment={onEquipment}
           />
         ) : (
-          <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_auto]">{workspaceMain}</div>
+          workspaceMain
         )}
         <div
           className={

@@ -199,5 +199,12 @@ describe('setup mode → workspace mode (B4)', () => {
     fireEvent.click(ask)
     expect(ask.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByRole('region', { name: 'Chat' })).toBeTruthy()
+
+    // B5: four tabs; coverage is a toggle inside Schedule; Team & rules carries the rulebook.
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Schedule', 'Call-outs', 'Team & rules', 'Compliance'])
+    fireEvent.click(screen.getByRole('button', { name: 'Coverage by hour' }))
+    expect(screen.getByRole('button', { name: 'Coverage by hour' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('tab', { name: 'Team & rules' }))
+    expect(screen.getByRole('complementary', { name: 'Rules' })).toBeTruthy()
   })
 })
