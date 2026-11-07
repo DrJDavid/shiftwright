@@ -3,12 +3,8 @@ import type { DayHours } from '../contracts'
 import type { StoreBasicsProps, StoreBasicsResult } from '../api/protocol'
 import { fmtDayDate, WEEKDAY_NAMES } from '../lib/format'
 import { CardFrame, Field, inputCls, type CardProps } from './CardFrame'
+import { fromHHMM, toHHMM } from './time'
 
-const toHHMM = (m: number) => `${String(Math.floor((m % 1440) / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-const fromHHMM = (s: string) => {
-  const [h, m] = s.split(':').map(Number)
-  return (h || 0) * 60 + (m || 0)
-}
 
 type Row = { open: number; close: number; closed: boolean }
 

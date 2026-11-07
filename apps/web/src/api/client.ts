@@ -4,7 +4,9 @@ import type {
   ChatEvent,
   ChatRequest,
   CreateStoreRequest,
+  CsvImportKind,
   Health,
+  ImportPreview,
   Readiness,
   SolveResponse,
 } from './protocol'
@@ -23,7 +25,10 @@ export class ApiError extends Error {
 async function errorText(res: Response): Promise<string> {
   try {
     const body: unknown = await res.json()
-    if (body && typeof body === 'object' && 'detail' in body) return String((body as { detail: unknown }).detail)
+    if (body && typeof body === 'object' && 'detail' in body) {
+      const d = (body as { detail: unknown }).detail
+      return typeof d === 'string' ? d : JSON.stringify(d)
+    }
     return JSON.stringify(body)
   } catch {
     return res.statusText || `HTTP ${res.status}`
@@ -56,6 +61,16 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
     resolveLaw: (j: Jurisdiction) =>
       json<LawPack>(`/laws/resolve?state=${encodeURIComponent(j.state)}${j.city ? `&city=${encodeURIComponent(j.city)}` : ''}`),
     explainGap: (id: string, gap: Gap) => post<{ text: string; reasons: GapReason[] }>(`${s(id)}/gaps/explain`, { gap }),
+    /** Multipart upload; the server parses and proposes a column mapping. Nothing is saved yet. */
+    async importPreview(id: string, kind: CsvImportKind, file: File): Promise<ImportPreview> {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetchImpl(`/api${s(id)}/import/${kind}`, { method: 'POST', body: form, headers: keyHeader })
+      if (!res.ok) throw new ApiError(res.status, await errorText(res))
+      return (await res.json()) as ImportPreview
+    },
+    importCommit: (id: string, kind: CsvImportKind, mapping: Record<string, string | null>, rows: object[]) =>
+      post<StoreConfig>(`${s(id)}/import/${kind}/commit`, { mapping, rows }),
     submitCard: (id: string, sub: CardSubmission) => post<unknown>(`${s(id)}/chat/card`, sub),
 
     /** Streams one chat turn. Resolves when the stream closes. */
