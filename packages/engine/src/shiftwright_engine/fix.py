@@ -101,10 +101,13 @@ class _Fix:
         self.base: list[Shift] = []
         self.reported_at = {c.employee_id: c.reported_at for c in req.callouts if c.day == self.d}
         self.callout_notes: list[tuple[Shift, Optional[Shift], str]] = []
-        self.absent_spans: list[tuple[int, int]] = []  # called-out coworkers' lost time today (day minutes)
+        # Called-out coworkers' scheduled time today from when they called out (day minutes).
+        self.absent_spans: list[tuple[int, int]] = [
+            (max(sh.start, self.reported_at[sh.employee_id]), sh.end) for sh in req.schedule.shifts
+            if sh.employee_id in self.callout_ids and sh.day == self.d
+            and sh.end > max(sh.start, self.reported_at[sh.employee_id])]
         for sh in req.schedule.shifts:
             if sh.employee_id in self.callout_ids and sh.day == self.d and sh.end > self.now:
-                self.absent_spans.append((max(sh.start, self.now), sh.end))
                 lo, _ = p.shift_bounds(sh.employee_id)
                 when = min(self.now, self.reported_at.get(sh.employee_id, self.now))
                 cut = _round_down(when, self.slot)  # never past the call-out (they left)
@@ -210,7 +213,7 @@ class _Fix:
                         continue
                     c = make_cand(p, e, sh.day, st, en, brks, avail, week_cap, day_cap, charge_preferences=False)
                     if c is not None:
-                        c.extra_units = money(extension_premium(p, e, max(0, c.paid_min - paid_minutes(sh))).dollars)
+                        c.extra_units = money(self.ext_premium(e, sh, st, en).dollars)
                         self.ext.add(self._add(c).idx)
 
     def _callins(self, e) -> None:
@@ -242,8 +245,11 @@ class _Fix:
                     self.callin.add(self._add(c).idx)
 
     def premium(self, c: Cand, mode: str, n_recipients: int) -> Premium:
-        return call_in_premium(self.p, self.p.emps[c.emp], c.start, c.end, c.paid_min, mode,
-                               self.absent_spans, n_recipients)
+        return call_in_premium(self.p, self.p.emps[c.emp], c.start, c.end, mode, self.absent_spans, n_recipients)
+
+    def ext_premium(self, e, orig: Shift, start: int, end: int) -> Premium:
+        added = ([(start, orig.start)] if start < orig.start else []) + ([(orig.end, end)] if end > orig.end else [])
+        return extension_premium(self.p, e, added, self.absent_spans)
 
     # ------------------------------------------------------------------ solving
     def _solve(self, allow: set[int], forced: set[int], time_limit_s: float, churn: bool = True):
@@ -252,7 +258,8 @@ class _Fix:
         ok = frozen | allow
         hours_floor = sum(p.cands[i].paid_min for i in frozen)
         forced_days = {k for k, i in self.frozen_idx.items()}
-        b = Builder(p, cand_ok=lambda c: c.idx in ok, churn=churn, forced=(frozen - self._replaceable()) | forced,
+        b = Builder(p, cand_ok=lambda c: c.idx in ok, churn=churn,
+                    forced=(frozen - self._replaceable(allow)) | forced,
                     fixed_roles=self.fixed_roles, elastic_always=ELASTIC_ALWAYS_DOLLARS_PER_HOUR,
                     min_hours_cap_minutes=hours_floor, forced_days=forced_days).build()
         s, st = solve(b, time_limit_s)
@@ -260,9 +267,9 @@ class _Fix:
             return None
         return b, s, st
 
-    def _replaceable(self) -> set[int]:
-        """Frozen candidates an extension may replace (same employee, the fix day)."""
-        emps = {self.p.cands[i].emp for i in self.ext}
+    def _replaceable(self, allow: set[int]) -> set[int]:
+        """Frozen candidates an allowed extension may replace (same employee, the fix day)."""
+        emps = {self.p.cands[i].emp for i in self.ext & allow}
         return {i for (eid, day), i in self.frozen_idx.items() if day == self.d and eid in emps}
 
     def _shifts(self, b, s) -> list[Shift]:
@@ -329,8 +336,7 @@ class _Fix:
         for sh in shifts:
             o = self.orig.get((sh.employee_id, sh.day))
             if sh.day == self.d and o is not None and (o.start, o.end) != (sh.start, sh.end):
-                out[sh.employee_id] = extension_premium(self.p, self.p.emps[sh.employee_id],
-                                                        max(0, paid_minutes(sh) - paid_minutes(o)))
+                out[sh.employee_id] = self.ext_premium(self.p.emps[sh.employee_id], o, sh.start, sh.end)
         return out
 
     # ------------------------------------------------------------------ outreach
@@ -517,11 +523,12 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
         none_sched = fx._schedule(none_shifts, rN[0], rN[1], "optimal" if rN[2] == cp_model.OPTIMAL else "feasible",
                                   premium_pay=sum(x.dollars for x in ext_N.values()))
 
-    # A: every allowed lever.
+    # A: N's immediate actions (its extensions, forced; SEMANTICS #24) plus call-ins.
     picked: list[int] = []
     all_shifts, rA = none_shifts, None
+    n_ext = {i for i in fx.ext if rN is not None and rN[1].boolean_value(rN[0].y[i])}
     if Lever.call_in in fx.levers and fx.callin:
-        rA = fx._solve(fx.ext | fx.callin, set(), max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.7))
+        rA = fx._solve(n_ext | fx.callin, n_ext, max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.7))
         if rA is not None:
             picked = [i for i in fx.callin if rA[1].boolean_value(rA[0].y[i])]
             if picked:
