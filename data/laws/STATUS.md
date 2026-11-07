@@ -18,7 +18,7 @@
 - **Second slice (2026-11-06, all `high`):** CO (CDLE INFO #22A, C.R.S. § 8-12-105; 7 CCR 1103-20 has no hour limits), AL (Dept. of Workforce poster), LA (R.S. 23:211-215), KY (803 KAR 1:100), OR (BOLI), OK (OK DOL brochure), CT (§§ 31-13/14/23, mercantile; under-16 retail essentially barred), UT (§ 34-23-202), IA (§ 92.7), NV (NRS 609.240), AR (DOLL page), KS (K.S.A. 38-603), NE (§ 48-310), ID (§ 44-1304), NH (RSA 276-A:4), ME (26 M.R.S. § 774), RI (§ 28-3-11), DE (19 Del. C. § 506), SD (SDCL 60-12-1), WV (§ 21-6-7), DC (§ 32-202), WY (§ 27-6-110), ND (§ 34-07-15), AK (AS 23.10.340), HI (HRS § 390-2), MT (MCA 41-2-115 via DLI). SC researched: S.C. Code § 41-13-20 forbids stricter-than-federal rules (note only).
 - TN 14-15 re-checked against the TDLWD required poster quoting T.C.A. § 50-5-104: school-week non-school days are capped at 8 h (fixed), 9 p.m. before non-school days.
 
-**In progress / next:** not done — VT (statutes site and DOL page are JS; nothing fetched), MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; state lists in notes).
+**In progress / next:** VT done 2026-11-07 (VT DOL WH-30). Not done — MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; state lists in notes).
 
 **Blocked on:** nothing.
 
@@ -113,7 +113,7 @@
 | TX | – | – | – | – | 2 | – | – | – | – | 1 | 5 |
 | UT | – | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | VA | – | – | – | – | – | – | – | – | – | 2 | 8 |
-| VT | 1 | – | – | – | – | – | – | – | – | 1 | 8 |
+| VT | 1 | – | – | – | 2 | – | – | – | – | 1 | 8 |
 | WA | 1 | – | 1 | 1 | 4 | – | – | – | – | 1 | 6 |
 | WI | 1 | – | – | – | 2 | – | – | – | – | 1 | 7 |
 | WV | 1 | – | 1 | – | 2 | – | – | – | – | 1 | 6 |
