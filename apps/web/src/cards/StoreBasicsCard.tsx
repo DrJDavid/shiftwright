@@ -21,6 +21,9 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
   const [timezone, setTimezone] = useState(p.timezone ?? 'America/Chicago')
   const [slot, setSlot] = useState<15 | 30 | 60>(p.slot_minutes ?? 30)
   const [weekStart, setWeekStart] = useState(p.week_start ?? '')
+  const [school, setSchool] = useState<'unknown' | 'yes' | 'no'>(
+    p.school_week === true ? 'yes' : p.school_week === false ? 'no' : 'unknown',
+  )
   const [rows, setRows] = useState<Row[]>(() =>
     WEEKDAY_NAMES.map((_, day) => {
       const h = p.hours?.find((x) => x.day === day)
@@ -51,6 +54,7 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
       slot_minutes: slot,
       week_start: weekStart,
       hours,
+      school_week: school === 'unknown' ? null : school === 'yes',
     })
   }
 
@@ -82,9 +86,18 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
             </select>
           </Field>
         </div>
-        <Field label="Time zone">
-          <input className={inputCls} value={timezone} onChange={(e) => setTimezone(e.target.value)} />
-        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Time zone">
+            <input className={inputCls} value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+          </Field>
+          <Field label="School in session this week?" hint="Sets which minor-hour limits apply.">
+            <select className={inputCls} value={school} onChange={(e) => setSchool(e.target.value as 'unknown' | 'yes' | 'no')}>
+              <option value="unknown">Not sure (strictest)</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </Field>
+        </div>
         {weekStart && !isMonday && <p className="text-sm text-gap">Pick a Monday. Weeks run Monday to Sunday.</p>}
         <div>
           <span className="mb-1 block text-sm text-ink-2">Open hours</span>

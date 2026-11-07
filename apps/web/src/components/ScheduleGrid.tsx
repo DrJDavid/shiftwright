@@ -160,6 +160,14 @@ export function ScheduleGrid({ schedule, config }: Props) {
                               style={{ left: pct(g.start), width: width(g.start, g.end), background: colors.get(g.role_id) }}
                             />
                           ))}
+                          {/* v1.1: breaks may sit off the slot grid (5-minute steps); cut them out at minute precision. */}
+                          {(s.breaks ?? []).map((b, i) => (
+                            <div
+                              key={`b${i}`}
+                              className="absolute -top-px h-[calc(100%+2px)] bg-panel group-hover:bg-paper"
+                              style={{ left: pct(b.start), width: `max(2px, ${width(b.start, b.end)})` }}
+                            />
+                          ))}
                         </div>
                         <div className="mt-0.5 truncate text-xs text-ink-2">{fmtRange(s.start, s.end)}</div>
                       </div>
