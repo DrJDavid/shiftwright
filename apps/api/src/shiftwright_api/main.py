@@ -376,7 +376,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     # ---------------------------------------------------------------- chat
     @app.post("/api/stores/{store_id}/chat")
     async def chat(store_id: str, req: ChatRequest,
-                   auto_cards: Optional[Literal["scripted"]] = Query(None)) -> StreamingResponse:
+                   auto_cards: Optional[Literal["scripted", "accept_prefill"]] = Query(None)) -> StreamingResponse:
         load(store_id)
         lock = app.state.turn_locks.setdefault(store_id, asyncio.Lock())
         if lock.locked():
@@ -386,7 +386,10 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
                 raise HTTPException(409, "A chat turn is already running for this store.")
             app.state.turn_abort.get(store_id, asyncio.Event()).set()
             app.state.cards.cancel_all(store_id, "superseded by a new message")
-        waiter = (scripted_waiter(req.card_script) if auto_cards == "scripted"
+        script = dict(req.card_script)
+        if auto_cards == "accept_prefill":
+            script.setdefault("*", "accept_prefill")
+        waiter = (scripted_waiter(script) if auto_cards in ("scripted", "accept_prefill")
                   else broker_waiter(app.state.cards, store_id, settings.card_timeout_s))
 
         async def stream():

@@ -166,13 +166,50 @@ async def run_turn(
         db.save_transcript(store_id, repair_transcript(transcript))
 
 
-def scripted_waiter(script: dict[str, list[dict]]) -> CardWaiter:
-    """Headless mode: answer each card from the script (by card_type, in order); cancel if none left."""
-    queues = {k: list(v) for k, v in script.items()}
+def accept_prefill(card_type: str, props: dict) -> dict:
+    """A neutral manager: submit what the card shows, unchanged (WS5 realistic eval)."""
+    if card_type == "store_basics":
+        return {k: v for k, v in props.items() if k not in ("id", "week_start")}
+    if card_type == "payroll":
+        return {k: v for k, v in props.items() if k != "approvals"}
+    if card_type == "roles":
+        return {"departments": props.get("departments", []), "roles": props.get("roles", [])}
+    if card_type == "training_matrix":
+        return {e["id"]: e.get("trained_role_ids", []) for e in props.get("employees", [])}
+    if card_type == "coverage_grid":
+        return {"grid": props.get("prefill") or {}}
+    if card_type == "department_staffing":
+        return {"staffing": props.get("suggested") or {}}
+    if card_type == "events":
+        return {"events": props.get("events", [])}
+    if card_type == "propose_rule":
+        c = props.get("constraint") or {}
+        if c.get("strength") == "soft":
+            return {"decision": "soft", "weight_dollars": c.get("weight_dollars") or 0}
+        return {"decision": "hard"}
+    if card_type in ("tradeoff", "conflict_menu"):
+        opts = props.get("options") or []
+        return {"option_id": opts[0]["id"]} if opts else {"cancelled": True}
+    if card_type == "confirm_tags":
+        return {"decisions": {r["role_id"]: "keep" for r in props.get("roles", [])}}
+    if card_type == "employee_availability":
+        return {"confirmed": props.get("parsed") or []}
+    return {"cancelled": True}  # csv_import (no file headless) and anything unknown
+
+
+def scripted_waiter(script: dict) -> CardWaiter:
+    """Headless mode: answer each card from the script (by card_type, in order). Cards with no scripted
+    answer left are cancelled, or, with script {"*": "accept_prefill"}, submitted with their prefill."""
+    fallback = script.get("*")
+    queues = {k: list(v) for k, v in script.items() if k != "*" and isinstance(v, list)}
 
     async def wait(card_id: str, card_type: str, props: dict) -> dict:
         q = queues.get(card_type) or []
-        return q.pop(0) if q else {"cancelled": True}
+        if q:
+            return q.pop(0)
+        if fallback == "accept_prefill":
+            return accept_prefill(card_type, props)
+        return {"cancelled": True}
     return wait
 
 

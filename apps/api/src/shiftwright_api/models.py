@@ -76,7 +76,8 @@ class ChatRequest(BaseModel):
     mode: Literal["onboard", "review", "fix"] = "onboard"
     messages: list[ChatMessage] = []
     # Headless mode only (`?auto_cards=scripted`): card_type -> list of results, consumed in order.
-    card_script: dict[str, list[dict[str, Any]]] = {}
+    # {card_type: [result, ...]} answered in order; key "*": "accept_prefill" submits every other card unchanged
+    card_script: dict[str, Union[list[dict[str, Any]], Literal["accept_prefill"]]] = {}
 
 
 class CardSubmission(BaseModel):

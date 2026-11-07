@@ -42,7 +42,9 @@ def client(base: str | None, reply_delay_s: float):
 def run(base: str | None = None, reply_delay_s: float = 4.0, template: str = "demo",
         jurisdiction: dict | None = None) -> dict:
     """Returns timings + final state. Raises SystemExit(2) when fix_day isn't available."""
-    scenario = json.loads(SCENARIO.read_text())
+    loc = template[len("demo_"):] if template.startswith("demo_") else ""
+    path = SCENARIO.with_name(f"demo_scenario_{loc}.json") if loc else SCENARIO
+    scenario = json.loads((path if path.exists() else SCENARIO).read_text())
     callouts = scenario["callout_events"]
     out: dict = {}
     with client(base, reply_delay_s) as c:
@@ -96,6 +98,7 @@ def run(base: str | None = None, reply_delay_s: float = 4.0, template: str = "de
         out["premium"] = last.get("premium")
         out["accepted"] = last["accepted_employee_ids"]
         out["messages"] = len(last["messages"])
+        out["thread"] = [(m.get("to_employee_id") or m.get("from_phone"), m["body"][:60]) for m in last["messages"]]
         print(f"outreach: {last['status']} in {out['outreach_s']}s (first text {first_text}s), "
               f"accepted {last['accepted_employee_ids']}")
         for m in last["messages"]:
