@@ -77,7 +77,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         messenger = MockMessenger()
     app.state.messenger = messenger
     app.state.outreach = OutreachManager(app.state.db, messenger, helper_llm, settings.outreach_timeout_s,
-                                         settings.max_texts_per_store_hour)
+                                         settings.max_texts_per_store_hour, autoreply=settings.mock_autoreply,
+                                         reply_delay_s=settings.mock_reply_delay_s, seed=settings.mock_seed)
 
     if settings.demo_key:
         @app.middleware("http")
@@ -109,6 +110,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             "llm_configured": bool(settings.openrouter_api_key) or llm is not None,
             "stubs": integrations.active_stubs(),
             "demo_key_required": bool(settings.demo_key),
+            "mock_autoreply": app.state.outreach.autoreply,
             "warnings": startup_warnings,
         }
 
@@ -306,7 +308,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     async def sms_mock_reply(body: dict = Body(...)) -> dict:
         if app.state.messenger.name != "mock":
             raise HTTPException(404, "Only available when MESSENGER=mock")
-        msg = await app.state.outreach.inbound(str(body.get("from_phone", "")), str(body.get("body", "")))
+        msg = await app.state.outreach.inbound(str(body.get("from_phone", "")), str(body.get("body", "")), manual=True)
         return {"ok": True, "interpreted_as": msg.interpreted_as if msg else None}
 
     # ---------------------------------------------------------------- laws

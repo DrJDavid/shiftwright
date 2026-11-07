@@ -124,8 +124,10 @@ def test_question_is_forwarded_and_keeps_waiting(oclient):
     _start(c, sid)
     st = _wait(c, sid, lambda s: s.current_rank == 1)
     c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "what time does it end?"})
-    st = _wait(c, sid, lambda s: len(s.messages) == 2)
-    assert st.messages[-1].interpreted_as == "question"
+    st = _wait(c, sid, lambda s: len(s.messages) == 3)
+    assert st.messages[1].interpreted_as == "question"
+    answer = st.messages[2]
+    assert answer.to_employee_id == st.messages[0].to_employee_id and "Sat 10 am to 2 pm" in answer.body
     assert st.current_rank == 1 and st.status == "texting"
 
 
@@ -272,3 +274,64 @@ def test_outreach_stream_idle_store_closes(client):
     sid = make_store(client)["store"]["id"]
     r = client.get(f"/api/stores/{sid}/outreach/stream")
     assert r.text.startswith("event: state\ndata: ") and '"status":"idle"' in r.text
+
+
+# --------------------------------------------------------------------------- simulated replies (mock)
+@pytest.fixture
+def auto_client(settings, fake_engine):
+    settings.outreach_timeout_s = 5
+    settings.mock_autoreply = "script"
+    settings.mock_reply_delay_s = 0.05
+    with TestClient(create_app(settings=settings)) as c:
+        sid = c.post("/api/stores", json={"name": "Store #0417", "jurisdiction": {"state": "TX"}}).json()["store"]["id"]
+        cfg = tiny_config().model_copy(deep=True)
+        cfg.store.id = sid
+        assert c.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json")).status_code == 200
+        assert c.post(f"/api/stores/{sid}/solve", json={}).status_code == 200
+        yield c, sid, cfg
+
+
+def test_scripted_autoreply_demo_thread(auto_client):
+    c, sid, cfg = auto_client
+    rank1, rank2 = _cashiers(cfg)
+    assert c.get("/api/health").json()["mock_autoreply"] == "script"
+    _start(c, sid)
+    st = _wait(c, sid, lambda s: s.status == "filled", timeout=5)
+    thread = [(getattr(m, "to_employee_id", None) or "in", m.body) for m in st.messages]
+    assert [b for _, b in thread[1:2]] == ["Sorry, can't today"]
+    assert thread[2][0] == rank2 and thread[3][1] == "What time?" and thread[4][0] == rank2  # auto answer
+    assert thread[5][1] == "Yes I can" and st.accepted_employee_ids == [rank2]
+    times = [getattr(m, "sent_at", None) or m.received_at for m in st.messages]
+    assert times == sorted(times)
+
+
+def test_manual_reply_overrides_autoreply(auto_client):
+    c, sid, cfg = auto_client
+    rank1, _ = _cashiers(cfg)
+    c.app.state.outreach.reply_delay_s = 2.0
+    _start(c, sid)
+    st = _wait(c, sid, lambda s: s.current_rank == 1)
+    c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "yes!"})
+    st = _wait(c, sid, lambda s: s.status == "filled")
+    assert st.accepted_employee_ids == [rank1]
+    assert [m.body for m in st.messages if not getattr(m, "to_employee_id", None)] == ["yes!"]
+
+
+def test_prob_autoreply_is_seeded():
+    from shiftwright_api.messenger import MockMessenger
+    from shiftwright_api.outreach import OutreachManager, Run
+    mgr = OutreachManager(db=None, messenger=MockMessenger(), llm=None, timeout_s=1, autoreply="prob", seed=1)
+    cfg = tiny_config()
+    run = Run(store_id="s", plan_id="p", plan=None, callouts=[], day=5, now=0, schedule=None, state=OutreachState())
+    sure, never = _cand(1, "a", cfg), _cand(2, "b", cfg)
+    sure.est_accept_prob, never.est_accept_prob = 1.0, 0.0
+    assert mgr._script(run, sure) == ["Yes I can"] and mgr._script(run, never) == ["Sorry, can't today"]
+    mid = _cand(3, "c", cfg)
+    assert mgr._script(run, mid) == mgr._script(run, mid)
+
+
+def test_autoreply_never_applies_to_twilio():
+    from shiftwright_api.messenger import TwilioMessenger
+    from shiftwright_api.outreach import OutreachManager
+    tw = TwilioMessenger("AC", "tok", "+15125550000")
+    assert OutreachManager(db=None, messenger=tw, llm=None, timeout_s=1, autoreply="script").autoreply == "off"
