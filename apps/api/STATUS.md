@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-06 ~23:50 CT (rebased on main fafe76a, contracts v1.1)_
+_Last updated: 2026-11-07 ~00:45 CT (rebased on main c17640a)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -44,7 +44,7 @@ _Last updated: 2026-11-06 ~23:50 CT (rebased on main fafe76a, contracts v1.1)_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 37 in `apps/api/tests` (+2 live-LLM, skipped without a key), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 43 in `apps/api/tests` (+2 live-LLM, skipped without a key), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -70,10 +70,44 @@ _Last updated: 2026-11-06 ~23:50 CT (rebased on main fafe76a, contracts v1.1)_
   `/chat/card`, imports, mock-reply). `GET /api/health` → `demo_key_required` tells the UI whether to ask for it.
 - Live-agent tests (`test_live_agent.py`, real OpenRouter key, sonnet-5.5): 2/2 pass (~16 s, 2 short turns).
 
-**Next:** token streaming of agent text; `/outreach/stream` SSE (web polls for now); use real fixtures once WS4 lands;
+**Done (live chat + outreach stream + onboarding rehearsal):**
+- **Token streaming:** `OpenRouterClient.stream()` (OpenAI-style SSE, tool-call fragments reassembled); the chat
+  loop forwards each token as a `text` `{delta}` event. Text from separate agent steps in one turn is separated
+  by a leading `"\n\n"` in the first delta of the later step, so WS7 can simply concatenate deltas. Clients
+  without `stream()` (FakeLLM) still send one delta per step.
+- **`GET /api/stores/{id}/outreach/stream`** (SSE, open even with DEMO_KEY). For WS7:
+  ```
+  event: state
+  data: <OutreachState JSON, same shape as GET /outreach>
+  ```
+  First snapshot immediately, then one on every change (text sent, reply received, accept/decline, filled,
+  exhausted, cancelled). `: ping` comment every 15 s while waiting. **The stream closes after a snapshot whose
+  status is not "texting"** (so an idle store gets one `idle` snapshot and closes). Open it right after
+  `POST /outreach/start` returns; reopen after starting a new outreach. Use `fetch` + a reader or `EventSource`
+  (GET, no headers needed).
+- **Onboarding rehearsal** `apps/api/scripts/live_onboard.py`: the live model (sonnet-5.5) onboards Store #0417
+  from template `empty` with the demo narrative; a simulated leader answers each card from
+  `demo_scenario.json`'s config. Run 1 (prompt v1): ready in 2 turns, 25 LLM steps, ≈1.23M prompt chars;
+  problems: grids before events, truck-day 4am crew outside the grid window, Saturday truck day lumped
+  with Tue/Thu, re-opened a grid, no spaces between steps' text. Run 2 (prompt v2 + fixes): ready in 3 turns,
+  22 steps, ≈0.73M prompt chars, cards in the right order. Both runs: every stated rule mapped correctly
+  (min/max shift, always_staffed leader, min rest soft, Reese→truck_unload and Terry→guest service preferred_role,
+  Jordan/Casey not_together), "students not before 3pm" logged as unmodeled with an offer to set availability,
+  no law stated without `lookup_law`, no invented numbers; it caught the payroll mismatch (below).
+- Fixes from the rehearsal: prompts `core v2` / `onboard v2` (events before coverage; one grid per day type,
+  split with `days` when needs differ; don't reopen submitted grids; fewer `get_config_summary` calls; handle a
+  stated rule in the same turn even if the person isn't on the roster yet). `coverage_grid` window now widens to
+  cover events on those days (e.g. `start_minute` = 240 for a 4am truck). Card results over 2,000 chars are
+  echoed to the model as a short note (the change is still applied and listed in `changed`).
+- `/fix` without the engine: 503 "Call-out fixer (engine.fix_day) has not landed yet." It switches to the real
+  `shiftwright_engine.fix_day` automatically once that is exported.
+
+**Next:** use real fixtures once WS4 lands;
 outreach against the real `fix_day` once WS1 exports it.
 
-**Coordinator follow-ups (outside my folder):** add `*.db`, `*.db-wal`, `*.db-shm` to root `.gitignore` (default
+**Coordinator follow-ups (outside my folder):** WS4 fixture mismatch: `demo_scenario.json` narrative says
+"Payroll is 1,394 hours" but `config.budget.weekly_hours_cap` is 1393.5 (the agent rightly asks which wins).
+`/outreach/stream` and the step-separator rule could go in API.md. add `*.db`, `*.db-wal`, `*.db-shm` to root `.gitignore` (default
 `DATABASE_URL` writes `./shiftwright.db`); move/point Railway at `apps/api/deploy/railway.toml`; add
 `SMS_ALLOWLIST=`, `DEMO_KEY=`, `MAX_TEXTS_PER_STORE_HOUR=20` to root `.env.example`; optionally document
 `POST /outreach/cancel` in API.md. (ws6-fixplan-plan-id request: accepted in v1.1, adopted.)
@@ -97,7 +131,6 @@ outreach against the real `fix_day` once WS1 exports it.
 - Template roles carry placeholder `gap_penalty_per_hour` values with description "Template default — review."
   (Role has no `source` field). Templates have no employees/demand and a 0-hour cap, so readiness stays red.
 - `/gaps/explain` text is a deterministic template over engine reasons (no LLM call) — safer and instant.
-- Agent responses are not token-streamed yet: each LLM step arrives as one `text` delta.
 - `/outreach/cancel` is an extra endpoint (not in API.md). Text-rate counters reset on restart.
 - Outreach state lives in memory per process (snapshotted to SQLite for GET after restart, but a running outreach
   does not resume after a restart).
