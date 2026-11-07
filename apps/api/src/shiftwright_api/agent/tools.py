@@ -179,13 +179,23 @@ def ask_payroll(ctx: ToolContext, args: dict) -> CardRequest:
     return CardRequest("payroll", props, apply)
 
 
+DEFAULT_GAP_PENALTY_PER_HOUR = 50.0  # above any hourly wage we schedule, so stated demand gets covered
+
+
+def _with_default_priority(role: dict) -> dict:
+    """Roles proposed without a leader-stated priority get one that makes covering their demand worth it."""
+    if not role.get("gap_penalty_per_hour") or float(role["gap_penalty_per_hour"]) <= 0:
+        role = {**role, "gap_penalty_per_hour": DEFAULT_GAP_PENALTY_PER_HOUR}
+    return role
+
+
 def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
     cfg = ctx.config()
     props = {"departments": [d.model_dump(mode="json") for d in cfg.departments],
              "roles": [r.model_dump(mode="json") for r in cfg.roles]}
     for key in ("departments", "roles"):
         for item in args.get(key) or []:
-            _upsert(props[key], item)
+            _upsert(props[key], _with_default_priority(item) if key == "roles" else item)
 
     def apply(result: dict) -> ToolResult:
         if _cancelled(result):
@@ -612,6 +622,9 @@ def set_budget(ctx: ToolContext, args: dict) -> ToolResult:
 def upsert_role(ctx: ToolContext, args: dict) -> ToolResult:
     role = args.get("role") or {}
     dept = args.get("department")
+    existing = ctx.config().roles
+    if not any(r.id == role.get("id") for r in existing):
+        role = _with_default_priority(role)  # new role: never leave its demand worthless to cover
 
     def fn(d):
         if dept:
@@ -641,6 +654,7 @@ def upsert_employee(ctx: ToolContext, args: dict) -> ToolResult:
             merged["home_department_id"] = roles[trained[0]]["department_id"]
         merged.setdefault("status", "part_time")
         merged.setdefault("hire_date", d["store"]["week_start"])
+        merged.setdefault("phone", "")  # optional: only needed to text them about open shifts
         if merged.get("phone"):
             from ..imports import parse_phone
             merged["phone"] = parse_phone(str(merged["phone"])) or merged["phone"]
@@ -898,8 +912,10 @@ TOOLS: list[Tool] = [
          "Pauses until the leader submits; the result is saved to the config.", PREFILL, ask_store_basics, "card"),
     Tool("ask_payroll", "Show the payroll card (weekly hours cap, optional dollar cap, overtime allowed). "
          "Saved on submit.", PREFILL, ask_payroll, "card"),
-    Tool("ask_roles", "Show the roles card (departments and roles, each with gap_penalty_per_hour). Pass proposed "
-         "departments/roles to prefill. Saved on submit.",
+    Tool("ask_roles", "Show the roles card (departments and roles, each with gap_penalty_per_hour = what an uncovered "
+         "hour costs). Pass proposed departments/roles to prefill. Leave gap_penalty_per_hour out unless the leader "
+         "said what a role's coverage is worth; the tool then sets a default that makes covering it worth paying for. "
+         "Never invent a value. Saved on submit.",
          _obj({"departments": {"type": "array", "items": {"type": "object"}},
                "roles": {"type": "array", "items": {"type": "object"}}}), ask_roles, "card"),
     Tool("ask_training_matrix", "Show the training matrix card (employee x role). Saved on submit.",
@@ -960,13 +976,19 @@ TOOLS: list[Tool] = [
     Tool("set_budget", "Set the weekly hours cap, optional dollar cap, and whether overtime is allowed.",
          _obj({"weekly_hours_cap": {"type": "number"}, "weekly_dollar_cap": {"type": ["number", "null"]},
                "overtime_allowed": {"type": "boolean"}}), set_budget, "mutation"),
-    Tool("upsert_role", "Add or update a role. Pass `department` to add its department too, `tags` for role tags.",
-         _obj({"role": {**_schema(Role)}, "department": {"type": "object"},
+    Tool("upsert_role", "Add or update a role. Pass `department` to add its department too, `tags` for role tags. "
+         "Leave gap_penalty_per_hour out unless the leader stated it (new roles get a default worth covering).",
+         _obj({"role": {**_schema(Role), "required": ["id", "department_id", "name"]}, "department": {"type": "object"},
                "tags": {"type": "array", "items": {"type": "string"}}}, ["role"]), upsert_role, "mutation"),
     Tool("upsert_employee", "Add or update one employee (trained roles must exist). Required: id, name, age, "
-         "phone, wage_per_hour, trained_role_ids. home_department_id defaults to the first role's department, "
-         "status to part_time. tipped_wage_per_hour only if the leader states a tipped cash wage.",
-         _obj({"employee": {**_schema(Employee)}}, ["employee"]),
+         "wage_per_hour, trained_role_ids. phone is optional (only needed to text them about open shifts; "
+         "don't ask for it during setup, never invent one). hire_date defaults to the schedule week, "
+         "home_department_id to the first role's department, status to part_time. "
+         "tipped_wage_per_hour only if the leader states a tipped cash wage.",
+         _obj({"employee": {**_schema(Employee),
+                            # the tool fills phone/hire_date/home_department_id/status itself
+                            "required": ["id", "name", "age", "wage_per_hour", "trained_role_ids"]}},
+              ["employee"]),
          upsert_employee, "mutation"),
     Tool("set_demand", "Add/update DemandRequirements. `replace_days` first clears those days.",
          _obj({"requirements": {"type": "array", "items": {"type": "object"}},

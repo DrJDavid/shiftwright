@@ -126,6 +126,16 @@ checked, "+ New workplace", "Sign out"). Samples appear only under "Explore a sa
 - One **Build my schedule** button, enabled when ready (or "Build anyway" with a one-line warning).
 - After the first build → **workspace mode** (B5). The chat collapses to a side drawer ("Ask Shiftwright").
 
+**Bugs found in QA (04:45), fold into B1/B2/B4:**
+- **The first-visit store is the big-box template** (`VITE_STORE_TEMPLATE` defaults to `bigbox_mid` in
+  `App.tsx`), so "Set up my store" for a coffee shop starts with 14 retail roles nobody is trained for and
+  8am–10pm hours. Every new workplace must start from template `empty` (B1 removes the auto-create; B2
+  creates `empty` with the form's basics).
+- **Build works on an empty store and shows "Coverage 100% · 0 hard violations ✓" for 0 shifts.** True but
+  misleading. In B4: the Build button stays disabled until people, training and staffing exist (readiness
+  `employees`, `training`, `demand`), with one plain line saying what's missing. Anywhere coverage is shown
+  with no demand, show "—", not 100%.
+
 ### B5. Workspace mode: fewer, clearer tabs (M)
 - Tabs: **Schedule** (grid + stats; coverage heatmap as a toggle inside it) · **Call-outs** (current Fix tab)
   · **Team & rules** (Store + Rulebook merged) · **Compliance** (receipt).
