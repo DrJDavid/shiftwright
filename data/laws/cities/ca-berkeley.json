@@ -1,0 +1,84 @@
+{
+  "jurisdiction": {
+    "state": "CA",
+    "city": "berkeley"
+  },
+  "level": "city",
+  "notes": [
+    "Berkeley Fair Workweek Ordinance, operational Jan. 12, 2024 (city FAQ rev. 08/23/24): covers retail employers with 56+ employees globally (franchisees and nonprofits: 100+); employees working 2+ hours/week in Berkeley.",
+    "Predictability pay: 1 hour for any change with <14 days but >=24 h notice; for cuts/cancellations with <24 h notice, 4 hours or the hours cut, whichever is less (extra key change_premium_hours_under_24h=4); additions with <24 h notice 1 hour.",
+    "Right to rest: may decline hours <11 h after the previous shift; 1.5x for each such hour worked."
+  ],
+  "rules": [
+    {
+      "id": "CA.berkeley.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "berkeley"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 4,
+        "applies_if_employees_over": 55,
+        "applies_to": "both"
+      },
+      "summary": "Retail employers with 56+ employees globally must give 14 days' schedule notice and pay predictability pay for later changes.",
+      "citation": {
+        "url": "https://berkeleyca.gov/sites/default/files/documents/Fair%20Workweek%20FAQ_Rev.08.23.24.pdf",
+        "title": "City of Berkeley \u2014 Fair Workweek FAQ (Rev. 08.23.24)",
+        "excerpt": "Covered Employers should provide Covered Employees with at least two weeks (14 days) of advanced notice of their work schedules.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.berkeley.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "berkeley"
+      },
+      "level": "city",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 660,
+        "premium_multiplier": 1.5,
+        "waivable": false
+      },
+      "summary": "Hours worked less than 11 hours after the previous shift are paid at 1.5x, and the employee may decline them.",
+      "citation": {
+        "url": "https://berkeleyca.gov/sites/default/files/documents/Fair%20Workweek%20FAQ_Rev.08.23.24.pdf",
+        "title": "City of Berkeley \u2014 Fair Workweek FAQ (Rev. 08.23.24)",
+        "excerpt": "For every hour worked less than 11 hours after the end of the previous shift, an employee should be paid time and a half.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.berkeley.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "berkeley"
+      },
+      "level": "city",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 19.61,
+        "effective": "2026-07-01"
+      },
+      "summary": "Berkeley's minimum wage is $19.61 an hour from July 1, 2026.",
+      "citation": {
+        "url": "https://berkeleyca.gov/doing-business/operating-berkeley/workforce-standards-and-enforcement",
+        "title": "City of Berkeley \u2014 Workforce Standards and Enforcement",
+        "excerpt": "$19.61/hour: Effective July 1, 2026",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}

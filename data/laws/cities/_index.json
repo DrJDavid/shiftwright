@@ -2,6 +2,13 @@
   "description": "Cities with their own retail scheduling, break, or minimum-wage rules covered by this dataset. Each entry names its file and the source used to identify it.",
   "cities": [
     {
+      "file": "ca-berkeley.json",
+      "state": "CA",
+      "city": "berkeley",
+      "reason": "Fair Workweek Ordinance (retail, 56+ employees); city minimum wage",
+      "source": "https://berkeleyca.gov/doing-business/operating-berkeley/workforce-standards-and-enforcement"
+    },
+    {
       "file": "ca-emeryville.json",
       "state": "CA",
       "city": "emeryville",
@@ -28,6 +35,13 @@
       "city": "chicago",
       "reason": "Fair Workweek Ordinance (retail, 100+ employees) and city minimum wage",
       "source": "https://www.chicago.gov/city/en/depts/bacp/supp_info/fairworkweek.html"
+    },
+    {
+      "file": "il-evanston.json",
+      "state": "IL",
+      "city": "evanston",
+      "reason": "Fair Workweek Ordinance 24-O-23 (retail, 100+ employees)",
+      "source": "https://www.cityofevanston.org/business/fair_workweek.php"
     },
     {
       "file": "ny-new-york.json",
