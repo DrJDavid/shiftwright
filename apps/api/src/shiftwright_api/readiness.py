@@ -61,11 +61,11 @@ def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readin
             cheap.append(f"{r.name} (${r.gap_penalty_per_hour:g}/h vs ${min(wages):g}/h pay)")
     add("priorities", "Role priorities set", bool(demand_roles) and not unpriced and not cheap,
         ("No demand yet." if not demand_roles else
-         f"Set priorities (what an uncovered hour costs) for: {', '.join(unpriced)}. "
-         "At $0/h the solver would leave them empty." if unpriced else
-         f"An uncovered hour costs less than paying someone for: {'; '.join(cheap)}, so the schedule would "
-         "leave those hours empty. Raise the priority on the Roles card." if cheap else
-         "Every role with demand has a gap cost."))
+         f"Pick a priority (Must cover, Important or Nice to have) on the Roles card for: {', '.join(unpriced)}. "
+         "Without one, the schedule leaves them empty." if unpriced else
+         f"These roles are set to a dollar priority below what their staff earn, so the schedule would leave "
+         f"them empty: {'; '.join(cheap)}. Pick Must cover, Important or Nice to have on the Roles card." if cheap else
+         "Every role with staffing has a priority."))
 
     names = {r.id: r.name for r in config.roles}
     review = equipment_review or {}
