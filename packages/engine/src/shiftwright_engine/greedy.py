@@ -9,6 +9,7 @@ repairs anything else.
 from __future__ import annotations
 
 import heapq
+from typing import Optional
 
 from shiftwright_contracts.models import ConstraintKind, LawRuleType, Strength
 
@@ -17,8 +18,9 @@ from .prep import Prep, money
 ALWAYS_STAFFED_DOLLARS_PER_HOUR = 1000.0  # greedy-only weight: cover hard always_staffed first
 
 
-def greedy(p: Prep) -> tuple[set[int], dict[tuple[str, int], str]]:
-    """Returns (chosen candidate idxs, {(emp, abs slot): role})."""
+def greedy(p: Prep, seed: Optional[tuple[set[int], dict[tuple[str, int], str]]] = None,
+           ) -> tuple[set[int], dict[tuple[str, int], str]]:
+    """Returns (chosen candidate idxs, {(emp, abs slot): role}). `seed` = shifts already chosen."""
     slot_h = p.slot / 60
     pen = {r.id: money(r.gap_penalty_per_hour * slot_h) for r in p.cfg.roles}
     need = dict(p.demand)
@@ -91,25 +93,11 @@ def greedy(p: Prep) -> tuple[set[int], dict[tuple[str, int], str]]:
                 return False
         return True
 
-    heap = []
-    for c in p.cands:
-        g, _ = value(c)
-        if g > 0:
-            heap.append((-g, c.idx))
-    heapq.heapify(heap)
     by_idx = {c.idx: c for c in p.cands}
-    while heap:
-        _, idx = heapq.heappop(heap)
-        c = by_idx[idx]
-        if not allowed(c):
-            continue
-        g, pick = value(c)
-        if g <= 0:
-            continue
-        if heap and g < -heap[0][0]:
-            heapq.heappush(heap, (-g, idx))
-            continue
-        chosen.add(idx)
+
+    def take(c, pick) -> None:
+        nonlocal hours_left, dollars_left
+        chosen.add(c.idx)
         days_on[c.emp][c.day] = (c.abs_start, c.abs_end)
         used_min[c.emp] += c.paid_min
         hours_left -= c.paid_min
@@ -121,6 +109,30 @@ def greedy(p: Prep) -> tuple[set[int], dict[tuple[str, int], str]]:
             if need.get((r, a), 0) > 0:
                 need[(r, a)] -= 1
             staffed[(r, a)] = staffed.get((r, a), 0) + 1
+
+    if seed is not None:
+        for idx in seed[0]:
+            c = by_idx[idx]
+            take(c, {a: seed[1][(c.emp, a)] for a in c.work_slots if (c.emp, a) in seed[1]})
+
+    heap = []
+    for c in p.cands:
+        g, _ = value(c)
+        if g > 0:
+            heap.append((-g, c.idx))
+    heapq.heapify(heap)
+    while heap:
+        _, idx = heapq.heappop(heap)
+        c = by_idx[idx]
+        if not allowed(c):
+            continue
+        g, pick = value(c)
+        if g <= 0:
+            continue
+        if heap and g < -heap[0][0]:
+            heapq.heappush(heap, (-g, idx))
+            continue
+        take(c, pick)
     return chosen, roles_at
 
 

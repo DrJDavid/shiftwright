@@ -1,0 +1,116 @@
+"""Fast, proven infeasibility check for hard `always_staffed` rules.
+
+For each day, the fewest shifts (1, 2, or "3+") that people who may work the role need to keep it
+staffed through the window, breaks included, is found exactly with slot bitmasks. If the week's
+sum exceeds the days those people can work (availability, max_days_per_week), the hard rules
+cannot all hold.
+This is a lower-bound argument, so it never reports a feasible config as infeasible.
+"""
+from __future__ import annotations
+
+from typing import Optional
+
+from shiftwright_contracts.models import ConstraintKind, Infeasibility, Strength
+
+from .prep import DAY, Prep
+
+
+def _maximal(masks: set[int]) -> list[int]:
+    ms = sorted(masks, key=lambda m: -bin(m).count("1"))
+    out: list[int] = []
+    for m in ms:
+        if not any(m & o == m for o in out):
+            out.append(m)
+    return out
+
+
+def _day_min_shifts(cands: list, slots: list[int]) -> int:
+    """Exact minimum number of shifts (one per person) whose worked slots cover every slot, capped
+    at 3 (returns 3 for "3 or more"); 0 if no slots, -1 if no cover exists at all."""
+    if not slots:
+        return 0
+    bit = {a: 1 << i for i, a in enumerate(slots)}
+    full = (1 << len(slots)) - 1
+    per_emp: dict[str, set[int]] = {}
+    for c in cands:
+        m = 0
+        for a in c.work_slots:
+            m |= bit.get(a, 0)
+        if m:
+            per_emp.setdefault(c.emp, set()).add(m)
+    masks = {e: _maximal(ms) for e, ms in per_emp.items()}
+    union = 0
+    for ms in masks.values():
+        for m in ms:
+            union |= m
+    if union != full:
+        return -1
+    if any(m == full for ms in masks.values() for m in ms):
+        return 1
+    emps = sorted(masks)
+    for i, e1 in enumerate(emps):
+        for e2 in emps[i + 1:]:
+            for a in masks[e1]:
+                need = full & ~a
+                if any(b & need == need for b in masks[e2]):
+                    return 2
+    return 3
+
+
+def always_staffed_conflict(p: Prep) -> Optional[Infeasibility]:
+    for con in p.constraints:
+        if con.kind != ConstraintKind.always_staffed or con.strength != Strength.hard:
+            continue
+        rid = con.params.get("role_id")
+        which = con.params.get("windows", "store_hours")
+        elig = sorted(e for e, rs in p.allowed_roles.items() if rid in rs)
+        if not elig:
+            return Infeasibility(conflicting_constraint_ids=[con.id],
+                                 summary=f"Rule {con.id} needs {rid} staffed at all times, but nobody may work {rid}.")
+        cands = [c for c in p.cands if c.emp in elig]
+        if any(c.abs_end > (c.day + 1) * DAY for c in cands):
+            continue  # overnight shifts: per-day bound would not be valid
+        need_shifts = 0
+        for d, (lo, hi) in sorted((p.store_open if which == "store_hours" else p.windows).items()):
+            slots = [d * DAY + t for t in range(lo - lo % p.slot, hi, p.slot)]
+            n = _day_min_shifts([c for c in cands if c.day == d], slots)
+            if n == -1:
+                return _report(p, con, elig, f"On day {d}, nobody who may work {rid} can keep it staffed "
+                                             f"for the whole window (availability, shift length and breaks).",
+                               hours=False)
+            need_shifts += n
+        max_days_ids = []
+        day_cap = 0
+        for eid in elig:
+            lim = len({c.day for c in cands if c.emp == eid})
+            for c in p.constraints:
+                if c.kind == ConstraintKind.max_days_per_week and c.strength == Strength.hard and p.applies(c, eid):
+                    if int(c.params["days"]) < lim:
+                        lim = int(c.params["days"])
+                        max_days_ids.append(c.id)
+            day_cap += lim
+        if need_shifts > day_cap:
+            return _report(p, con, elig,
+                           f"Keeping {rid} staffed all week needs at least {need_shifts} shifts by people who "
+                           f"may work it (breaks must be covered too), but those {len(elig)} people can work "
+                           f"at most {day_cap} days in total.", hours=False,
+                           extra_cons=sorted(set(max_days_ids)))
+    return None
+
+
+def _report(p: Prep, con, elig: list[str], why: str, hours: bool,
+            extra_cons: list[str] | None = None) -> Infeasibility:
+    laws = [r.id for r in p.meal_rules] + ([p.rest_rule.id] if p.rest_rule else [])
+    if p.daily_ot is not None and not p.cfg.budget.overtime_allowed:
+        laws.append(p.daily_ot.id)
+    other = []
+    if hours:
+        for eid in elig:
+            for _, bucket, ident in p.effective_max_minutes(p.emps[eid]):
+                (other if bucket == "employee" else laws).append(ident)
+    cons = [con.id] + (extra_cons or [])
+    for c in p.constraints:
+        if c.strength == Strength.hard and c.kind in (ConstraintKind.min_shift_length, ConstraintKind.max_shift_length):
+            cons.append(c.id)
+    return Infeasibility(conflicting_constraint_ids=sorted(set(cons)), conflicting_law_rule_ids=sorted(set(laws)),
+                         conflicting_other=sorted(set(other)), summary=why)

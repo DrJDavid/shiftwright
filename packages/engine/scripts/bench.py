@@ -39,10 +39,7 @@ def main():
     ap.add_argument("--single", action="store_true", help="force single-stage solve")
     ap.add_argument("--limit", type=float, default=30)
     ap.add_argument("--only", default=None)
-    ap.add_argument("--strategy", default=None)
     a = ap.parse_args()
-    if a.strategy:
-        S.STRATEGY = a.strategy
     if a.single:
         S.SINGLE_STAGE_MAX_CANDS = 10**9
     cases = {"tiny": tiny_store, "demo": lambda: with_law(load_demo_store()), "like": demo_like_store}
