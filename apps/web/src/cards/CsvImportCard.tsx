@@ -33,6 +33,7 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
   const [mapping, setMapping] = useState<Record<string, string | null>>(props?.preview?.proposed_mapping ?? {})
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [commitWarnings, setCommitWarnings] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const started = useRef(false)
 
@@ -69,7 +70,8 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
     setBusy('Saving…')
     setError(null)
     try {
-      await env.api.importCommit(env.storeId, kind, mapping, preview.rows_preview)
+      const { warnings } = await env.api.importCommit(env.storeId, kind, mapping, preview.rows_preview)
+      setCommitWarnings(warnings)
       env.onConfigChanged()
       onSubmit({ committed: true, rows: preview.row_count })
     } catch (err) {
@@ -79,7 +81,25 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
     }
   }
 
-  const summary = status === 'submitted' && result ? `${KIND_LABEL[kind]}: imported ${result.rows} rows${file ? ` from ${file.name}` : ''}.` : null
+  const summary =
+    status === 'submitted' && result ? (
+      <>
+        {KIND_LABEL[kind]}: imported {result.rows} rows{file ? ` from ${file.name}` : ''}.
+        {commitWarnings.length > 0 && (
+          <details className="mt-1 text-xs text-warn">
+            <summary className="cursor-pointer font-semibold">
+              {commitWarnings.length} {commitWarnings.length === 1 ? 'thing' : 'things'} to check
+            </summary>
+            <ul className="mt-1 list-disc pl-4">
+              {commitWarnings.slice(0, 30).map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+              {commitWarnings.length > 30 && <li>…and {commitWarnings.length - 30} more</li>}
+            </ul>
+          </details>
+        )}
+      </>
+    ) : null
   const cols = preview?.columns ?? []
   const targets = preview?.target_fields?.length ? preview.target_fields : TARGETS[kind]
   const options = [...new Set([...targets, ...Object.values(mapping).filter((v): v is string => !!v)])]

@@ -1,13 +1,13 @@
 # WS7 status
 
-_Updated Sat Nov 7, ~03:15 CT. Rebased on main eaed15e (contracts v1.3; fix_day not yet)._
+_Updated Sat Nov 7, slice 5. Rebased on main d73494b (contracts/API v1.4, real fix_day)._day not yet)._
 
 ## How David runs it locally
 
 From the repo root, after `make install` once: `make dev`, then open **http://localhost:5173/?demo**
 (`?demo=chicago|seattle|sf` once WS6 ships those templates). `make dev-api` now loads `.env` itself.
 
-In the app: **Store ▾** (top right) loads a demo store (Austin; Chicago/Seattle/SF appear once their templates exist) or starts an empty one. Click **Build schedule**
+In the app: **Store ▾** (top right) lists the demo stores the server has (`GET /api/templates`: Austin, Chicago, Seattle, SF) or starts an empty one. Click **Build schedule**
 (about 20–30 s), then use the tabs. Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock&demo.
 
 ## Running it (details)
@@ -21,6 +21,28 @@ In the app: **Store ▾** (top right) loads a demo store (Austin; Chicago/Seattl
   remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
+
+**Slice 5 (v1.4 + real fix_day + demo polish)**
+- Store ▾ from `GET /api/templates` (falls back to the built-in list on older servers / the mock).
+- Import card: "Still needed" from `required_any_of` (the old client-side copy stays only as a fallback); after
+  commit, `X-Import-Warning-Count` → `GET /import/{kind}/warnings`, shown as "N things to check" on the locked card.
+- Readiness rail: auto-tagged powered-equipment roles get "Is equipment" / "Not equipment" buttons
+  (`POST /equipment_roles`). Role names are read from the check's detail text (no structured list in the API).
+- Fix tab on the real engine: direct changes (extend/call-in) listed with premium chips; role moves and "still
+  uncovered" stretches folded into two expandable lines (Chicago's plan has ~45 actions); ids and 24-hour times in
+  engine prose shown as names and 12-hour times (`src/lib/humanize.ts`, display only); candidate table shows
+  `premium_pay_dollars` / `law_rule_ids` / `premium_note` ("No premium · Voluntary call-in accepted in writing" or
+  "+$20.75 Chicago predictability pay"), the shift's `why` headline, and the candidate `why`; a banner states the
+  outreach mode (one at a time / group offer, round N) and `OutreachState.premium` (owed / exempt / not applicable +
+  note, legal source text folded). Group offers get one row of reply buttons per `waiting_employee_ids`.
+- After each accept the Schedule reloads `GET /schedule` (the API now saves a validator report with it).
+- Compliance receipt: "Call-out repairs" section with each accepted call-in's premium from `premium.by_employee`.
+- Called-out shifts are struck through in the Schedule grid ("called out") once reported in the Fix tab.
+- The chat column folds away when opening Fix / Store / Receipt (one click to reopen).
+- Bug fix: `?demo=<city>` sometimes created an *empty* store (React StrictMode ran the load effect twice; the
+  second run no longer saw `?demo`). The initial load now runs once.
+- Demo beats checked at 1280×720, live API + real engine, Austin and Chicago: build ~18–19 s (overlay), fix plan
+  ~1.5 s, scripted texts fill in ~40 s, phone view, receipt prints.
 
 **Slice 4 (Sat 03:15)**
 - CSV import card: dropdowns from `ImportPreview.target_fields`; "Still needed" computed from `required_fields` plus the
@@ -126,6 +148,23 @@ solve → grid, stats, validator badge + report. (Solve runs WS6's engine stub u
   it only a little); a day-level number would need to come from the engine.
 - `conflict_menu` shows raw constraint/law ids under "Involved"; could map to rule notes.
 - Coverage heatmap: cells are slot-sized; a gap shorter than a slot still marks the whole cell red (hover shows the exact range).
+
+## Remaining demo issues (slice 5)
+
+1. **WS6/WS1:** after outreach, the called-out employees' original shifts are still in the saved schedule
+   (e034/e052/e053 still on Saturday in Austin). The web strikes them through, but the employee view and the counts
+   still include them.
+2. **WS6:** after outreach the saved validator report flags `metrics_mismatch` (claimed `soft_penalty_dollars` 2985 vs
+   recomputed 2945), so the badge turns to "1 hard violation" right after a successful fix. The committed schedule's
+   metrics should be the recomputed ones before validating.
+3. **WS1/WS6:** `FixAction.rationale` and `OutreachCandidate.why` use ids and 24-hour times (the web rewrites them for
+   display); extension actions carry premiums but aren't applied to the schedule or counted on the receipt — unclear
+   whether the leader is expected to apply them manually.
+4. Chat input is disabled while a card is open; API v1.2 lets a new message supersede the card, but the web doesn't
+   use that yet (would need to abort the paused stream).
+5. Plan coverage numbers are week-level (Chicago 88.9% → 90.6%), so a Saturday rescue looks small. A day-level number
+   would have to come from the engine.
+6. Equipment-role buttons depend on the readiness detail wording; a structured `auto_tagged_role_ids` would be safer.
 
 ## API-side notes for WS6
 

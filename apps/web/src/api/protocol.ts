@@ -134,6 +134,18 @@ export type ImportPreview = {
   /** v1.2: fields a column may map to (in order) / must map. Older servers omit them. */
   target_fields?: string[]
   required_fields?: string[]
+  /** v1.4: a need is met when all fields of any one alternative are mapped. */
+  required_any_of?: { need: string; any_of: string[][] }[]
+}
+
+export type TemplateInfo = { id: string; label: string; jurisdiction: Jurisdiction | null }
+
+export type PremiumByEmployee = { employee_id: string; premium_pay_dollars: number; law_rule_ids: string[]; note: string }
+export type OutreachPremium = {
+  status: 'not_applicable' | 'exempt' | 'owed'
+  law_rule_ids: string[]
+  note: string
+  by_employee?: PremiumByEmployee[]
 }
 
 export type OutreachState = {
@@ -144,6 +156,11 @@ export type OutreachState = {
   accepted_employee_ids: string[]
   /** null before any outreach has run for the store. */
   schedule: Schedule | null
+  /** v1.4 */
+  mode?: 'one_to_one' | 'group_offer'
+  wave?: number
+  waiting_employee_ids?: string[]
+  premium?: OutreachPremium | null
 }
 
 export type FixRequestBody = { callouts: CallOut[]; day: number; now: number }

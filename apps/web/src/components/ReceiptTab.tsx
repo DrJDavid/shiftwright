@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Api } from '../api/client'
-import type { SolveResponse } from '../api/protocol'
+import type { OutreachState, SolveResponse } from '../api/protocol'
 import type { LawPack, ScheduleMetrics, StoreConfig, ValidationReport } from '../contracts'
 import { checkRules, describeViolation, type RuleCheck } from '../lib/compliance'
 import { fmtDayDate, fmtHours, fmtMoney, fmtPct } from '../lib/format'
+import { humanizer } from '../lib/humanize'
 
 type Props = {
   api: Api
@@ -23,6 +24,13 @@ const COVERAGE: Record<LawPack['coverage'], string> = {
 /** Printable record of what this week's schedule was checked against. Only engine/validator/law-pack/config data. */
 export function ReceiptTab({ api, config, result, lawPack, onValidated }: Props) {
   const [validating, setValidating] = useState<string | null>(null)
+  const [outreach, setOutreach] = useState<OutreachState | null>(null)
+  useEffect(() => {
+    api
+      .outreach(config.store.id)
+      .then(setOutreach)
+      .catch(() => setOutreach(null))
+  }, [api, config.store.id, result])
   if (!result) {
     return (
       <div className="p-10">
@@ -54,11 +62,11 @@ export function ReceiptTab({ api, config, result, lawPack, onValidated }: Props)
         </button>
       </div>
       <div className="mx-auto my-4 max-w-[52rem] rounded-lg border border-rule bg-panel p-8 shadow-sm">
-        <Receipt config={config} result={result} lawPack={lawPack} />
+        <Receipt config={config} result={result} lawPack={lawPack} outreach={outreach} />
       </div>
       {createPortal(
         <div className="sw-print-only">
-          <Receipt config={config} result={result} lawPack={lawPack} />
+          <Receipt config={config} result={result} lawPack={lawPack} outreach={outreach} />
         </div>,
         document.body,
       )}
@@ -66,7 +74,17 @@ export function ReceiptTab({ api, config, result, lawPack, onValidated }: Props)
   )
 }
 
-function Receipt({ config, result, lawPack }: { config: StoreConfig; result: SolveResponse; lawPack: LawPack | null }) {
+function Receipt({
+  config,
+  result,
+  lawPack,
+  outreach,
+}: {
+  config: StoreConfig
+  result: SolveResponse
+  lawPack: LawPack | null
+  outreach: OutreachState | null
+}) {
   const { schedule, validation } = result
   const rules = useMemo(() => lawPack?.rules ?? [], [lawPack])
   const checks = useMemo(() => checkRules(config, schedule, validation, rules), [config, schedule, validation, rules])
@@ -202,6 +220,8 @@ function Receipt({ config, result, lawPack }: { config: StoreConfig; result: Sol
         <p className="text-xs text-muted">Premiums are reported as a weekly total; an itemised list by rule and employee isn't available from the server yet.</p>
       </section>
 
+      <CallOutRepairs config={config} outreach={outreach} />
+
       <footer className="mt-6 border-t border-rule pt-2 text-[11px] text-muted">
         Every number here comes from the validator's recomputation, the store's settings, or a direct count of the schedule's shifts. Law text and
         links come from the law pack; check the linked sources before relying on them.
@@ -292,6 +312,54 @@ function MetricsTable({ claimed, recomputed }: { claimed: ScheduleMetrics | null
         })}
       </tbody>
     </table>
+  )
+}
+
+/** Call-ins accepted through outreach this week, with each person's premium from the server (premium.by_employee). */
+function CallOutRepairs({ config, outreach }: { config: StoreConfig; outreach: OutreachState | null }) {
+  const accepted = outreach?.accepted_employee_ids ?? []
+  if (!outreach || accepted.length === 0) return null
+  const h = humanizer(config)
+  const name = (id: string) => config.employees.find((e) => e.id === id)?.name ?? id
+  const by = new Map((outreach.premium?.by_employee ?? []).map((b) => [b.employee_id, b]))
+  const total = accepted.reduce((c, id) => c + (by.get(id)?.premium_pay_dollars ?? 0), 0)
+  const notes = new Set(accepted.map((id) => by.get(id)?.note ?? ''))
+  const shared = notes.size === 1 ? [...notes][0] : null
+  return (
+    <section className="mt-5 break-inside-avoid">
+      <H>Call-out repairs</H>
+      <p className="mb-1 text-ink-2">
+        {accepted.length} {accepted.length === 1 ? 'call-in' : 'call-ins'} accepted by text
+        {outreach.mode === 'group_offer' ? ' (group offer)' : ''}. Predictive-scheduling pay:{' '}
+        <span className="font-semibold">
+          {outreach.premium?.status === 'owed' ? fmtMoney(total, { cents: true }) + ' owed' : outreach.premium?.status === 'exempt' ? 'none owed (exempt)' : 'not applicable'}
+        </span>
+        .
+      </p>
+      {outreach.premium?.note && <p className="mb-1 text-xs text-muted">{h(outreach.premium.note)}</p>}
+      {shared && <p className="mb-1 text-xs text-ink-2">Basis for each: {h(shared)}</p>}
+      <table className="w-full">
+        <thead>
+          <tr className="text-left text-xs text-muted">
+            <th className="py-1 pr-2 font-medium">Employee</th>
+            <th className="py-1 pr-2 text-right font-medium">Premium</th>
+            <th className="py-1 font-medium">Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          {accepted.map((id) => {
+            const b = by.get(id)
+            return (
+              <tr key={id} className="border-t border-rule-soft align-top">
+                <td className="py-1 pr-2">{name(id)}</td>
+                <td className="py-1 pr-2 text-right tabular-nums">{b ? fmtMoney(b.premium_pay_dollars, { cents: true }) : '—'}</td>
+                <td className="py-1 text-xs text-ink-2">{b ? (shared ? 'As above' : h(b.note)) : 'Not reported by the server'}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </section>
   )
 }
 

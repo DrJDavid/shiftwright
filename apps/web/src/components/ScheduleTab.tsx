@@ -14,9 +14,10 @@ type Props = {
   onSolve: () => void
   onGapClick?: (g: Gap) => void
   onDayClick?: (day: number) => void
+  callouts?: { employee_id: string; day: number }[]
 }
 
-export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick }: Props) {
+export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts }: Props) {
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const names = useMemo(() => new Map(config.employees.map((e) => [e.id, e.name])), [config.employees])
 
@@ -66,7 +67,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
           No legal schedule exists with the current hard rules. {schedule.infeasibility.summary}
         </div>
       )}
-      <ScheduleGrid schedule={schedule} config={config} onGapClick={onGapClick} onDayClick={onDayClick} />
+      <ScheduleGrid schedule={schedule} config={config} onGapClick={onGapClick} onDayClick={onDayClick} callouts={callouts} />
     </div>
   )
 }

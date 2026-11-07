@@ -7,6 +7,7 @@ import type { FixAction, FixPlan, InboundMessage, LawPack, LawRule, OutboundMess
 import { fmtMoney, fmtPct, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
 import { EmployeeApp } from './EmployeeApp'
+import { humanizer } from '../lib/humanize'
 
 type Props = {
   api: Api
@@ -15,6 +16,8 @@ type Props = {
   lawPack: LawPack | null
   /** Outreach accepted someone: show the updated schedule (not re-validated yet). */
   onSchedule: (s: Schedule) => void
+  /** Reported call-outs, so the Schedule grid can mark those shifts. */
+  onCallouts?: (c: { employee_id: string; day: number }[]) => void
 }
 
 // The demo scenario's call-outs (packages/scenarios/fixtures/demo_scenario.json): Saturday 06:04.
@@ -30,7 +33,7 @@ const LEVER: Record<FixAction['lever'], string> = {
 type Msg = OutboundMessage | InboundMessage
 const isOut = (m: Msg): m is OutboundMessage => 'to_employee_id' in m
 
-export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
+export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }: Props) {
   const storeId = config.store.id
   const hasDemo = DEMO.ids.every((id) => config.employees.some((e) => e.id === id))
   const [day, setDay] = useState(hasDemo ? DEMO.day : 0)
@@ -58,6 +61,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
   const [sentCallouts, setSentCallouts] = useState<string[]>([])
   const findCoverage = async () => {
     setSentCallouts(chosen)
+    onCallouts?.(chosen.map((id) => ({ employee_id: id, day })))
     setBusy(true)
     setError(null)
     setPlan(null)
@@ -301,6 +305,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
           onStop={() => void stop()}
           nameOf={(id) => emp.get(id)?.name ?? id}
           onOpenPhone={setPhoneOf}
+          phoneFor={(id) => emp.get(id)?.phone ?? ''}
           byPhone={byPhone}
           onReply={async (phone, body) => {
             try {
@@ -342,6 +347,10 @@ function PlanView({
       .filter((x): x is string => !!x),
   )
   const mock = (plan.schedule_if_none_accept?.produced_by ?? '').startsWith('mock')
+  const h = humanizer(config)
+  const direct = plan.actions.filter((a) => a.lever === 'extend' || a.lever === 'call_in')
+  const moves = plan.actions.filter((a) => a.lever === 'reassign')
+  const drops = plan.actions.filter((a) => a.lever === 'drop_coverage')
 
   return (
     <div className="space-y-4 p-4">
@@ -351,41 +360,82 @@ function PlanView({
         </p>
       )}
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-rule bg-rule">
-        <Big label="Coverage now" value={fmtPct(plan.coverage_before_pct)} tone="text-gap" />
-        <Big label="If the first choices say yes" value={fmtPct(plan.coverage_after_best_pct)} tone="text-pine-dark" />
-        <Big label="If nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
+        <Big label="After the call-outs" value={fmtPct(plan.coverage_before_pct)} tone="text-gap" />
+        <Big label="Plan, if the first choices say yes" value={fmtPct(plan.coverage_after_best_pct)} tone="text-pine-dark" />
+        <Big label="Plan, if nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
       </div>
 
+      <ModeBanner plan={plan} outreach={outreach} h={h} lawById={lawById} noScheduleLaw={!!lawPack && !hasScheduleLaw} />
+
       <section>
-        <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Plan</h3>
+        <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Right away (no texts needed)</h3>
+        {direct.length === 0 && moves.length === 0 && <p className="text-sm text-muted">Nothing to change on today's shifts.</p>}
         <ul className="space-y-1.5">
-          {plan.actions.map((a, i) => (
+          {direct.map((a, i) => (
             <li key={i} className="flex items-start gap-3 rounded-md border border-rule px-3 py-2 text-sm">
-              <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${a.lever === 'drop_coverage' ? 'bg-gap-wash text-gap' : 'bg-pine-wash text-pine-dark'}`}
-              >
-                {LEVER[a.lever]}
-              </span>
+              <span className="shrink-0 rounded bg-pine-wash px-1.5 py-0.5 text-xs font-semibold text-pine-dark">{LEVER[a.lever]}</span>
               <span className="min-w-0 flex-1">
                 <span className="font-medium">
                   {a.employee_id ? `${emp.get(a.employee_id)?.name ?? a.employee_id}, ` : ''}
                   {a.role_id ? `${roleName.get(a.role_id) ?? a.role_id} ` : ''}
                   {fmtRange(a.start, a.end)}
                 </span>
-                <span className="block text-ink-2">{a.rationale}</span>
-                <PremiumLine action={a} lawById={lawById} hasScheduleLaw={hasScheduleLaw} lawLoaded={!!lawPack} />
+                <PremiumLine action={a} lawById={lawById} />
+                <details className="text-xs text-muted">
+                  <summary className="cursor-pointer">Details</summary>
+                  {h(a.rationale)}
+                </details>
               </span>
               <span className="shrink-0 text-right tabular-nums">
-                {a.added_cost_dollars ? `+${fmtMoney(a.added_cost_dollars)}` : '—'}
-                {a.premium_pay_dollars ? <span className="block text-xs text-warn">+{fmtMoney(a.premium_pay_dollars)} premium</span> : null}
+                {a.added_cost_dollars ? `+${fmtMoney(a.added_cost_dollars, { cents: true })}` : '—'}
               </span>
             </li>
           ))}
         </ul>
+        {moves.length > 0 && (
+          <details className="mt-1.5 rounded-md border border-rule px-3 py-2 text-sm">
+            <summary className="cursor-pointer">
+              <span className="mr-2 rounded bg-pine-wash px-1.5 py-0.5 text-xs font-semibold text-pine-dark">Move role</span>
+              {moves.length} role {moves.length === 1 ? 'move' : 'moves'} for {new Set(moves.map((a) => a.employee_id)).size} people already
+              on shift, no extra cost
+            </summary>
+            <ul className="mt-1.5 space-y-0.5 text-xs text-ink-2">
+              {moves.map((a, i) => (
+                <li key={i}>
+                  {a.employee_id ? (emp.get(a.employee_id)?.name ?? a.employee_id) : ''} →{' '}
+                  {a.role_id ? (roleName.get(a.role_id) ?? a.role_id) : ''} {fmtRange(a.start, a.end)}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {drops.length > 0 && (
+          <details className="mt-1.5 rounded-md border border-rule px-3 py-2 text-sm">
+            <summary className="cursor-pointer">
+              <span className="mr-2 rounded bg-gap-wash px-1.5 py-0.5 text-xs font-semibold text-gap">Still uncovered</span>
+              {drops.length} {drops.length === 1 ? 'stretch' : 'stretches'} unless someone says yes ·{' '}
+              {fmtMoney(drops.reduce((c, a) => c + a.added_cost_dollars, 0))} gap cost
+            </summary>
+            <ul className="mt-1.5 space-y-0.5 text-xs text-ink-2">
+              {[...drops]
+                .sort((a, b) => b.added_cost_dollars - a.added_cost_dollars)
+                .map((a, i) => (
+                  <li key={i} className="flex justify-between gap-3">
+                    <span>
+                      {a.role_id ? (roleName.get(a.role_id) ?? a.role_id) : ''} {fmtRange(a.start, a.end)}
+                    </span>
+                    <span className="tabular-nums">{fmtMoney(a.added_cost_dollars)}</span>
+                  </li>
+                ))}
+            </ul>
+          </details>
+        )}
       </section>
 
       <section>
-        <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Who to text, in order</h3>
+        <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">
+          {plan.outreach_mode === 'group_offer' ? 'Who gets the offer' : 'Who to text, in order'}
+        </h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-muted">
@@ -394,35 +444,48 @@ function PlanView({
               <th className="py-1 pr-2 text-left font-medium">Shift offered</th>
               <th className="py-1 pr-2 text-right font-medium">Cost</th>
               <th className="py-1 pr-2 text-right font-medium">Likely yes</th>
-              <th className="py-1 text-left font-medium">Why</th>
+              <th className="py-1 text-left font-medium">Premium</th>
             </tr>
           </thead>
           <tbody>
             {plan.outreach_queue.map((c) => {
               const e = emp.get(c.employee_id)
+              const waiting = (outreach?.waiting_employee_ids ?? []).includes(c.employee_id)
               const st = accepted.has(c.employee_id)
                 ? { label: 'Said yes', cls: 'bg-pine text-white' }
                 : declined.has(c.employee_id)
                   ? { label: 'Said no', cls: 'bg-rule text-ink-2' }
-                  : outreach?.current_rank === c.rank && outreach.status === 'texting'
+                  : outreach?.status === 'texting' && (waiting || outreach.current_rank === c.rank)
                     ? { label: 'Texting…', cls: 'bg-warn-wash text-warn' }
                     : texted.has(c.employee_id)
-                      ? { label: 'Texted', cls: 'bg-rule-soft text-ink-2' }
+                      ? { label: outreach?.status === 'texting' ? 'Texted' : 'No reply', cls: 'bg-rule-soft text-ink-2' }
                       : null
               const sh = c.proposed_shift
               return (
                 <tr key={c.rank} className="border-t border-rule-soft align-top">
                   <td className="py-1.5 pr-2 font-semibold tabular-nums">{c.rank}</td>
-                  <td className="py-1.5 pr-2 whitespace-nowrap">
-                    <span className="font-medium">{e?.name ?? c.employee_id}</span>
-                    {st && <span className={`ml-1.5 rounded px-1 text-[10px] font-semibold ${st.cls}`}>{st.label}</span>}
+                  <td className="py-1.5 pr-2">
+                    <span className="font-medium whitespace-nowrap">{e?.name ?? c.employee_id}</span>
+                    {st && <span className={`ml-1.5 rounded px-1 text-[10px] font-semibold whitespace-nowrap ${st.cls}`}>{st.label}</span>}
+                    <span className="block text-xs text-muted">{h(c.why)}</span>
                   </td>
-                  <td className="py-1.5 pr-2 whitespace-nowrap text-ink-2">
-                    {[...new Set(sh.segments.map((g) => roleName.get(g.role_id) ?? g.role_id))].join(', ')} {fmtRange(sh.start, sh.end)}
+                  <td className="py-1.5 pr-2 text-ink-2">
+                    <span className="whitespace-nowrap">
+                      {[...new Set(sh.segments.map((g) => roleName.get(g.role_id) ?? g.role_id))].join(', ')} {fmtRange(sh.start, sh.end)}
+                    </span>
+                    {(sh.why ?? []).length > 0 && <span className="block text-xs text-muted">{sh.why![0]}</span>}
                   </td>
-                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(c.added_cost_dollars)}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(c.added_cost_dollars, { cents: true })}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{Math.round(c.est_accept_prob * 100)}%</td>
-                  <td className="py-1.5 text-xs text-ink-2">{c.why}</td>
+                  <td className="py-1.5 text-xs">
+                    <CandidatePremium
+                      dollars={c.premium_pay_dollars ?? 0}
+                      ids={c.law_rule_ids ?? []}
+                      note={c.premium_note ?? ''}
+                      lawById={lawById}
+                      h={h}
+                    />
+                  </td>
                 </tr>
               )
             })}
@@ -447,17 +510,7 @@ function lawLabel(r: LawRule | undefined, id: string): string {
 }
 
 /** Premium per action (SEMANTICS #17): the engine's amount and law, or why there is none. Never computed here. */
-function PremiumLine({
-  action: a,
-  lawById,
-  hasScheduleLaw,
-  lawLoaded,
-}: {
-  action: FixAction
-  lawById: Map<string, LawRule>
-  hasScheduleLaw: boolean
-  lawLoaded: boolean
-}) {
+function PremiumLine({ action: a, lawById }: { action: FixAction; lawById: Map<string, LawRule> }) {
   const ids = a.law_rule_ids ?? []
   const premium = a.premium_pay_dollars ?? 0
   if (premium > 0)
@@ -485,9 +538,110 @@ function PremiumLine({
         <span className="text-muted">{ids.map((id) => lawLabel(lawById.get(id), id)).join(', ')} checked</span>
       </span>
     )
-  if (lawLoaded && !hasScheduleLaw && a.lever !== 'drop_coverage')
-    return <span className="mt-1 block text-xs text-muted">No predictive-scheduling law in this location's law pack.</span>
-  return null
+  return null // "no scheduling law here" is said once, in the mode banner
+}
+
+function CandidatePremium({
+  dollars,
+  ids,
+  note,
+  lawById,
+  h,
+}: {
+  dollars: number
+  ids: string[]
+  note: string
+  lawById: Map<string, LawRule>
+  h: (t: string) => string
+}) {
+  const label = ids.map((id) => lawLabel(lawById.get(id), id)).join(', ')
+  if (dollars > 0)
+    return (
+      <span className="rounded bg-warn-wash px-1.5 py-0.5 font-semibold whitespace-nowrap text-warn" title={note ? h(note) : undefined}>
+        +{fmtMoney(dollars, { cents: true })} {label || 'premium'}
+      </span>
+    )
+  if (ids.length > 0)
+    return (
+      <span title={note ? h(note) : undefined}>
+        <span className="rounded bg-pine-wash px-1.5 py-0.5 font-semibold whitespace-nowrap text-pine-dark">No premium</span>
+        <span className="mt-0.5 block text-muted">{shortExempt(note) || `${label} checked`}</span>
+      </span>
+    )
+  return <span className="text-muted">—</span>
+}
+
+/** "No predictability pay: voluntary call-in accepted in writing; …" → "Voluntary call-in accepted in writing". */
+function shortExempt(note: string): string {
+  const m = note.match(/^(?:No [^:]+:\s*)?([^;.]+)/)
+  if (!m) return ''
+  const t = m[1].trim()
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/** How offers go out (one at a time vs group message) and whether predictability pay is owed. From plan + state only. */
+function ModeBanner({
+  plan,
+  outreach,
+  h,
+  lawById,
+  noScheduleLaw,
+}: {
+  plan: FixPlan
+  outreach: OutreachState | null
+  h: (t: string) => string
+  lawById: Map<string, LawRule>
+  noScheduleLaw: boolean
+}) {
+  const mode = outreach?.mode ?? plan.outreach_mode ?? 'one_to_one'
+  const prem = outreach?.premium
+  const total = (prem?.by_employee ?? [])
+    .filter((b) => (outreach?.accepted_employee_ids ?? []).includes(b.employee_id))
+    .reduce((c, b) => c + b.premium_pay_dollars, 0)
+  const ids = prem?.law_rule_ids ?? plan.outreach_queue.flatMap((c) => c.law_rule_ids ?? [])
+  const label = [...new Set(ids)].map((id) => lawLabel(lawById.get(id), id)).join(', ')
+  return (
+    <div className="rounded-lg border border-rule bg-paper px-3 py-2 text-sm">
+      <div className="font-semibold">
+        {mode === 'group_offer'
+          ? 'Group offer: several people get the same text; the first yes gets the shift.'
+          : 'Texts go out one at a time, best match first.'}
+        {outreach && (outreach.wave ?? 0) > 0 && <span className="ml-2 font-normal text-muted">Round {outreach.wave}</span>}
+      </div>
+      {prem ? (
+        <p className={`mt-0.5 ${prem.status === 'owed' ? 'text-warn' : 'text-ink-2'}`}>
+          <span className="font-semibold">
+            {prem.status === 'owed'
+              ? `Premium owed${total ? `: ${fmtMoney(total, { cents: true })} so far` : ''}`
+              : prem.status === 'exempt'
+                ? 'No premium owed'
+                : 'No scheduling-law premium here'}
+            {label ? ` · ${label}` : ''}.
+          </span>{' '}
+          <NoteWithSource text={h(prem.note)} />
+        </p>
+      ) : label ? (
+        <p className="mt-0.5 text-ink-2">Premiums below come from {label}; the outreach confirms whether they're owed.</p>
+      ) : noScheduleLaw ? (
+        <p className="mt-0.5 text-ink-2">No predictive-scheduling law in this location's law pack, so changes today carry no premium.</p>
+      ) : null}
+    </div>
+  )
+}
+
+/** Plain first part of a note, with any quoted source text folded away. */
+function NoteWithSource({ text }: { text: string }) {
+  const i = text.search(/\s(Exempt:|")/)
+  if (i < 0) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, i)}{' '}
+      <details className="inline">
+        <summary className="inline cursor-pointer text-xs text-pine-dark underline">source text</summary>
+        <span className="block text-xs text-muted">{text.slice(i + 1)}</span>
+      </details>
+    </>
+  )
 }
 
 function Big({ label, value, tone }: { label: string; value: string; tone: string }) {
@@ -532,6 +686,7 @@ function Phone({
   nameOf,
   byPhone,
   onOpenPhone,
+  phoneFor,
 }: {
   plan: FixPlan
   outreach: OutreachState | null
@@ -541,12 +696,22 @@ function Phone({
   onReply: (phone: string, body: string) => Promise<void>
   nameOf: (id: string) => string
   onOpenPhone: (employeeId: string) => void
+  phoneFor: (employeeId: string) => string
   byPhone: (p: string) => { id: string; name: string } | undefined
 }) {
   const status = outreach?.status ?? 'idle'
   const msgs = outreach?.messages ?? []
   const pending = [...msgs].reverse().find(isOut)
   const waitingOnPending = status === 'texting' && pending && pending.outreach_rank === outreach?.current_rank
+  // v1.4: group offers wait on several people at once.
+  const waiters: { id: string; phone: string }[] =
+    status !== 'texting'
+      ? []
+      : outreach?.waiting_employee_ids?.length
+        ? outreach.waiting_employee_ids.map((id) => ({ id, phone: phoneFor(id) })).filter((w) => w.phone)
+        : waitingOnPending && pending
+          ? [{ id: pending.to_employee_id, phone: pending.to_phone }]
+          : []
   const shown = useTween(liveCoverage ?? plan.coverage_before_pct)
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -588,7 +753,11 @@ function Phone({
                 <div className="mb-0.5 text-right text-[10px] text-muted">
                   To {nameOf(m.to_employee_id)}
                   {m.outreach_rank ? ` · #${m.outreach_rank}` : ''} · {fmtClock(m.sent_at)} ·{' '}
-                  <button type="button" onClick={() => onOpenPhone(m.to_employee_id)} className="font-semibold text-pine-dark hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => onOpenPhone(m.to_employee_id)}
+                    className="font-semibold text-pine-dark hover:underline"
+                  >
                     Open {nameOf(m.to_employee_id).split(' ')[0]}'s phone
                   </button>
                 </div>
@@ -621,15 +790,17 @@ function Phone({
             type="button"
             onClick={onStart}
             disabled={!plan.plan_id || plan.outreach_queue.length === 0}
-            className="w-full rounded-md bg-pine px-4 py-2.5 font-semibold text-white hover:bg-pine-dark disabled:opacity-50"
+            className={`w-full rounded-md px-4 py-2.5 font-semibold disabled:opacity-50 ${
+              status === 'idle' ? 'bg-pine text-white hover:bg-pine-dark' : 'border border-rule text-ink-2 hover:border-ink'
+            }`}
           >
-            {status === 'idle' ? 'Start texting' : 'Start again'}
+            {status === 'idle' ? 'Start texting' : status === 'filled' ? 'Text again from the top' : 'Try the list again'}
           </button>
         ) : (
           <>
-            {waitingOnPending && pending && (
-              <div className="mb-2">
-                <div className="mb-1 text-xs text-muted">Simulate {nameOf(pending.to_employee_id)}'s reply:</div>
+            {waiters.map((w) => (
+              <div key={w.id} className="mb-2">
+                <div className="mb-1 text-xs text-muted">Reply as {nameOf(w.id)}:</div>
                 <div className="flex gap-1.5">
                   {[
                     ['Yes', 'Yes, I can come in'],
@@ -639,14 +810,17 @@ function Phone({
                     <button
                       key={label}
                       type="button"
-                      onClick={() => void onReply(pending.to_phone, body)}
-                      className="flex-1 rounded-md border border-rule px-2 py-1.5 text-sm font-semibold hover:border-ink"
+                      onClick={() => void onReply(w.phone, body)}
+                      className="flex-1 rounded-md border border-rule px-2 py-1 text-sm font-semibold hover:border-ink"
                     >
                       {label}
                     </button>
                   ))}
                 </div>
               </div>
+            ))}
+            {waiters.length > 0 && (
+              <p className="mb-1 text-[11px] text-muted">Simulated replies; the demo phones also answer on their own.</p>
             )}
             <button type="button" onClick={onStop} className="w-full rounded-md px-3 py-1.5 text-sm text-ink-2 hover:bg-paper">
               Stop texting

@@ -26,6 +26,14 @@ const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'receipt', label: 'Compliance receipt', ready: true },
 ]
 
+// Once per page load: React StrictMode runs effects twice in dev, and a second run (after `?demo` was
+// stripped from the URL) used to create an empty store that replaced the demo one.
+let initialStore: Promise<StoreConfig> | null = null
+function loadOrCreateStoreOnce(): Promise<StoreConfig> {
+  initialStore ??= loadOrCreateStore()
+  return initialStore
+}
+
 async function loadOrCreateStore(): Promise<StoreConfig> {
   // ?demo in the URL: start from a fresh copy of the demo store.
   const url = new URL(window.location.href)
@@ -63,6 +71,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(true)
   const [openGap, setOpenGap] = useState<Gap | null>(null)
   const [coverageDay, setCoverageDay] = useState(0)
+  const [callouts, setCallouts] = useState<{ employee_id: string; day: number }[]>([])
   const [lawPack, setLawPack] = useState<LawPack | null>(null)
   const [lawError, setLawError] = useState<string | null>(null)
   const storeId = config?.store.id
@@ -97,12 +106,13 @@ export default function App() {
     setResult(null)
     setSolve({ status: 'idle' })
     setOpenGap(null)
+    setCallouts([])
     setReadiness(null)
     setConfig(cfg)
   }, [])
 
   useEffect(() => {
-    loadOrCreateStore()
+    loadOrCreateStoreOnce()
       .then(setConfig)
       .catch((e: Error) => setLoadError(e.message))
   }, [])
@@ -258,7 +268,11 @@ export default function App() {
                 aria-selected={tab === t.id}
                 disabled={!t.ready}
                 title={t.ready ? undefined : 'Not built yet'}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  setTab(t.id)
+                  // These views need the width; the chat is one click away.
+                  if (t.id === 'fix' || t.id === 'receipt' || t.id === 'store') setChatOpen(false)
+                }}
                 className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold ${
                   tab === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
                 } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted`}
@@ -274,6 +288,7 @@ export default function App() {
               solve={solve}
               onSolve={() => void runSolve()}
               onGapClick={setOpenGap}
+              callouts={callouts}
               onDayClick={(d) => {
                 setCoverageDay(d)
                 setTab('coverage')
@@ -301,7 +316,14 @@ export default function App() {
               config={config}
               result={result}
               lawPack={lawPack}
-              onSchedule={(schedule) => setResult({ schedule, validation: null })}
+              onCallouts={setCallouts}
+              onSchedule={(schedule) => {
+                // The API saves each accepted call-in with a fresh validator report; fall back to the state's copy.
+                api
+                  .latestSchedule(config.store.id)
+                  .then(setResult)
+                  .catch(() => setResult({ schedule, validation: null }))
+              }}
             />
           </div>
           {openGap && result && (
@@ -324,6 +346,15 @@ export default function App() {
           onSolve={() => void runSolve()}
           open={railOpen}
           onToggle={() => setRailOpen((o) => !o)}
+          roles={config.roles}
+          onEquipment={async (roleId, decision) => {
+            try {
+              setConfig(await api.equipmentRole(config.store.id, roleId, decision))
+              void refreshReadiness(config.store.id)
+            } catch (e) {
+              setReadinessError(`Couldn't save: ${(e as Error).message}`)
+            }
+          }}
         >
           <Rulebook config={config} lawPack={lawPack} lawError={lawError} onSetStatus={setRuleStatus} />
         </ReadinessRail>

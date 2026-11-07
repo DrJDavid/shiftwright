@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { api, apiMode } from '../api'
 import { LOCALITIES, missingTemplates } from '../lib/stores'
 
 type Props = { onNew: (template: string) => Promise<void> }
@@ -9,6 +10,20 @@ export function StoreMenu({ onNew }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [missing, setMissing] = useState(() => missingTemplates())
+  // v1.4: the server lists its templates; older servers / the mock fall back to the built-in list.
+  const [served, setServed] = useState<{ template: string; label: string }[] | null>(null)
+  useEffect(() => {
+    api
+      .templates()
+      .then((r) =>
+        setServed(
+          r.templates
+            .filter((t) => t.id === 'demo' || t.id.startsWith('demo_'))
+            .map((t) => ({ template: t.id, label: t.label.replace(/\s*\(\d+ staff\)$/, '') + (t.label.match(/\((\d+ staff)\)$/) ? ` · ${t.label.match(/\((\d+ staff)\)$/)![1]}` : '') })),
+        ),
+      )
+      .catch(() => setServed(null))
+  }, [])
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -31,7 +46,7 @@ export function StoreMenu({ onNew }: Props) {
     }
   }
 
-  const shown = LOCALITIES.filter((l) => !missing.has(l.template))
+  const shown = served ?? LOCALITIES.filter((l) => !missing.has(l.template) && (apiMode === 'live' || l.template === 'demo'))
 
   return (
     <div ref={ref} className="relative">
@@ -47,7 +62,7 @@ export function StoreMenu({ onNew }: Props) {
         <div className="absolute top-full right-0 z-50 mt-1.5 w-80 rounded-lg border border-rule bg-panel p-1.5 text-ink shadow-xl">
           <div className="px-2.5 pt-1 pb-0.5 text-xs font-semibold tracking-wide text-muted uppercase">Load a demo store</div>
           {shown.map((l) => (
-            <MenuItem key={l.id} title={l.label} detail="Big-box demo store with its local law pack" onClick={() => void pick(l.template, l.label)} disabled={!!busy} />
+            <MenuItem key={l.template} title={l.label} detail="Demo store with its local law pack" onClick={() => void pick(l.template, l.label)} disabled={!!busy} />
           ))}
           <div className="my-1 border-t border-rule-soft" />
           <MenuItem
