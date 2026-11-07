@@ -14,6 +14,7 @@ import type {
   Jurisdiction,
   OutboundMessage,
   Schedule,
+  Sector,
   Store,
   ValidationReport,
 } from '../contracts'
@@ -31,6 +32,7 @@ export type CardType =
   | 'tradeoff'
   | 'conflict_menu'
   | 'employee_availability'
+  | 'confirm_tags'
 
 /** Props/result pairs for the cards implemented so far (API.md card catalogue). */
 export type StoreBasicsProps = Partial<Store>
@@ -79,7 +81,11 @@ export type EventsProps = { events: Event[] }
 export type EventsResult = EventsProps
 export type CsvImportKind = 'roster' | 'training' | 'availability' | 'forecast' | 'history'
 export type CsvImportProps = { kind: CsvImportKind; preview?: ImportPreview }
-export type CsvImportResult = { committed: boolean; rows: number }
+/** A3: `{mapping}` answers a card that carries the server's cached `preview`; the server commits it. */
+export type CsvImportResult = { committed: boolean; rows: number } | { mapping: Record<string, string | null> }
+/** v1.5: protective tags on roles that minors are trained for; the manager keeps or removes each. */
+export type ConfirmTagsProps = { roles: { role_id: string; name: string; tags: string[]; minors_trained: string[] }[]; note: string }
+export type ConfirmTagsResult = { decisions: Record<string, 'keep' | 'remove'> }
 export type ProposeRuleProps = { constraint: Constraint; evidence: string; plain_text: string }
 export type ProposeRuleResult = { decision: 'hard' | 'soft' | 'not_a_rule'; weight_dollars?: number }
 export type TradeoffOption = { id: string; label: string; cost_dollars: number; effect: string }
@@ -96,6 +102,8 @@ export type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
   card?: CardEnvelope & { result: unknown }
+  /** A3: import previews already cached for the store that this message attaches. */
+  attachments?: { kind: CsvImportKind }[]
 }
 
 export type ChatMode = 'onboard' | 'review' | 'fix'
@@ -115,6 +123,39 @@ export type CreateStoreRequest = {
   template?: 'bigbox_small' | 'bigbox_mid' | 'empty' | 'demo' | 'tiny' | `demo_${string}`
   name?: string
   jurisdiction?: Jurisdiction
+  // PUNCHLIST A2: saved on create with template `empty`, so the chat doesn't re-ask.
+  sector?: Sector
+  business_description?: string
+}
+
+// PUNCHLIST A1 (accounts). Session is the `sw_session` cookie.
+export type User = { id: string; email: string; name: string }
+// PUNCHLIST A3: generated sample businesses.
+export type GeneratedDifficulty = 'easy' | 'normal' | 'tight' | 'legal_trap' | 'messy'
+export type GeneratedRequest = {
+  sector: 'retail' | 'food'
+  size?: 'S' | 'M'
+  difficulty?: GeneratedDifficulty
+  state?: string
+  city?: string
+  seed?: number
+}
+export type KickoffAttachment = { kind: CsvImportKind; filename: string; row_count: number }
+export type Kickoff = { message: string; attachments: KickoffAttachment[] }
+export type GeneratedWorkplace = { store_id: string; company_name: string; seed: number; kickoff: Kickoff }
+
+export type SignupRequest = { email: string; password: string; name: string }
+export type LoginRequest = { email: string; password: string }
+export type WorkplaceSummary = {
+  id: string
+  name: string
+  sector: Sector | null
+  city: string | null
+  state: string | null
+  updated_at: string
+  has_schedule: boolean
+  /** Demo template id this is a private copy of; null for your own workplaces. */
+  sample_of: string | null
 }
 
 /** `validation` is null when GET /schedule has a stored schedule that was never validated. */
@@ -122,7 +163,8 @@ export type SolveResponse = { schedule: Schedule; validation: ValidationReport |
 
 export type Readiness = {
   ready: boolean
-  checks: { id: string; label: string; ok: boolean; detail: string }[]
+  /** v1.5 `severity`: warnings keep `ok: true`. */
+  checks: { id: string; label: string; ok: boolean; detail: string; severity?: 'ok' | 'warn' | 'block' }[]
 }
 
 export type ImportPreview = {

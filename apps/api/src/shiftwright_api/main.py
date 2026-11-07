@@ -25,7 +25,7 @@ from shiftwright_contracts.models import (
     ValidationReport,
 )
 
-from . import equipment, imports, integrations, predictive, readiness, templates
+from . import auth, equipment, generated, import_flow, integrations, predictive, readiness, templates
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
@@ -41,6 +41,7 @@ from .models import (
     ImportPreview,
     OutreachState,
     Readiness,
+    SampleRequest,
     SolveRequest,
 )
 from .outreach import OutreachBusy, OutreachManager
@@ -80,7 +81,10 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
                                          settings.max_texts_per_store_hour, autoreply=settings.mock_autoreply,
                                          reply_delay_s=settings.mock_reply_delay_s, seed=settings.mock_seed)
 
-    if settings.demo_key:
+    if settings.auth_required and not settings.auth_secret:
+        startup_warnings.append("AUTH_SECRET is not set; session digests use an empty HMAC key.")
+
+    if settings.demo_key and not settings.auth_required:
         @app.middleware("http")
         async def require_demo_key(request: Request, call_next):
             path = request.url.path
@@ -92,6 +96,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     def db() -> Database:
         return app.state.db
+
+    auth.install(app, settings, db)
 
     def load(store_id: str) -> StoreConfig:
         try:
@@ -109,14 +115,19 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             "model": settings.agent_model,
             "llm_configured": bool(settings.openrouter_api_key) or llm is not None,
             "stubs": integrations.active_stubs(),
-            "demo_key_required": bool(settings.demo_key),
+            "demo_key_required": bool(settings.demo_key) and not settings.auth_required,
+            "auth_required": settings.auth_required,
             "mock_autoreply": app.state.outreach.autoreply,
             "warnings": startup_warnings,
         }
 
     # ---------------------------------------------------------------- stores
+    def owner_id(request: Request) -> Optional[str]:
+        user = auth.current_user(request)
+        return user["id"] if user else None
+
     @app.post("/api/stores", response_model=StoreConfig)
-    def create_store(req: CreateStoreRequest) -> StoreConfig:
+    def create_store(req: CreateStoreRequest, request: Request) -> StoreConfig:
         if templates.is_fixture(req.template):
             try:
                 cfg = templates.from_fixture(req.template)
@@ -126,11 +137,83 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
         else:
             cfg = templates.build(req.template, req.name, req.jurisdiction)
-        return db().create_store(cfg, actor="leader")
+            if req.sector is not None:
+                cfg.store.sector = req.sector
+            cfg.store.business_description = req.business_description.strip()
+        return db().create_store(cfg, actor="leader", owner_id=owner_id(request))
 
     @app.get("/api/templates")
     def list_templates() -> dict:
         return {"templates": templates.available()}
+
+    @app.get("/api/workplaces")
+    def list_workplaces(request: Request) -> dict:
+        return {"workplaces": db().workplaces(auth.require_user(request)["id"])}
+
+    @app.post("/api/workplaces/sample", response_model=StoreConfig)
+    def sample_workplace(req: SampleRequest, request: Request) -> StoreConfig:
+        """A private copy of a demo store, named "Sample: …"; edits never touch the template or other copies."""
+        user = auth.require_user(request)
+        if not templates.is_fixture(req.template):
+            raise HTTPException(422, f"Samples come from demo templates (demo, tiny, demo_<city>), not {req.template!r}.")
+        try:
+            cfg = templates.from_fixture(req.template)
+        except templates.TemplateUnavailable as e:
+            raise HTTPException(422, str(e))
+        cfg.store.name = f"Sample: {cfg.store.name}"
+        return db().create_store(cfg, actor="leader", owner_id=user["id"], sample_of=req.template)
+
+    gen_limiter = auth.RateLimiter(limit=5, window_s=600)
+
+    @app.post("/api/workplaces/generated")
+    async def generated_workplace(request: Request, body: dict = Body(...)) -> dict:
+        """A generated business: an owned `empty` store (name, sector, location only) with its CSV exports
+        previewed and cached like POST /import/{kind}; nothing committed. The chat kickoff attaches them."""
+        user = auth.require_user(request)
+        try:
+            params, meta = await asyncio.to_thread(generated.parse_params, body)
+            if not gen_limiter.hit(user["id"]):
+                raise HTTPException(429, "Too many sample businesses; try again in a few minutes.",
+                                    headers={"Retry-After": str(int(gen_limiter.window_s))})
+            ds = await asyncio.to_thread(generated.build, params, meta)
+        except generated.BadParams as e:
+            raise HTTPException(400, str(e))
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001 - the dataset builder (WS4) failed; nothing was created
+            raise HTTPException(503, f"Sample business generator failed ({type(e).__name__}: {e}). Nothing was created.")
+        cfg = templates.build("empty", ds.company_name, ds.jurisdiction)
+        cfg.store.sector = ds.sector
+        db().create_store(cfg, actor="leader", owner_id=user["id"], sample_of="generated")
+        sid = cfg.store.id
+        db().put(sid, "generated", "params", params.as_dict())
+        kinds = [k for k in meta["import_order"] if f"{k}.csv" in ds.files]
+        previews = await asyncio.gather(*(import_flow.preview(db(), sid, k, ds.files[f"{k}.csv"], app.state.helper_llm)
+                                          for k in kinds))
+        return {
+            "store_id": sid,
+            "company_name": ds.company_name,
+            "seed": params.seed,
+            "kickoff": {
+                "message": f"{ds.narrative.rstrip()}\n\nMy exports are attached.",
+                "attachments": [{"kind": k, "filename": f"{k}.csv", "row_count": pv.row_count}
+                                for k, pv in zip(kinds, previews)],
+            },
+        }
+
+    @app.get("/api/workplaces/{store_id}/sample-data.zip")
+    async def sample_data_zip(store_id: str, request: Request) -> Response:
+        user = auth.require_user(request)
+        try:
+            owner = db().store_owner(store_id)
+        except NotFound:
+            owner = None
+        params = db().get(store_id, "generated", "params") if owner == user["id"] else None
+        if params is None:
+            raise HTTPException(404, f"No generated sample data for {store_id!r}")
+        filename, data = await asyncio.to_thread(generated.build_zip, generated.Params(**params))
+        return Response(data, media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
     @app.get("/api/stores/{store_id}/config", response_model=StoreConfig)
     def get_config(store_id: str) -> StoreConfig:
@@ -202,55 +285,15 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     @app.post("/api/stores/{store_id}/import/{kind}", response_model=ImportPreview)
     async def import_preview(store_id: str, kind: ImportKind, file: UploadFile = File(...)) -> ImportPreview:
         load(store_id)
-        data = await file.read()
-        pv, rows = await imports.preview(kind, data, app.state.helper_llm)
-        db().put(store_id, "import_rows", kind, rows)
-        return pv
+        return await import_flow.preview(db(), store_id, kind, await file.read(), app.state.helper_llm)
 
     @app.post("/api/stores/{store_id}/import/{kind}/commit", response_model=StoreConfig)
     def import_commit(store_id: str, kind: ImportKind, response: Response, body: dict = Body(...)) -> StoreConfig:
         load(store_id)
-        mapping = body.get("mapping") or {}
-        cached = db().get(store_id, "import_rows", kind) or []
-        rows = body.get("rows") or []
-        if not rows or (cached and len(rows) < len(cached)):  # client sent only the preview: use the full parse
-            rows = cached
-        if not rows:
-            raise HTTPException(400, "No rows to import; upload the CSV first.")
-        missing = imports.unmapped_required(kind, mapping)
-        if missing:
-            raise HTTPException(422, f"Required fields not mapped: {missing}")
-        warnings: list[str] = []
-        extra: dict = {}
-        if kind in imports.STORED_KINDS:
-            existing = db().get(store_id, kind, "rows") or []
-            db().put(store_id, kind, "rows", imports.stored_rows(kind, mapping, rows, existing, warnings))
-            db().put(store_id, "import_warnings", kind, warnings)
-            response.headers["X-Import-Warning-Count"] = str(len(warnings))
-            return load(store_id)
-        stored = {k: db().get(store_id, k, "rows") or [] for k in imports.STORED_KINDS}
-        if kind == "sales_forecast" and not stored["labor_standards"]:
-            raise HTTPException(422, "Import labor standards first.")
-        if kind == "workload" and not any(x["driver"] in ("cases", "pieces") for x in stored["labor_standards"]):
-            raise HTTPException(422, "Import labor standards (with a cases or pieces driver) first.")
-
-        review = equipment.state(db(), store_id)
-
-        def fn(d):
-            extra["out"] = imports.apply_rows(kind, d, mapping, rows, warnings, stored)
-            extra["tagged"] = equipment.tag_in_dict(d, review)
         try:
-            cfg = db().mutate(store_id, fn, f"import:{kind}", {"rows": len(rows), "mapping": mapping}, "leader")
-        except ConfigInvalid as e:
-            raise HTTPException(422, detail=e.errors)
-        if kind == "history" and extra.get("out") is not None:
-            db().put(store_id, "history", "rows", extra["out"])
-        tagged = extra.get("tagged") or []
-        equipment.record_auto(db(), store_id, tagged)
-        if tagged:
-            warnings.append(f"Tagged hazard/equipment roles (minor-labor rules use these; please confirm or reject): "
-                            f"{equipment.describe(tagged)}.")
-        db().put(store_id, "import_warnings", kind, warnings)
+            cfg, warnings = import_flow.commit(db(), store_id, kind, body.get("mapping") or {}, body.get("rows"))
+        except import_flow.CommitError as e:
+            raise HTTPException(e.status, detail=e.detail)
         response.headers["X-Import-Warning-Count"] = str(len(warnings))
         return cfg
 

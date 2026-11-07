@@ -70,6 +70,17 @@ def _summary(name: str, content: dict) -> str:
     return f"Ran {name}"
 
 
+def attachment_note(db: Database, store_id: str, kinds: list[str]) -> str:
+    """What the agent is told about files attached to a user message (previews cached server-side)."""
+    order = ["roster", "training", "availability", "forecast", "history"]
+    parts = []
+    for k in sorted(dict.fromkeys(kinds), key=lambda k: order.index(k) if k in order else len(order)):
+        pv = db.get(store_id, "import_preview", k)
+        parts.append(f"{k} ({pv['row_count']} rows, preview ready)" if pv else f"{k} (no upload found)")
+    return ("[Attached exports: " + "; ".join(parts) + ". Show ask_csv_import for each attached kind, in this order; "
+            "the card shows the cached preview and proposed column mapping.]")
+
+
 async def run_turn(
     *,
     db: Database,
@@ -82,7 +93,10 @@ async def run_turn(
 ) -> AsyncIterator[tuple[str, dict]]:
     transcript = repair_transcript(db.get_transcript(store_id))
     for m in user_messages:
-        msg: dict[str, Any] = {"role": m["role"], "content": m["content"]}
+        content = m["content"]
+        if m.get("attachments"):
+            content = f"{content}\n\n{attachment_note(db, store_id, [a['kind'] for a in m['attachments']])}"
+        msg: dict[str, Any] = {"role": m["role"], "content": content}
         transcript.append(msg)
     db.save_transcript(store_id, transcript)
     ctx = ToolContext(db=db, store_id=store_id)
@@ -194,7 +208,9 @@ def accept_prefill(card_type: str, props: dict) -> dict:
         return {"decisions": {r["role_id"]: "keep" for r in props.get("roles", [])}}
     if card_type == "employee_availability":
         return {"confirmed": props.get("parsed") or []}
-    return {"cancelled": True}  # csv_import (no file headless) and anything unknown
+    if card_type == "csv_import" and props.get("preview"):
+        return {"mapping": props["preview"].get("proposed_mapping") or {}}
+    return {"cancelled": True}  # csv_import with no uploaded file, and anything unknown
 
 
 def scripted_waiter(script: dict) -> CardWaiter:

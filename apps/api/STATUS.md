@@ -1,6 +1,77 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~09:20 CT (main 590d4c1)_
+_Last updated: 2026-11-07 ~04:45 CT (branch cursor/A1-auth, PUNCHLIST Lane A)_
+
+**Done (A3: generated sample businesses; `generated.py`, `import_flow.py`):**
+- `POST /api/workplaces/generated` and `GET /api/workplaces/{id}/sample-data.zip` as documented in API.md.
+  Params validated by hand → 400 (sector required; size S|M default S; difficulty easy|normal|tight|legal_trap|messy
+  default easy; state 2 letters, city needs a state, default TX/austin retail, IL/chicago food; seed int, random
+  when omitted and returned as an extra `seed` field). 5 per user per rolling 10 min (in memory) → 429. Generator
+  exceptions → 503, nothing created. Store = `empty` template + name, sector, jurisdiction; `sample_of="generated"`;
+  kv `generated/params` keeps the params so the zip is regenerated from the seed (404 unless owner + generated).
+- **Dataset (E4, no fallback):** `generated.py` calls `shiftwright_scenarios.dataset.dataset_meta` first (validates
+  every value — ValueError → 400 — and resolves a random seed), then `make_dataset` / `make_dataset_zip` with that
+  seed. Company name ("Store #1259, Austin, TX"), narrative, jurisdiction and the zip folder come from
+  `dataset_meta`. Imported from `.dataset`, not the package root (the CLI module rebinds `make_dataset` there).
+  Extra local checks: unknown fields, city needs a state, city must look like a name. Seeds 0..999999 (E4).
+- Verified after merging main (new `priorities` readiness check) + E4: easy restaurant and easy retail both reach
+  `readiness.ready` on autopilot, with the role priorities from E4's `leader_setup`. E4's "windows ending 2400"
+  gap: covered by the A3 HHMM fix; test imports food seed 1 (TM 700004 "1500-2400" Mon–Fri) as unavailable
+  00:00–15:00 on those days only, no warnings.
+- Previews: the five CSVs are previewed concurrently via `import_flow.preview` (same as `POST /import/{kind}`; now
+  also caches the preview itself in kv `import_preview/<kind>`). Commit logic moved from `main.py` into
+  `import_flow.commit` (REST route unchanged); a commit drops that kind's cached preview.
+- Chat: `ChatMessage.attachments: [{kind}]` (ImportKind, else 422). The loop appends to that user message
+  "[Attached exports: roster (27 rows, preview ready); ... Show ask_csv_import for each attached kind, in this
+  order; ...]" (import order). `ask_csv_import` puts the cached preview in `props.preview`; a `{mapping}` result
+  commits it server-side (errors go back to the agent); `accept_prefill` answers with `proposed_mapping`.
+  Prompt onboard v4.5 step 0: the PUNCHLIST line about attached files.
+- Importer fixes found on generated data: forecast header "Req HC" → headcount; HHMM times ("1500-2400") parse.
+- Tests `test_generated.py` (22): auth, 13 bad-value cases, owned/previewed/0 employees/REST commit of the cache,
+  same seed same company, zip, rate limit per user, attachment kind 422, and autopilot (accept_prefill) to
+  `readiness.ready` for easy retail and the easy restaurant; the 2400-window import.
+
+**Done (A2: workplace basics on create):**
+- `POST /api/stores` also takes optional `sector` (retail | food | hospitality | other; 422 otherwise) and
+  `business_description` (≤ 500 chars, trimmed), saved on structure templates (`empty`, `bigbox_*`,
+  `restaurant_small`; restaurant keeps `food` unless overridden). Fixture templates keep their own.
+  For API.md (stores row; I may only edit its auth section): add `sector?, business_description?` to the body.
+- So the onboarding agent's first `readiness_check` shows `business_type` ok ("food: 30-seat family taqueria");
+  prompt onboard v4.4: when `business_type` is already set it says back what it knows and moves on to hours
+  instead of re-asking. Tests in `test_onboarding.py` (fake LLM).
+
+**Done (A1: accounts, sessions, workplace ownership; `auth.py`):**
+- Routes exactly as the PUNCHLIST A1 table (documented in API.md "Accounts and workplaces"): `POST /api/auth/signup`
+  (409 duplicate, case-insensitive), `/login` (401 "Wrong email or password." for both wrong password and unknown
+  email; unknown emails still run scrypt against a dummy hash), `/logout` (204, session row deleted, cookie
+  cleared), `GET /api/auth/me`, `GET /api/workplaces`, `POST /api/workplaces/sample`.
+- Tables `users(id, email UNIQUE COLLATE NOCASE, name, pw_hash, created_at)`, `sessions(token, user_id, created_at,
+  expires_at)`; `stores.owner_id` + `stores.sample_of` added on open when missing (`db.MIGRATIONS`).
+- Passwords: `hashlib.scrypt` (n=2^14, r=8, p=1), 16-byte salt per user, stored `scrypt$n$r$p$salt$hash`,
+  `hmac.compare_digest`. Min 8 chars (422). Sessions: `secrets.token_urlsafe(32)` in cookie `sw_session`
+  (HttpOnly, SameSite=Lax, Secure when https or `X-Forwarded-Proto: https`, 30 days). The db stores only
+  HMAC-SHA256(`AUTH_SECRET`, token); expired rows are deleted on lookup.
+- Middleware: attaches `request.state.user` from the cookie on every request; with `AUTH_REQUIRED` it 401s every
+  `/api/*` path except `/api/health`, `/api/auth/*`, `/api/templates`, `/api/sms/inbound` (non-`/api` = static,
+  public), and 404s any `/api/stores/{id}...` whose owner isn't the caller (same body as a missing store). Unowned
+  legacy stores (created before A1) are therefore 404 for everyone while auth is on.
+- `POST /api/stores` sets `owner_id` to the caller. Workplaces: `{id, name, sector, city, state, updated_at,
+  has_schedule, sample_of}` (extra `sample_of` = template id or null, so the web can list samples separately).
+- Sample = `templates.from_fixture(template)` under a new id, name "Sample: <fixture name>"; non-fixture
+  templates → 422.
+- Rate limit: 10 signup+login attempts per client IP per rolling 10 min (in memory) → 429 with Retry-After.
+  Client IP = `X-Real-IP`, else the right-most `X-Forwarded-For`, else the socket peer (Railway proxies).
+- Settings: `AUTH_REQUIRED` (from_env default **true**), `AUTH_SECRET` (health warning when auth is on and it's
+  unset). The `Settings` dataclass default is `auth_required=False` so in-process harnesses in other packages
+  (import packs, evals) keep working; every real server goes through `from_env`. `DEMO_KEY` middleware is only
+  installed when auth is off; `/api/health` adds `auth_required` and `demo_key_required` is false with auth on.
+- MESSENGER stays mock by default; SMS allowlist unchanged.
+- Tests: `tests/test_auth.py` (26). conftest's settings have `auth_required=True`; the `client` fixture signs up
+  one leader; `api_helpers.make_store` signs a fresh client up when it has no session; outreach tests that build
+  their own client call `signup(c)`. `scripts/smoke.py` signs up a random `smoke+…@example.com` first.
+- **Coordinator, outside my folder:** `packages/evals/src/shiftwright_evals/realistic.py` builds the API in-process
+  from `Settings.from_env()` (now auth on), so `test_shiftwright_intake_runs_with_fake_agent_and_no_key` gets 401s.
+  One-line fix: add `auth_required=False` to its `dataclasses.replace(Settings.from_env(), ...)` (next to `demo_key=""`).
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3

@@ -6,12 +6,18 @@ import type {
   CreateStoreRequest,
   CsvImportKind,
   FixRequestBody,
+  GeneratedRequest,
+  GeneratedWorkplace,
   OutreachState,
   TemplateInfo,
   Health,
   ImportPreview,
+  LoginRequest,
   Readiness,
+  SignupRequest,
   SolveResponse,
+  User,
+  WorkplaceSummary,
 } from './protocol'
 import { readSSE } from './sse'
 
@@ -38,21 +44,46 @@ async function errorText(res: Response): Promise<string> {
   }
 }
 
-export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null } = {}) {
+type ApiOptions = {
+  demoKey?: string | null
+  /** Called on any 401 outside login/signup: the session is gone, so the app should show the sign-in page. */
+  onUnauthorized?: () => void
+}
+
+export function createApi(fetchImpl: FetchLike, opts: ApiOptions = {}) {
   const keyHeader: Record<string, string> = opts.demoKey ? { 'X-Demo-Key': opts.demoKey } : {}
-  async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  async function fail(res: Response, path: string): Promise<never> {
+    if (res.status === 401 && !/^\/auth\/(login|signup)$/.test(path)) opts.onUnauthorized?.()
+    throw new ApiError(res.status, await errorText(res))
+  }
+  async function send(path: string, init?: RequestInit): Promise<Response> {
     const res = await fetchImpl(`/api${path}`, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...keyHeader, ...(init?.headers ?? {}) },
     })
-    if (!res.ok) throw new ApiError(res.status, await errorText(res))
-    return (await res.json()) as T
+    return res.ok ? res : fail(res, path)
+  }
+  async function json<T>(path: string, init?: RequestInit): Promise<T> {
+    return (await (await send(path, init)).json()) as T
   }
   const post = <T>(path: string, body: unknown) => json<T>(path, { method: 'POST', body: JSON.stringify(body) })
   const s = (id: string) => `/stores/${encodeURIComponent(id)}`
 
   return {
     health: () => json<Health>('/health'),
+    signup: (req: SignupRequest) => post<{ user: User }>('/auth/signup', req),
+    login: (req: LoginRequest) => post<{ user: User }>('/auth/login', req),
+    async logout(): Promise<void> {
+      await send('/auth/logout', { method: 'POST' })
+    },
+    me: () => json<{ user: User }>('/auth/me'),
+    workplaces: () => json<{ workplaces: WorkplaceSummary[] }>('/workplaces'),
+    /** A copy of a demo store, owned by the caller, named "Sample: …" (listed with `sample_of` set). */
+    sampleWorkplace: (template: string) => post<StoreConfig>('/workplaces/sample', { template }),
+    /** A3: a generated business: an owned empty store with its CSV exports previewed server-side. */
+    generatedWorkplace: (req: GeneratedRequest) => post<GeneratedWorkplace>('/workplaces/generated', req),
+    /** A3: that company's files (zip). A plain link; the session cookie rides along. */
+    sampleDataUrl: (id: string) => `/api/workplaces/${encodeURIComponent(id)}/sample-data.zip`,
     createStore: (req: CreateStoreRequest) => post<StoreConfig>('/stores', req),
     getConfig: (id: string) => json<StoreConfig>(`${s(id)}/config`),
     putConfig: (id: string, cfg: StoreConfig) =>
@@ -69,7 +100,7 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
       const form = new FormData()
       form.append('file', file)
       const res = await fetchImpl(`/api${s(id)}/import/${kind}`, { method: 'POST', body: form, headers: keyHeader })
-      if (!res.ok) throw new ApiError(res.status, await errorText(res))
+      if (!res.ok) return fail(res, `${s(id)}/import/${kind}`)
       return (await res.json()) as ImportPreview
     },
     /** Commits an import; v1.4 also returns the commit's warnings (header X-Import-Warning-Count, then GET). */
@@ -79,7 +110,7 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
         headers: { 'Content-Type': 'application/json', ...keyHeader },
         body: JSON.stringify({ mapping, rows }),
       })
-      if (!res.ok) throw new ApiError(res.status, await errorText(res))
+      if (!res.ok) return fail(res, `${s(id)}/import/${kind}/commit`)
       const config = (await res.json()) as StoreConfig
       let warnings: string[] = []
       if (Number(res.headers.get('X-Import-Warning-Count') ?? 0) > 0) {
@@ -107,7 +138,7 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
     /** SSE `state` snapshots until the outreach stops texting. Resolves when the stream closes. */
     async outreachStream(id: string, onState: (st: OutreachState) => void, signal?: AbortSignal) {
       const res = await fetchImpl(`/api${s(id)}/outreach/stream`, { headers: { Accept: 'text/event-stream', ...keyHeader }, signal })
-      if (!res.ok || !res.body) throw new ApiError(res.status, await errorText(res))
+      if (!res.ok || !res.body) return fail(res, `${s(id)}/outreach/stream`)
       await readSSE(res.body, (e) => {
         if (e.event === 'state') onState(e.data as OutreachState)
       })
@@ -122,7 +153,7 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
         body: JSON.stringify(req),
         signal,
       })
-      if (!res.ok || !res.body) throw new ApiError(res.status, await errorText(res))
+      if (!res.ok || !res.body) return fail(res, `${s(id)}/chat`)
       await readSSE(res.body, (raw) => onEvent(raw as ChatEvent))
     },
   }

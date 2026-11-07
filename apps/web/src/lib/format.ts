@@ -34,6 +34,11 @@ export function fmtPct(pct: number): string {
   return `${(Math.round(pct * 10) / 10).toFixed(pct >= 99.95 || pct === 0 ? 0 : 1)}%`
 }
 
+/** Coverage with nothing to cover is "—", not the engine's vacuous 100%. */
+export function fmtCoverage(pct: number, demand: { headcount: number }[]): string {
+  return demand.some((d) => d.headcount > 0) ? fmtPct(pct) : '—'
+}
+
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -45,3 +50,9 @@ export function fmtDayDate(weekStart: string, day: number): { weekday: string; d
 }
 
 export const WEEKDAY_NAMES = WEEKDAYS
+
+/** "Chicago, IL" from a jurisdiction (cities are stored lower-case). */
+export function placeLabel(city: string | null | undefined, state: string | null | undefined): string {
+  const c = city ? city.replace(/\b\w/g, (ch) => ch.toUpperCase()) : ''
+  return [c, state].filter(Boolean).join(', ')
+}

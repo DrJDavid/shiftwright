@@ -4,10 +4,11 @@ import type { Api } from '../api/client'
 import type { OutreachState, SolveResponse } from '../api/protocol'
 import type { LawPack, LawRule, ScheduleMetrics, StoreConfig, ValidationReport } from '../contracts'
 import { checkRules, describeViolation, type RuleCheck } from '../lib/compliance'
-import { fmtDayDate, fmtHours, fmtMoney, fmtPct } from '../lib/format'
+import { fmtCoverage, fmtDayDate, fmtHours, fmtMoney } from '../lib/format'
 import { humanizer } from '../lib/humanize'
 import { minorProtections } from '../lib/minors'
 import { MinorLine } from './MinorLine'
+import { describeConstraint } from '../lib/ruleNames'
 
 type Props = {
   api: Api
@@ -47,7 +48,7 @@ export function ReceiptTab({ api, config, result, lawPack, onValidated }: Props)
       onValidated(await api.validate(config.store.id, result.schedule))
       setValidating(null)
     } catch (e) {
-      setValidating(`Couldn't validate: ${(e as Error).message}`)
+      setValidating(`Couldn't run the compliance check: ${(e as Error).message}`)
     }
   }
   return (
@@ -56,7 +57,7 @@ export function ReceiptTab({ api, config, result, lawPack, onValidated }: Props)
         <span className="text-sm text-ink-2">A printable record of what this week's schedule was checked against.</span>
         {!result.validation && (
           <button type="button" onClick={() => void validate()} className="rounded-md border border-rule px-3 py-1.5 text-sm font-semibold hover:border-ink">
-            {validating ?? 'Run the validator'}
+            {validating ?? 'Run the compliance check'}
           </button>
         )}
         <button type="button" onClick={() => window.print()} className="ml-auto rounded-md bg-ink px-3.5 py-1.5 text-sm font-semibold text-white">
@@ -126,16 +127,16 @@ function Receipt({
         <div
           className={`rounded-md border-2 p-3 ${!validation ? 'border-warn text-warn' : validation.passed ? 'border-pine text-pine-dark' : 'border-gap text-gap'}`}
         >
-          <div className="text-xs font-semibold tracking-wide uppercase">Independent validator</div>
+          <div className="text-xs font-semibold tracking-wide uppercase">Independent compliance check</div>
           <div className="text-xl font-bold">{!validation ? 'Not run' : validation.passed ? 'Passed' : 'Did not pass'}</div>
           {validation && (
             <div className="text-sm">
               {plural(validation.hard_count, 'hard violation')} · {plural(soft.length, 'soft cost')}
             </div>
           )}
-          <p className="mt-1 text-xs text-ink-2">Re-checks every shift against the law pack and store rules, separately from the solver.</p>
+          <p className="mt-1 text-xs text-ink-2">Re-checks every shift against the labor rules and store rules, separately from the scheduler.</p>
         </div>
-        <MetricsTable claimed={schedule.metrics ?? null} recomputed={m ?? null} />
+        <MetricsTable claimed={schedule.metrics ?? null} recomputed={m ?? null} demand={config.demand} />
       </section>
 
       {hard.length > 0 && (
@@ -207,7 +208,7 @@ function Receipt({
               const vs = (validation?.violations ?? []).filter((v) => v.constraint_id === c.id)
               return (
                 <tr key={c.id} className="border-t border-rule-soft align-top">
-                  <td className="py-1 pr-2">{c.note || c.kind}</td>
+                  <td className="py-1 pr-2">{describeConstraint(c, config)}</td>
                   <td className="py-1 pr-2 whitespace-nowrap">
                     {c.strength === 'hard' ? 'Hard' : `Soft, ${fmtMoney(c.weight_dollars ?? 0)}`}
                   </td>
@@ -229,7 +230,7 @@ function Receipt({
           </tbody>
         </table>
         {softCost.size === 0 && soft.length > 0 && (
-          <p className="mt-1 text-xs text-muted">Per-rule soft costs come from the solver's soft violations; this schedule lists none, so soft items are counted from the validator.</p>
+          <p className="mt-1 text-xs text-muted">Per-rule soft costs come from the scheduler's soft violations; this schedule lists none, so soft items are counted from the compliance check.</p>
         )}
       </section>
 
@@ -237,11 +238,11 @@ function Receipt({
         <H>Premium pay and overtime</H>
         {m ? (
           <p>
-            Premium pay {fmtMoney(m.premium_pay_dollars ?? 0, { cents: true })} · overtime {fmtHours(m.overtime_hours)} (validator, included in wage cost{' '}
+            Premium pay {fmtMoney(m.premium_pay_dollars ?? 0, { cents: true })} · overtime {fmtHours(m.overtime_hours)} (compliance check, included in wage cost{' '}
             {fmtMoney(m.total_wage_cost)}).
           </p>
         ) : (
-          <p className="text-warn">Run the validator to report premiums.</p>
+          <p className="text-warn">Run the compliance check to report premiums.</p>
         )}
         <p className="text-xs text-muted">Premiums are reported as a weekly total; an itemised list by rule and employee isn't available from the server yet.</p>
       </section>
@@ -249,8 +250,8 @@ function Receipt({
       <CallOutRepairs config={config} outreach={outreach} />
 
       <footer className="mt-6 border-t border-rule pt-2 text-[11px] text-muted">
-        Every number here comes from the validator's recomputation, the store's settings, or a direct count of the schedule's shifts. Law text and
-        links come from the law pack; check the linked sources before relying on them.
+        Every number here comes from the compliance check's recomputation, the store's settings, or a direct count of the schedule's shifts. Law text and
+        links come from the labor rules on file; check the linked sources before relying on them.
       </footer>
     </article>
   )
@@ -305,13 +306,21 @@ function RuleBlock({ c, config }: { c: RuleCheck; config: StoreConfig }) {
   )
 }
 
-function MetricsTable({ claimed, recomputed }: { claimed: ScheduleMetrics | null; recomputed: ScheduleMetrics | null }) {
+function MetricsTable({
+  claimed,
+  recomputed,
+  demand,
+}: {
+  claimed: ScheduleMetrics | null
+  recomputed: ScheduleMetrics | null
+  demand: { headcount: number }[]
+}) {
   const rows: [string, (x: ScheduleMetrics) => string][] = [
     ['Paid hours', (x) => `${fmtHours(x.budget_hours_used)} of ${fmtHours(x.budget_hours_cap)} cap`],
     ['Wage cost (incl. overtime)', (x) => fmtMoney(x.total_wage_cost)],
     ['Overtime hours', (x) => fmtHours(x.overtime_hours)],
     ['Premium pay', (x) => fmtMoney(x.premium_pay_dollars ?? 0, { cents: true })],
-    ['Coverage', (x) => fmtPct(x.coverage_pct)],
+    ['Coverage', (x) => fmtCoverage(x.coverage_pct, demand)],
     ['Uncovered (gap) cost', (x) => fmtMoney(x.gap_penalty_dollars)],
     ['Soft-rule cost', (x) => fmtMoney(x.soft_penalty_dollars)],
   ]
@@ -320,8 +329,8 @@ function MetricsTable({ claimed, recomputed }: { claimed: ScheduleMetrics | null
       <thead>
         <tr className="text-left text-xs text-muted">
           <th className="py-0.5 font-medium" />
-          <th className="py-0.5 text-right font-medium">Solver reported</th>
-          <th className="py-0.5 text-right font-medium">Validator recomputed</th>
+          <th className="py-0.5 text-right font-medium">Scheduler reported</th>
+          <th className="py-0.5 text-right font-medium">Compliance check</th>
         </tr>
       </thead>
       <tbody>

@@ -4,7 +4,7 @@ import { WEEKDAY_NAMES } from './format'
 
 /** contracts ROLE_TAGS (v1.5) → friendly names. Unknown tags fall back to the tag with spaces. */
 export const ROLE_TAG_LABEL: Record<string, string> = {
-  powered_industrial_truck: 'Forklift / powered truck',
+  powered_industrial_truck: 'Forklift / powered industrial truck',
   meat_slicer: 'Meat slicer',
   bakery_machine: 'Bakery machine',
   baler_compactor: 'Baler / compactor',

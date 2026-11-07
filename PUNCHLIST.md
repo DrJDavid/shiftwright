@@ -16,14 +16,18 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
   push `main`; tell the other workers to rebase. Never force-push. Update the status board below.
 - No one edits files in the main checkout's working tree except the coordinator.
 
-## Status board (05:25)
+## Status board (06:40, Cursor coordinator)
 
 | Task | State |
 |---|---|
-| C1 fix-plan G1–G3, C2 split shifts, D1 minor hazard rules, E1 food exports | **merged** |
+| C1 fix-plan G1–G3 (+G4), C2 split shifts, D1 minor hazard rules, E1 food exports, E4 dataset builder | **merged** |
 | Plain-language role priorities, chat setup fixes (Claude Code) | **merged** (`7304274`, `80e21fc`) |
-| A1 auth, A3 generated businesses, B1 web shell, E2 rescore, E4 dataset builder | on branches, need rebase onto `main` + review |
-| A2, B2–B7, C3, E3 | not started |
+| A1 auth, A2 basics, A3 generated businesses, B1–B6 web shell + B4 QA bugs | **merged** 06:40, deployed (`DEMO_KEY` removed, `AUTH_SECRET` set) |
+| B7 autopilot sample business | **merged** 06:50, deployed |
+| E2 rescore real-quick-2 (Shiftwright 6/6 clean, S legal_trap CA feasible) | **merged** |
+| C3 coverage-first (`cursor/C3-coverage-first`) | running, deadline 10:00 — **scope revised 07:30, see `briefs/C3-coverage-first.md`** |
+| `claude/import-journey` (Claude Code): importer learns job code ↔ title, abbreviation matching, imported roles priced Important, HHMM times; rule capture (firm vs preference from wording, no $ weights, short names); incomplete rules refused / set aside at solve; journey test `packages/evals/tests/test_journey_import.py` | **READY TO MERGE** `c052006` (API 85 passed, journey 6/6) |
+| C3b, C3c, E3 | not started (E3 needs David's OK) |
 
 ## How to run these with Cursor
 
@@ -215,6 +219,12 @@ under the max. **Done when:** S legal_trap CA solves feasible with 0 hard violat
 `max_shifts_per_day=2` there), the validator's `audit_engine.py` passes on it, all engine tests green.
 
 ### C3. Coverage first, then cost (M–L, after C2) — **deadline 10:00**, else keep current behavior for the demo
+
+> **REVISED 07:30 — the C3 agent must read [`briefs/C3-coverage-first.md`](briefs/C3-coverage-first.md); it
+> supersedes the text below.** David's calls: dollars never decide whether a rule is kept or an hour covered
+> (preferences become a ranked tier too, not just coverage), and when keeping one costs real money or budget,
+> the engine returns the real numbers as `solver_stats.tradeoffs` and the agent asks the manager on an
+> `ask_tradeoff` card. Rule card: Firm rule / Strong preference / Preference / Not a rule (no $ field).
 David's call: money must never decide whether an hour gets covered. Today the objective trades each
 uncovered hour's `gap_penalty_per_hour` against wages, so a cheap enough gap is "worth leaving". Make it
 **lexicographic**:

@@ -21,7 +21,11 @@ class Settings:
     card_timeout_s: float = 30 * 60
     web_dist: str = ""
     sms_allowlist: list[str] = field(default_factory=list)  # SMS_ALLOWLIST + DEMO_PHONE_1/2; Twilio texts only these
-    demo_key: str = ""  # DEMO_KEY: if set, mutating /api/stores* routes need header X-Demo-Key
+    demo_key: str = ""  # DEMO_KEY: only when auth is off; mutating /api/stores* routes need header X-Demo-Key
+    # AUTH_REQUIRED: from_env defaults to True (every real server). In-process harnesses that build Settings
+    # directly (import packs, evals) keep the open API unless they ask for auth.
+    auth_required: bool = False
+    auth_secret: str = ""  # AUTH_SECRET: HMAC key for the session-token digests stored in the db
     max_texts_per_store_hour: int = 20
     mock_autoreply: str = "off"  # off | script | prob (from_env: default "script" when MESSENGER=mock)
     mock_reply_delay_s: float = 4.0
@@ -46,6 +50,8 @@ class Settings:
                 [env("SMS_ALLOWLIST") or "", env("DEMO_PHONE_1") or "", env("DEMO_PHONE_2") or ""]).split(",")
                 if p.strip()],
             demo_key=(env("DEMO_KEY") or "").strip(),
+            auth_required=(env("AUTH_REQUIRED") or "true").strip().lower() not in ("0", "false", "no", "off"),
+            auth_secret=env("AUTH_SECRET") or "",
             max_texts_per_store_hour=int(env("MAX_TEXTS_PER_STORE_HOUR") or 20),
             mock_autoreply=(env("MOCK_AUTOREPLY") or "script").strip().lower(),
             mock_reply_delay_s=float(env("MOCK_REPLY_DELAY_S") or 4),

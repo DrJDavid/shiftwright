@@ -71,10 +71,16 @@ def active_stubs() -> list[str]:
 
 # --------------------------------------------------------------------------- #
 def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Schedule | None = None) -> Schedule:
+    from .rules import usable
+
+    config, notes = usable(config)  # an incomplete rule is set aside with a note, never a failed build
     fn = _lookup(_SOLVE)
-    if fn:
-        return fn(config, time_limit_s=time_limit_s, previous=previous)
-    return _stub_solve(config)
+    sched = fn(config, time_limit_s=time_limit_s, previous=previous) if fn else _stub_solve(config)
+    if notes:
+        stats = dict(sched.solver_stats or {})
+        stats["notes"] = list(stats.get("notes") or []) + notes
+        sched = sched.model_copy(update={"solver_stats": stats})
+    return sched
 
 
 def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:

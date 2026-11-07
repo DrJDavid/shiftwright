@@ -29,7 +29,14 @@ CREATE TABLE IF NOT EXISTS kv (
   updated_at TEXT NOT NULL, PRIMARY KEY (store_id, kind, key));
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY, store_id TEXT, direction TEXT NOT NULL, message_json TEXT NOT NULL, at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE COLLATE NOCASE, name TEXT NOT NULL, pw_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
 """
+# Columns added after the first deploy: (table, column, type). Added on open when missing.
+MIGRATIONS = [("stores", "owner_id", "TEXT"), ("stores", "sample_of", "TEXT")]
 
 
 def now_iso() -> str:
@@ -46,6 +53,10 @@ class ConfigInvalid(ValueError):
         self.errors = errors
 
 
+class EmailTaken(ValueError):
+    pass
+
+
 class Database:
     def __init__(self, path: str):
         if path != ":memory:":
@@ -53,6 +64,10 @@ class Database:
         self._conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(SCHEMA)
+        for table, col, typ in MIGRATIONS:
+            if col not in {r[1] for r in self._conn.execute(f"PRAGMA table_info({table})")}:
+                self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+        self._conn.execute("CREATE INDEX IF NOT EXISTS stores_owner ON stores(owner_id)")
         self._lock = threading.RLock()
 
     def _q(self, sql: str, args: tuple = ()) -> list[sqlite3.Row]:
@@ -60,15 +75,68 @@ class Database:
             return self._conn.execute(sql, args).fetchall()
 
     # -- stores -------------------------------------------------------------- #
-    def create_store(self, config: StoreConfig, actor: str = "system") -> StoreConfig:
+    def create_store(self, config: StoreConfig, actor: str = "system", owner_id: Optional[str] = None,
+                     sample_of: Optional[str] = None) -> StoreConfig:
         ts = now_iso()
         with self._lock:
             self._conn.execute(
-                "INSERT INTO stores VALUES (?,?,?,?,?)",
-                (config.store.id, config.model_dump_json(), config.config_version, ts, ts),
+                "INSERT INTO stores (id, config_json, config_version, created_at, updated_at, owner_id, sample_of)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (config.store.id, config.model_dump_json(), config.config_version, ts, ts, owner_id, sample_of),
             )
             self._audit(config.store.id, config.config_version, "create_store", {}, actor)
         return config
+
+    def store_owner(self, store_id: str) -> Optional[str]:
+        """Owner's user id; NotFound if there is no such store (unowned legacy stores return None)."""
+        rows = self._q("SELECT owner_id FROM stores WHERE id=?", (store_id,))
+        if not rows:
+            raise NotFound(store_id)
+        return rows[0][0]
+
+    def workplaces(self, owner_id: str) -> list[dict]:
+        rows = self._q(
+            "SELECT s.id, s.config_json, s.updated_at, s.sample_of,"
+            " EXISTS(SELECT 1 FROM schedules h WHERE h.store_id = s.id)"
+            " FROM stores s WHERE s.owner_id=? ORDER BY s.updated_at DESC, s.created_at DESC", (owner_id,))
+        out = []
+        for sid, cfg_json, updated_at, sample_of, has_schedule in rows:
+            store = json.loads(cfg_json)["store"]
+            j = store.get("jurisdiction") or {}
+            out.append(dict(id=sid, name=store.get("name", ""), sector=store.get("sector"), city=j.get("city"),
+                            state=j.get("state"), updated_at=updated_at, has_schedule=bool(has_schedule),
+                            sample_of=sample_of))
+        return out
+
+    # -- users + sessions ----------------------------------------------------- #
+    def create_user(self, user_id: str, email: str, name: str, pw_hash: str) -> dict:
+        try:
+            self._q("INSERT INTO users VALUES (?,?,?,?,?)", (user_id, email, name, pw_hash, now_iso()))
+        except sqlite3.IntegrityError as e:
+            raise EmailTaken(email) from e
+        return dict(id=user_id, email=email, name=name)
+
+    def user_by_email(self, email: str) -> Optional[dict]:
+        rows = self._q("SELECT id, email, name, pw_hash FROM users WHERE email=?", (email,))
+        return dict(zip(("id", "email", "name", "pw_hash"), rows[0])) if rows else None
+
+    def create_session(self, token_key: str, user_id: str, expires_at: datetime) -> None:
+        self._q("INSERT INTO sessions VALUES (?,?,?,?)", (token_key, user_id, now_iso(), expires_at.isoformat()))
+
+    def session_user(self, token_key: str) -> Optional[dict]:
+        """The signed-in user for a session-token digest, or None (expired sessions are deleted)."""
+        rows = self._q("SELECT u.id, u.email, u.name, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id"
+                       " WHERE s.token=?", (token_key,))
+        if not rows:
+            return None
+        uid, email, name, expires_at = rows[0]
+        if datetime.fromisoformat(expires_at) <= datetime.now(timezone.utc):
+            self.delete_session(token_key)
+            return None
+        return dict(id=uid, email=email, name=name)
+
+    def delete_session(self, token_key: str) -> None:
+        self._q("DELETE FROM sessions WHERE token=?", (token_key,))
 
     def get_config(self, store_id: str) -> StoreConfig:
         rows = self._q("SELECT config_json FROM stores WHERE id=?", (store_id,))

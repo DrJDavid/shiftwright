@@ -1,24 +1,174 @@
 # WS7 status
 
-_Updated Sat Nov 7, slice 8 (demo moments). Rebased on main 087b6fd._day)._day not yet)._
+_Updated Sat Nov 7, Lane B (PUNCHLIST B1–B7), branch `cursor/B7-autopilot` = B1 branch + `cursor/A3-generated` +
+main. B1–B6 verified against the real A1 backend (see "Real-backend check"); B7's client logic is tested against the
+mock (no fake-LLM mode exists, so a real agent run isn't possible locally)._
 
 ## How David runs it locally
 
-From the repo root, after `make install` once: `make dev`, then open **http://localhost:5173/?demo**
-(`?demo=chicago|seattle|sf` once WS6 ships those templates). `make dev-api` now loads `.env` itself.
+From the repo root, after `make install` once: `make dev`, then open **http://localhost:5173/**. Sign up (or sign
+in), then **New workplace** (name, kind of business, city/state) or **Or explore a sample workplace**. In a
+workplace, **My workplaces ▾** (top right) switches workplaces, makes a new one, opens a sample, or signs out.
+Click **Build schedule** (about 20–30 s), then use the tabs.
 
-In the app: **Store ▾** (top right) lists the demo stores the server has (`GET /api/templates`: Austin, Chicago, Seattle, SF) or starts an empty one. Click **Build schedule**
-(about 20–30 s), then use the tabs. Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock&demo.
+Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock. The mock keeps accounts and
+workplaces in memory, so a page reload signs you out (sign up again; any email + 8-character password).
+
+## Routes (B1)
+
+| Path | Page | Signed out |
+|---|---|---|
+| `/` | Landing: headline, three proof points, Get started / Sign in | shown |
+| `/signup`, `/login` | Forms with inline errors (409 → "already exists" on the email field, 401 → "Wrong email or password.") | shown; signed in → `/workplaces` |
+| `/workplaces` | My workplaces (sample copies listed separately under "Explore a sample") | → `/login` |
+| `/workplaces/new` | Create a workplace (B2); signup lands here | → `/login` |
+| `/w/:id` | The workspace (old `App.tsx`, now `src/Workspace.tsx`); 404 → "Workplace not found" | → `/login`, then back here |
+
+- Session check: `GET /api/auth/me` once on load (`src/auth/AuthProvider.tsx`). Any later 401 from the API (expired
+  session) signs the page out and sends you to `/login` with a return path; **Sign out** goes to `/login` without one.
+- Live fetches use `credentials: 'include'` (cookie `sw_session`). The FastAPI static handler already falls back to
+  `index.html`, so deep links like `/w/<id>` work in production.
+- The auto-create-a-store bootstrap and `?demo` are gone; nothing is created until you ask. `sw.storeId.<mode>` is still
+  written when a workplace opens (the phone view `?employee=` falls back to it).
+- Production builds are always live (unless built with `VITE_API_MODE=mock`): no "Mock API" pill, no `?api=mock` hints,
+  and the mock + fixtures are tree-shaken out (main chunk 2.6 MB → 467 kB). `npm run dev` keeps `?api=mock|live`.
+
+## Guided setup (B4)
+
+- `/w/:id` is in **setup mode** until `GET /schedule` returns a schedule: a step tracker on the left and the chat
+  centered (max 3xl). No tabs. Once a schedule exists (Build, or the agent's own solve via `onScheduleChanged`) it
+  switches to **workspace mode**; the chat becomes the **Ask Shiftwright** drawer. The `ChatPane` keeps its place in
+  the tree, so the conversation survives the switch (tested).
+- Steps (`src/lib/setupSteps.ts`, tested) use the check ids from `apps/api/.../readiness.py`:
+  Business = `store_basics`, `jurisdiction`, `business_type`; Hours & budget = `budget`; Team = `roles`, `employees`,
+  `training`, `equipment_roles`, `minors_on_tagged_roles`, `minimum_wage`; Staffing = `demand`, `priorities`,
+  `roles_without_demand`, `staffing_draft`; Rules = `provisional_rules` (+ any id the map doesn't know). A step is
+  done when all its checks are `ok`; `severity: warn` shows "!" (attention). Hover/focus shows each check's detail;
+  the current step shows its first open detail inline. Team carries the Is equipment / Not equipment buttons.
+- **Build my schedule** is enabled when `ready`; otherwise it's disabled with "Build anyway" and a one-line warning.
+- The mock's readiness now emits the same ids (it used `law_pack` for `jurisdiction`) with `severity`.
+
+## Workspace mode (B5)
+
+- Tabs: **Schedule** (stats + week grid; a "Week / Coverage by hour" toggle shows the heatmap; clicking a day header
+  opens that day's coverage) · **Call-outs** (the Fix tab, still kept mounted so outreach survives tab switches) ·
+  **Team & rules** (Store tab + a Rules column with the rulebook and the equipment-role review) · **Compliance** (receipt).
+  The right-hand readiness rail is gone (`ReadinessRail.tsx` removed; setup checks live in setup mode).
+- Header: workplace name, location, week, and the My workplaces menu (plus the dev-only Mock API pill).
+- Call-in shifts get a **Call-in** badge in the grid and "Call-in: covering a call-out" in the shift detail. The
+  contracts have no call-in field: this keys off the engine's shift id suffix `-callin` (packages/engine fix.py);
+  the mock now uses the same suffix. A contract field would be safer.
+
+## Sample business + autopilot (B7)
+
+- `/workplaces/new` (now two columns): the create form, and **Try it with a sample business** with Restaurant /
+  Retail store cards and **More options** (city, state, size S/M, difficulty Clean · Tight budget · Legal traps ·
+  Messy exports → `easy` / `tight` / `legal_trap` / `messy`, seed). One click → `POST /api/workplaces/generated`
+  → `/w/:id` with the kickoff in the navigation state (taken once, then cleared so a reload doesn't resend).
+  429 → a plain "try again in a little while"; other errors show the server's detail.
+- The chat sends the kickoff once on open (deferred a tick so StrictMode doesn't double-send or abort it) as the
+  user message with `attachments: [{kind}]`, and shows the files as chips ("roster.csv · 18 rows").
+- `csv_import` cards that carry the server's `preview` answer `{mapping}` (the server commits the cached upload);
+  choosing another file falls back to the old upload + commit.
+- New `confirm_tags` card (Keep / Remove per role, nothing preselected; minors trained there are listed).
+- **Autopilot** (`lib/autopilot.ts`, `components/AutopilotFrame.tsx`): on by default for generated workplaces
+  (kickoff present, or `sample_of: "generated"` in `/workplaces`), off for real ones; toggle "Autopilot on ·
+  Pause" / "Autopilot off · Turn on" in a thin chat header. Routine cards (`csv_import`, `store_basics`,
+  `payroll`, `roles`, `training_matrix`, `department_staffing`, `events`) get a ring and a "Looks right,
+  continuing… 2" countdown, then autopilot clicks the card's own submit button (so each card's validation and
+  result shape apply unchanged). A disabled submit stops it there ("this card needs your input"). Any pointer
+  down, click or key press inside the card hands it back for good. `confirm_tags`, `propose_rule`, `tradeoff`,
+  `conflict_menu` (and `coverage_grid`, `employee_availability`) never auto-submit.
+- When setup mode's readiness is `ready` and the chat is idle, the chat ends with "Setup is done. Build the week
+  now?" + **Build my schedule** (one click → schedule).
+- **Download this company's files** (the A3 zip) in the chat header for generated workplaces (hidden in mock mode).
+- Mock: `POST /workplaces/generated` (400 on bad values) makes an empty store whose cached roster / training /
+  forecast previews commit the tiny fixture's employees, training and demand; chat imports attached kinds first,
+  then a `confirm_tags` decision (generated stores only), then the usual basics → payroll → staffing. The mock
+  has no law data, so its `jurisdiction` check now warns instead of blocking (the real API still blocks).
+- Checked against the real A3 route (curl): response keys, kickoff attachments (all five kinds), `sample_of:
+  "generated"`, 400 on a bad sector all match.
+
+## Real-backend check (A1 merged)
+
+Ran the API with `AUTH_REQUIRED=true MESSENGER=mock`, no OpenRouter key, serving the built web app (port 8011,
+throwaway sqlite). Browser: signed-out `/workplaces` → `/login`; signup → `/workplaces/new`; Harbor Grill (Restaurant,
+Chicago, IL) saved with `sector: food`, `jurisdiction {IL, chicago}`, template `empty` → setup mode with the real
+readiness ids (all known to the step map); chat SSE `POST /chat` 200 with the cookie (agent replies "OPENROUTER_API_KEY is
+not set" as expected); CSV drop → `POST /import/roster` 200 preview; build → workspace tabs. curl: second user gets
+404 on the first user's store (config and chat) and an empty `/workplaces`; sample copies list `sample_of: "demo"`;
+409 duplicate email (case-insensitive), 422 short password, 401 "Wrong email or password.", logout 204 → `/me` 401.
+- Samples are detected by `sample_of` (no longer the "Sample: " prefix). The mock matches.
+
+## B4 QA bugs (fixed)
+
+- Build is disabled until readiness `employees`, `training` and `demand` pass, with one line saying what's missing
+  ("To build a schedule, first add your team, who can work each role and …"); no "Build anyway" then. "Build anyway"
+  only appears when those three pass but other checks don't.
+- Coverage with no demand shows "—" (`fmtCoverage`, schedule stats and the compliance table), not 100%.
+- Every new workplace is created with template `empty` (tested); `VITE_STORE_TEMPLATE` is gone; the mock's default is
+  `empty` too.
+
+## Plain language (B6)
+
+- Rule names come from data the app already has (`src/lib/ruleNames.ts`, tested): law rules by their law-pack
+  `summary`; store rules by their `note`, else a sentence built from their own params; role tags by `ROLE_TAG_LABEL`
+  (`lib/vocab.ts`, mirroring the `ROLE_TAGS` comments in contracts). Inline prose (setup step details) swaps law ids
+  for "Chicago minimum wage rule" (place + type from the rule itself), tag ids for labels, "N-min slots" for
+  "N-minute time blocks".
+- The conflict menu lists involved rules by name (tested); the gap sheet, receipt and store rules show the
+  constraint description instead of `kind`; minor-protection lines name the law rule instead of its id. Law
+  citations and links are unchanged.
+- Copy: "validator" → "compliance check", "law pack" → "labor rules", "the engine/solver" → "Shiftwright",
+  "slot" → "time block". Engine numbers and reasons are untouched; only labels changed.
+- Still raw on purpose: rule ids in the Fix tab's premium line fall back to the id only when the rule isn't in the
+  loaded law pack.
+
+## Assumptions about the backend (Lane A)
+
+- Exactly the A1 table: `POST /api/auth/signup {email,password,name}` → `{user}`; `POST /api/auth/login` → `{user}`, 401
+  on bad credentials; `POST /api/auth/logout` → 204; `GET /api/auth/me` → `{user}` or 401; `GET /api/workplaces` →
+  `{workplaces:[{id,name,sector,city,state,updated_at,has_schedule}]}`; `POST /api/workplaces/sample {template}` →
+  `StoreConfig` named "Sample: …".
+- Samples are recognised by `sample_of` (A1).
+- `POST /api/stores` (template `empty`) is sent `name, sector, business_description` (omitted when blank) and
+  `jurisdiction {state, city}` (city lower-cased, as before). Until A2 lands the server may ignore `sector` /
+  `business_description`.
+- `/api/workplaces/sample` 404/422 → "isn't on this server yet" and the template is hidden for the session.
+- Errors: string `detail` is shown as-is; FastAPI validation arrays get a generic message.
+- Client-side password minimum is 8, matching A1.
+
+## Mock API (accounts)
+
+`src/mock/server.ts`: users + one session (one browser = one cookie jar); signup 422/409, login 401, logout 204, me
+401; stores remember their owner and someone else's store is a 404; `/workplaces` lists mine; `/workplaces/sample`
+copies the Austin fixture (`demo`/`tiny` only) as "Sample: …". Stores created without a session (older tests) stay open.
+
+## Tests
+
+`src/App.test.tsx` (jsdom + Testing Library, MemoryRouter over the mock): signed-out redirect to `/login` from
+`/workplaces`, `/workplaces/new`, `/w/:id`; landing creates no store; signup inline errors → `/workplaces/new`; taken
+email; wrong password; create-workplace required fields; create posts `{template: empty, name, sector, business_description,
+jurisdiction}` and opens `/w/:id` with the switcher listing it checked; explore a sample. `src/mock/mock.test.ts`: mock
+accounts + ownership. Plus setup steps, call-in badge, rule names, conflict-menu names, and the setup → workspace
+switch (chat survives). B7: `components/ChatPane.test.tsx` (kickoff with attachments + chips, autopilot submit,
+user interrupt, Pause, decision card never auto), `lib/autopilot.test.ts`, and an App test where one click on
+Restaurant reaches a built schedule with the user answering only the tags decision. 61 tests total; `npm run build`, `npm run lint`, `npm test` clean.
+
+## Next (Lane B)
+
+- A contract field for call-in shifts (today keyed off the `-callin` id suffix).
+- B7 with a real agent: rehearse on the deployed URL (needs the OpenRouter key); watch that the agent's card
+  order matches the kickoff's import order and that it offers the build at the end.
 
 ## Running it (details)
 
-- Live API (default now): start the API, then `API_PORT=8017 npm run dev -- --port 5177` (proxy port defaults to 8000).
-- `?api=mock` switches to the in-browser mock (remembered in localStorage; `?api=live` to go back; `VITE_API_MODE=mock` for a mock default).
+- Live API (default): start the API, then `API_PORT=8017 npm run dev -- --port 5177` (proxy port defaults to 8000).
+- Dev server only: `?api=mock` switches to the in-browser mock (remembered in localStorage; `?api=live` to go back;
+  `VITE_API_MODE=mock` for a mock default).
 - Demo key: `?key=...` (remembered in localStorage, then removed from the address bar) or `VITE_DEMO_KEY`. Sent as
-  `X-Demo-Key` on every request, including the chat SSE and CSV upload.
+  `X-Demo-Key` on every request, including the chat SSE and CSV upload. (A1 removes DEMO_KEY when auth is on.)
 - `?gallery` (dev server only): every card with sample props from the WS4 demo fixture, for visual QA.
-- On first load the app creates a store (`POST /api/stores`, template `bigbox_mid`, `VITE_STORE_TEMPLATE` to override) and
-  remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
 

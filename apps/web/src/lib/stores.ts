@@ -1,29 +1,39 @@
-// Creating stores: empty template, or a demo store per locality (API v1.2 fixture templates).
-import { api, apiMode } from '../api'
-import { ApiError } from '../api/client'
-import type { StoreConfig } from '../contracts'
-import { demoFor } from './demoStore'
+// Workplaces: the sample templates a user can explore, and the fields of a new workplace.
+import { useEffect, useState } from 'react'
+import { apiMode } from '../api'
+import type { Api } from '../api/client'
+import type { WorkplaceSummary } from '../api/protocol'
+import type { Sector } from '../contracts'
 
+/** Last workplace opened in this mode; the phone-sized employee view falls back to it. */
 export const STORE_KEY = `sw.storeId.${apiMode}`
 
-export type Locality = { id: string; label: string; template: string }
+export function rememberStore(id: string) {
+  try {
+    localStorage.setItem(STORE_KEY, id)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export type SampleTemplate = { template: string; label: string }
 
 /**
- * WS4 builds these; WS6 exposes them as templates. Austin is `demo` (v1.2); the others are `demo_<id>`.
+ * Built-in list for servers without `GET /api/templates` (and the mock, which only has Austin).
  * No law claims here: the rulebook shows each store's law pack with citations.
  */
-export const LOCALITIES: Locality[] = [
-  { id: 'austin', label: 'Austin, TX', template: 'demo' },
-  { id: 'chicago', label: 'Chicago, IL', template: 'demo_chicago' },
-  { id: 'seattle', label: 'Seattle, WA', template: 'demo_seattle' },
-  { id: 'sf', label: 'San Francisco, CA', template: 'demo_sf' },
-  { id: 'restaurant', label: 'Harbor Grill #12, Chicago IL', template: 'demo_restaurant' },
+const LOCALITIES: SampleTemplate[] = [
+  { template: 'demo', label: 'Austin, TX' },
+  { template: 'demo_chicago', label: 'Chicago, IL' },
+  { template: 'demo_seattle', label: 'Seattle, WA' },
+  { template: 'demo_sf', label: 'San Francisco, CA' },
+  { template: 'demo_restaurant', label: 'Harbor Grill #12, Chicago IL' },
 ]
 
 const MISSING_KEY = 'sw.missingTemplates'
 
-/** Templates the server rejected this session (not built yet), so the menu can hide them. */
-export function missingTemplates(): Set<string> {
+/** Templates the server rejected this session (not built yet), so the menus can hide them. */
+function missingTemplates(): Set<string> {
   try {
     return new Set(JSON.parse(sessionStorage.getItem(MISSING_KEY) ?? '[]') as string[])
   } catch {
@@ -31,7 +41,7 @@ export function missingTemplates(): Set<string> {
   }
 }
 
-function markMissing(t: string) {
+export function markMissing(t: string) {
   const s = missingTemplates()
   s.add(t)
   try {
@@ -41,54 +51,54 @@ function markMissing(t: string) {
   }
 }
 
-export class TemplateMissing extends Error {}
-
-const EMPTY = {
-  template: (import.meta.env.VITE_STORE_TEMPLATE as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid',
-  name: 'Store #0417',
-  jurisdiction: { state: 'TX', city: 'austin' },
+function sampleLabel(label: string): string {
+  const staff = label.match(/\((\d+ staff)\)$/)
+  return label.replace(/\s*\(\d+ staff\)$/, '') + (staff ? ` · ${staff[1]}` : '')
 }
 
-export type BlankStore = { name: string; state: string; city: string }
-
-/**
- * `template` = "empty" (big-box roles, legacy default), "blank" (no roles: any business, set up in chat; needs
- * `blank`), or a demo template ("demo", "demo_chicago", …). Remembers the new store id.
- */
-export async function createStore(template: string, blank?: BlankStore): Promise<StoreConfig> {
-  let cfg: StoreConfig
-  if (template === 'blank' && blank) {
-    cfg = await api.createStore({
-      template: 'empty',
-      name: blank.name.trim() || 'My business',
-      jurisdiction: { state: blank.state.trim().toUpperCase(), city: blank.city.trim() ? blank.city.trim().toLowerCase() : null },
-    })
-  } else if (template === 'empty') {
-    cfg = await api.createStore(EMPTY)
-  } else {
-    try {
-      cfg = await api.createStore({ template: template as `demo_${string}` })
-    } catch (e) {
-      const unknown = e instanceof ApiError && (e.status === 404 || e.status === 422)
-      if (!unknown) throw e
-      if (template !== 'demo') {
-        markMissing(template)
-        throw new TemplateMissing(`That demo store isn't on this server yet.`)
-      }
-      // API older than v1.2: load the bundled Austin fixture with a full-config PUT.
-      cfg = await api.createStore(EMPTY)
-      cfg = await api.putConfig(cfg.store.id, demoFor(cfg.store.id))
+/** Demo templates this server can copy into a sample workplace (v1.4 `GET /api/templates`). */
+export function useSampleTemplates(api: Api): SampleTemplate[] {
+  const [served, setServed] = useState<SampleTemplate[] | null>(null)
+  useEffect(() => {
+    let live = true
+    api
+      .templates()
+      .then(
+        (r) =>
+          live &&
+          setServed(
+            r.templates
+              .filter((t) => t.id === 'demo' || t.id.startsWith('demo_'))
+              .map((t) => ({ template: t.id, label: sampleLabel(t.label) })),
+          ),
+      )
+      .catch(() => live && setServed(null))
+    return () => {
+      live = false
     }
-  }
-  try {
-    localStorage.setItem(STORE_KEY, cfg.store.id)
-  } catch {
-    /* storage unavailable */
-  }
-  return cfg
+  }, [api])
+  if (served) return served
+  const missing = missingTemplates()
+  return LOCALITIES.filter((l) => !missing.has(l.template) && (apiMode === 'live' || l.template === 'demo'))
 }
 
-/** `?demo` → Austin, `?demo=chicago` → that locality's template. */
-export function templateFromDemoParam(v: string): string {
-  return LOCALITIES.find((l) => l.id === v.toLowerCase())?.template ?? 'demo'
-}
+/** Sample copies (A1 `sample_of`) are listed under "Explore a sample", not with your own. */
+export const isSample = (w: WorkplaceSummary) => w.sample_of != null
+
+/** "What kind of business?" → `Store.sector`. */
+export const SECTOR_CHOICES: { sector: Sector; label: string }[] = [
+  { sector: 'food', label: 'Restaurant / café' },
+  { sector: 'retail', label: 'Retail store' },
+  { sector: 'hospitality', label: 'Hotel' },
+  { sector: 'other', label: 'Other' },
+]
+
+export const sectorLabel = (s: Sector | null | undefined) => SECTOR_CHOICES.find((c) => c.sector === s)?.label ?? null
+
+export { placeLabel } from './format'
+
+export const US_STATES = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA',
+  'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR',
+  'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+]

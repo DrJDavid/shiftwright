@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Api } from '../api/client'
-import type { CardType, ChatEvent, ChatMode } from '../api/protocol'
+import type { CardType, ChatEvent, ChatMode, CsvImportKind, Kickoff, KickoffAttachment } from '../api/protocol'
 import { ChatCard } from '../cards'
 import type { CardStatus } from '../cards/CardFrame'
 import type { Sector } from '../contracts'
 import { CardEnvContext } from '../cards/context'
 import { guessKind } from '../cards/csvKind'
+import type { RuleNames } from '../lib/ruleNames'
+import { AUTOPILOT_DELAY_MS, isAutoCard } from '../lib/autopilot'
+import { AutopilotFrame } from './AutopilotFrame'
 
 type Item =
-  | { kind: 'user'; id: number; text: string }
+  | { kind: 'user'; id: number; text: string; files?: KickoffAttachment[] }
   | { kind: 'assistant'; id: number; text: string }
   | {
       kind: 'card'
@@ -36,17 +39,45 @@ type Props = {
   onHide?: () => void
   /** v1.5 Store.sector, so cards can order choices (event kinds). */
   sector?: Sector | null
+  /** Plain names for law/store rule ids (conflict_menu). */
+  ruleNames?: RuleNames
+  /** A3: the generated manager's first message, sent once on open with its attachments. */
+  kickoff?: Kickoff
+  /** B7: on for generated sample businesses, off for real ones. */
+  autopilotDefault?: boolean
+  autopilotDelayMs?: number
+  /** A3 zip of a generated company's files. */
+  downloadUrl?: string
+  /** Setup is complete and nothing is built yet: offer the one-click build. */
+  onBuild?: () => void
 }
 
 const STARTERS = ['Set up my store', 'Build the schedule']
 
-export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide, sector }: Props) {
+export function ChatPane({
+  api,
+  storeId,
+  mode,
+  onConfigChanged,
+  onScheduleChanged,
+  onHide,
+  sector,
+  ruleNames,
+  kickoff,
+  autopilotDefault = false,
+  autopilotDelayMs = AUTOPILOT_DELAY_MS,
+  downloadUrl,
+  onBuild,
+}: Props) {
   const [items, setItems] = useState<Item[]>([])
+  const [autopilot, setAutopilot] = useState(autopilotDefault)
+  /** Cards autopilot has left to the user: they touched it, or it couldn't be submitted as-is. */
+  const [handedBack, setHandedBack] = useState<Record<string, 'user' | 'needs_input'>>({})
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [activity, setActivity] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  const env = useMemo(() => ({ api, storeId, onConfigChanged, sector }), [api, storeId, onConfigChanged, sector])
+  const env = useMemo(() => ({ api, storeId, onConfigChanged, sector, ruleNames }), [api, storeId, onConfigChanged, sector, ruleNames])
   const seq = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -71,8 +102,21 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
         setItems((xs) => {
           const last = xs.at(-1)
           if (!fresh && last?.kind === 'assistant')
-            return [...xs.slice(0, -1), { ...last, text: last.text ? last.text + ev.data.delta : ev.data.delta.replace(/^\s+/, '') }]
-          return [...xs, { kind: 'assistant', id: ++seq.current, text: ev.data.delta.replace(/^\s+/, '') }]
+            return [
+              ...xs.slice(0, -1),
+              {
+                ...last,
+                text: last.text ? last.text + ev.data.delta : ev.data.delta.replace(/^\s+/, ''),
+              },
+            ]
+          return [
+            ...xs,
+            {
+              kind: 'assistant',
+              id: ++seq.current,
+              text: ev.data.delta.replace(/^\s+/, ''),
+            },
+          ]
         })
         break
       }
@@ -106,7 +150,7 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
   const canSend = !busy || openAgentCard
   const turn = useRef(0)
 
-  const send = async (text: string) => {
+  const send = async (text: string, files?: KickoffAttachment[]) => {
     const content = text.trim()
     if (!content || !canSend) return
     if (busy) {
@@ -115,14 +159,31 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
     }
     const myTurn = ++turn.current
     setDraft('')
-    push({ kind: 'user', text: content })
+    push({ kind: 'user', text: content, files })
     newBubble.current = true
     setBusy(true)
     setActivity(null)
     const ctrl = new AbortController()
     abortRef.current = ctrl
     try {
-      await api.chat(storeId, { mode, messages: [{ role: 'user', content }] }, handle, ctrl.signal)
+      const attachments = files?.map((f): { kind: CsvImportKind } => ({
+        kind: f.kind,
+      }))
+      await api.chat(
+        storeId,
+        {
+          mode,
+          messages: [
+            {
+              role: 'user',
+              content,
+              ...(attachments?.length ? { attachments } : {}),
+            },
+          ],
+        },
+        handle,
+        ctrl.signal,
+      )
     } catch (err) {
       if (!ctrl.signal.aborted)
         push({
@@ -133,6 +194,18 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
       if (turn.current === myTurn) setBusy(false)
     }
   }
+
+  // A3 kickoff: deferred a tick so StrictMode's mount/unmount/mount sends it once, and the stream isn't aborted.
+  const kickedOff = useRef(false)
+  useEffect(() => {
+    if (!kickoff || kickedOff.current) return
+    const t = setTimeout(() => {
+      kickedOff.current = true
+      void send(kickoff.message, kickoff.attachments)
+    })
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount
+  }, [kickoff])
 
   const setCard = (cardId: string, patch: Partial<Extract<Item, { kind: 'card' }>>) =>
     setItems((xs) => xs.map((x) => (x.kind === 'card' && x.cardId === cardId ? { ...x, ...patch } : x)))
@@ -208,6 +281,22 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
             Drop a CSV to import it
           </div>
         )}
+        <div className="flex items-center gap-3 border-b border-rule bg-panel px-4 py-1.5 text-xs">
+          <button
+            type="button"
+            aria-pressed={autopilot}
+            onClick={() => setAutopilot((a) => !a)}
+            className={`font-semibold ${autopilot ? 'text-pine-dark' : 'text-muted'} hover:text-ink`}
+            title="Autopilot confirms routine setup cards after a short countdown. Decisions always wait for you."
+          >
+            {autopilot ? 'Autopilot on · Pause' : 'Autopilot off · Turn on'}
+          </button>
+          {downloadUrl && (
+            <a href={downloadUrl} className="ml-auto text-pine-dark underline" download>
+              Download this company's files
+            </a>
+          )}
+        </div>
         <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {items.length === 0 && (
             <div className="pt-6">
@@ -235,6 +324,15 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
               return (
                 <div key={it.id} className="ml-10 rounded-lg bg-ink px-3.5 py-2 text-white">
                   {it.text}
+                  {it.files && it.files.length > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Attached files">
+                      {it.files.map((f) => (
+                        <li key={f.filename} className="rounded bg-white/15 px-2 py-0.5 text-xs font-medium">
+                          {f.filename} · {f.row_count} rows
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )
             if (it.kind === 'assistant' && !it.text) return null
@@ -250,20 +348,40 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
                   {it.text}
                 </p>
               )
+            const auto = !it.local && isAutoCard(it.cardType)
             return (
-              <ChatCard
+              <AutopilotFrame
                 key={it.id}
-                cardId={it.cardId}
-                cardType={it.cardType}
-                props={it.props}
-                status={it.status}
-                result={it.result}
-                initialFile={it.local?.file}
-                onSubmit={(r) => void submitCard(it.cardId, r)}
-                onCancel={() => void submitCard(it.cardId, null, true)}
-              />
+                active={autopilot && auto && it.status === 'open' && !handedBack[it.cardId]}
+                delayMs={autopilotDelayMs}
+                needsInput={autopilot && it.status === 'open' && handedBack[it.cardId] === 'needs_input'}
+                onHandBack={(why) => setHandedBack((h) => ({ ...h, [it.cardId]: why }))}
+              >
+                <ChatCard
+                  cardId={it.cardId}
+                  cardType={it.cardType}
+                  props={it.props}
+                  status={it.status}
+                  result={it.result}
+                  initialFile={it.local?.file}
+                  onSubmit={(r) => void submitCard(it.cardId, r)}
+                  onCancel={() => void submitCard(it.cardId, null, true)}
+                />
+              </AutopilotFrame>
             )
           })}
+          {onBuild && !busy && (
+            <div className="rounded-lg border border-pine/40 bg-pine-wash px-3.5 py-3">
+              <p className="text-sm text-ink">Setup is done. Build the week now?</p>
+              <button
+                type="button"
+                onClick={onBuild}
+                className="mt-2 rounded-md bg-pine px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-pine-dark"
+              >
+                Build my schedule
+              </button>
+            </div>
+          )}
           {busy && !items.some((x) => x.kind === 'card' && x.status !== 'submitted' && x.status !== 'cancelled') && (
             <div className="h-4 w-10 animate-pulse rounded bg-rule" aria-label="Assistant is responding" />
           )}
@@ -290,7 +408,13 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={busy ? (openAgentCard ? 'Or type an answer instead of using the card' : 'Waiting for the current step…') : 'Message Shiftwright'}
+              placeholder={
+                busy
+                  ? openAgentCard
+                    ? 'Or type an answer instead of using the card'
+                    : 'Waiting for the current step…'
+                  : 'Message Shiftwright'
+              }
               disabled={!canSend}
               aria-label="Message"
               className="min-w-0 flex-1 rounded-md border border-rule bg-panel px-3 py-2 focus:border-pine focus:outline-none focus:ring-2 focus:ring-pine/20 disabled:bg-paper"

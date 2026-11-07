@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import type { Schedule, ValidationReport } from '../contracts'
-import { fmtHours, fmtMoney, fmtPct, fmtRange, WEEKDAY_NAMES } from '../lib/format'
+import { fmtCoverage, fmtHours, fmtMoney, fmtRange, WEEKDAY_NAMES } from '../lib/format'
 
-type Props = { schedule: Schedule; validation: ValidationReport | null; employeeName: (id: string) => string }
+type Props = {
+  schedule: Schedule
+  validation: ValidationReport | null
+  employeeName: (id: string) => string
+  demand: { headcount: number }[]
+}
 
-export function ScheduleStats({ schedule, validation, employeeName }: Props) {
+export function ScheduleStats({ schedule, validation, employeeName, demand }: Props) {
   const m = schedule.metrics
   const [open, setOpen] = useState(false)
   if (!m) return null
@@ -31,7 +36,7 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
         <span className="text-xl font-semibold">{fmtMoney(m.total_wage_cost)}</span>
       </Stat>
       <Stat label="Coverage">
-        <span className="text-xl font-semibold">{fmtPct(m.coverage_pct)}</span>
+        <span className="text-xl font-semibold">{fmtCoverage(m.coverage_pct, demand)}</span>
       </Stat>
       <Stat label="Gap cost">
         <span className={`text-xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>
@@ -51,13 +56,13 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
               : 'border-gap/30 bg-gap-wash text-gap hover:border-gap'
           }`}
         >
-          {unchecked ? 'Not validated' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violation${validation.hard_count === 1 ? '' : 's'}`}
+          {unchecked ? 'Not checked' : validation.hard_count === 0 ? '0 hard violations ✓' : `${validation.hard_count} hard violation${validation.hard_count === 1 ? '' : 's'}`}
         </button>
       </div>
       {open && (
         <div className="absolute top-full right-4 z-30 mt-2 w-[26rem] rounded-lg border border-rule bg-panel p-4 shadow-lg">
           <div className="mb-2 flex items-baseline justify-between">
-            <h3 className="font-semibold">Validator report</h3>
+            <h3 className="font-semibold">Compliance check</h3>
             <button type="button" className="text-sm text-muted hover:text-ink" onClick={() => setOpen(false)}>
               Close
             </button>
@@ -65,13 +70,13 @@ export function ScheduleStats({ schedule, validation, employeeName }: Props) {
           {unchecked && (
             <p className="mb-2 text-sm font-medium text-warn">
               {mock
-                ? 'This schedule came from the in-browser mock, not the solver. The validator has not checked it.'
-                : 'The validator has not checked this schedule. Rebuild to check it.'}
+                ? 'This schedule came from the in-browser mock. The compliance check hasn’t reviewed it.'
+                : 'The compliance check hasn’t reviewed this schedule. Rebuild to check it.'}
             </p>
           )}
           {validation && !mock && (
             <p className="text-sm text-ink-2">
-              The validator re-checks every shift independently of the solver.{' '}
+              The compliance check re-checks every shift independently of the scheduler.{' '}
               {validation.passed ? 'This schedule passed.' : 'This schedule did not pass.'}
             </p>
           )}

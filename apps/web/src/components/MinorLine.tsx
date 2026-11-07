@@ -1,5 +1,6 @@
 import type { MinorProtection } from '../lib/minors'
 import { tagLabel } from '../lib/vocab'
+import { shortLawName } from '../lib/ruleNames'
 
 /** "Blake Allen, 15 — trained: Line Cook (Fryer, Cooking) — scheduled only as Server; barred by <rule> (<cite>)". */
 export function MinorLine({ m, compact = false }: { m: MinorProtection; compact?: boolean }) {
@@ -23,7 +24,7 @@ export function MinorLine({ m, compact = false }: { m: MinorProtection; compact?
       {m.barred.map((b, i) => (
         <span key={b.rule.id}>
           {i > 0 ? ', ' : ''}
-          {b.rule.id} (
+          {shortLawName(b.rule)} (
           <a href={b.rule.citation?.url} target="_blank" rel="noreferrer" className="underline">
             {b.rule.citation?.title ?? 'source'}
           </a>

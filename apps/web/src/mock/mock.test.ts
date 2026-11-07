@@ -65,3 +65,42 @@ describe('mock API follows contracts/API.md', () => {
     expect(after.budget.weekly_hours_cap).toBe(300)
   })
 })
+
+describe('mock accounts (PUNCHLIST A1)', () => {
+  it('signup/login/logout/me, 409 on a taken email, 401 on a wrong password', async () => {
+    const a = api()
+    await expect(a.me()).rejects.toMatchObject({ status: 401 })
+    const { user } = await a.signup({ email: 'Ann@x.com', password: 'longenough', name: 'Ann' })
+    expect((await a.me()).user).toEqual(user)
+    await expect(a.signup({ email: 'ann@x.com', password: 'longenough', name: 'A' })).rejects.toMatchObject({ status: 409 })
+    await a.logout()
+    await expect(a.me()).rejects.toMatchObject({ status: 401 })
+    await expect(a.login({ email: 'ann@x.com', password: 'nope-nope' })).rejects.toMatchObject({ status: 401 })
+    expect((await a.login({ email: 'ann@x.com', password: 'longenough' })).user.id).toBe(user.id)
+  })
+
+  it('lists only my workplaces and 404s on someone else’s; samples are owned copies', async () => {
+    const a = api()
+    await a.signup({ email: 'a@x.com', password: 'longenough', name: 'A' })
+    const mine = await a.createStore({
+      template: 'empty',
+      name: 'Harbor Grill',
+      sector: 'food',
+      business_description: 'seafood',
+      jurisdiction: { state: 'IL', city: 'chicago' },
+    })
+    expect(mine.store.sector).toBe('food')
+    expect(mine.store.business_description).toBe('seafood')
+    const sample = await a.sampleWorkplace('demo')
+    expect(sample.store.name).toMatch(/^Sample: /)
+    const listed = (await a.workplaces()).workplaces
+    expect(listed.map((w) => w.id).sort()).toEqual([mine.store.id, sample.store.id].sort())
+    expect(Object.fromEntries(listed.map((w) => [w.id, w.sample_of]))).toEqual({ [mine.store.id]: null, [sample.store.id]: 'demo' })
+    await a.logout()
+
+    await a.signup({ email: 'b@x.com', password: 'longenough', name: 'B' })
+    expect((await a.workplaces()).workplaces).toEqual([])
+    await expect(a.getConfig(mine.store.id)).rejects.toMatchObject({ status: 404 })
+    await expect(a.solve(mine.store.id)).rejects.toMatchObject({ status: 404 })
+  })
+})
