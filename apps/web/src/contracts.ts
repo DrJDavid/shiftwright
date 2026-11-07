@@ -305,7 +305,7 @@ export type DepartmentId = string;
 export type Name3 = string;
 export type MinAge = number;
 /**
- * $ cost per headcount-hour left uncovered; encodes priority
+ * $ cost per headcount-hour left uncovered; encodes priority. The engine uses it only to rank roles into coverage tiers (higher = covered first), never as a price against wages; reported gap_penalty_dollars still use it as $/h. See SEMANTICS.md #25.
  */
 export type GapPenaltyPerHour = number;
 export type Description = string;

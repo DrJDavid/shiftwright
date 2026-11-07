@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -9,6 +10,7 @@ from ortools.sat.python import cp_model
 
 from shiftwright_contracts.models import ConstraintKind, LawRuleType, Strength
 
+from .lex import ALWAYS_TIER, role_tier, weights
 from .prep import DAY, SCALE, Prep, _avail_for_day, money
 
 CHURN_DOLLARS = 0.50  # tiebreak per role segment so roles don't flicker
@@ -24,6 +26,7 @@ class SoftTerm:
     employee_id: Optional[str]
     note: str = ""
     dollars_per: Optional[float] = None  # exact $ per unit for reporting (else units_per / SCALE)
+    cover: bool = False  # priced hard always_staffed: a coverage tier (SEMANTICS #25), not a cost
 
 
 @dataclass
@@ -38,6 +41,13 @@ class Built:
     soft: list[SoftTerm]
     assumptions: dict[cp_model.IntVar, tuple[str, str]] = field(default_factory=dict)  # lit -> (bucket, id)
     objective_const_units: int = 0
+    # coverage terms (tier key, var, minutes per unit, var upper bound); minimized before cost_obj
+    cover: list[tuple[float, object, int, int]] = field(default_factory=list)
+    cost_obj: object = None
+    paid: object = None  # paid minutes of the week: the coverage stage's bottom term
+    paid_bound: int = 0
+    max_len: int = 0  # longest candidate shift (minutes)
+    cover_stats: dict = field(default_factory=dict)
 
 
 class Builder:
@@ -49,7 +59,8 @@ class Builder:
                  churn: bool = False, force_cands: bool = False, forced: Optional[set[int]] = None,
                  fixed_roles: Optional[dict[tuple[str, int], str]] = None, elastic_always: float = 0.0,
                  min_hours_cap_minutes: int = 0, forced_days: Optional[set[tuple[str, int]]] = None,
-                 one_shift_days: Optional[set[tuple[str, int]]] = None):
+                 one_shift_days: Optional[set[tuple[str, int]]] = None,
+                 day_paid_cap: Optional[tuple[int, int]] = None, extra_cap_minutes: int = 0):
         self.p = prep
         self.assume = assume
         self.churn = churn
@@ -61,8 +72,10 @@ class Builder:
         self.fixed_roles = fixed_roles or {}  # (emp, abs slot) -> role that may not change (fixer: before now)
         self.elastic_always = elastic_always  # >0: hard always_staffed priced at this $/h instead (fixer)
         self.min_hours_cap_minutes = min_hours_cap_minutes  # budget hours cap is at least this (fixer)
+        self.extra_cap_minutes = extra_cap_minutes  # what-if: hours budget raised by this (tradeoffs)
         self.forced_days = forced_days or set()  # (emp, day) that must have one of their candidates (fixer)
         self.one_shift_days = one_shift_days or set()  # (emp, day) limited to one shift (fixer call-ins)
+        self.day_paid_cap = day_paid_cap  # (day, minutes): paid minutes allotted to that day (day LNS)
         self._zero = self.m.new_constant(0)
 
     # --- assumption literals -------------------------------------------------
@@ -225,22 +238,23 @@ class Builder:
         self.loss = loss
         self.subs = subs
         gap = {}
-        gap_terms = []
-        roles = {r.id: r for r in p.cfg.roles}
+        cover: list[tuple[float, object, int, int]] = []  # (tier, var, minutes per unit, upper bound)
+        tier = role_tier(p)
         for (r, a), dem in p.demand.items():
-            pen = roles[r].gap_penalty_per_hour if r in roles else 0.0
             full = sum(cov.get((r, a), []))
             if not any((r, a, k) in loss for k in range(len(subs))):
                 g = m.new_int_var(0, dem, f"gap[{r},{a}]")
                 m.add(g + full >= dem)
                 gap[(r, a)] = g
-                gap_terms.append((g, money(pen * slot_h)))
+                if r in tier:
+                    cover.append((tier[r], g, slot, dem))
                 continue
             for k, (u0, u1) in enumerate(subs):
                 g = m.new_int_var(0, dem, f"gap[{r},{a},{k}]")
                 m.add(g + full - sum(loss.get((r, a, k), [])) >= dem)
                 gap[(r, a, k)] = g
-                gap_terms.append((g, money(pen * (u1 - u0) / 60)))
+                if r in tier:
+                    cover.append((tier[r], g, u1 - u0, dem))
 
         soft: list[SoftTerm] = []
         const_units = 0
@@ -404,7 +418,9 @@ class Builder:
                                 m.add(expr + unc >= 1)
                                 w = self.elastic_always if elastic else con.weight_dollars
                                 soft.append(SoftTerm(unc, money(w * h), h, con.id, k.value,
-                                                     None, dollars_per=w * h))
+                                                     None, dollars_per=w * h, cover=elastic))
+                                if elastic:
+                                    cover.append((ALWAYS_TIER, unc, int(round(h * 60)), 1))
                         t += p.slot
             elif k == ConstraintKind.preferred_role:
                 eid, rid = con.params.get("employee_id"), con.params.get("role_id")
@@ -441,8 +457,11 @@ class Builder:
         b = p.cfg.budget
         cap_h = b.weekly_hours_cap + sum(a.extra_hours for a in b.approvals)
         all_paid = sum(y[c.idx] * c.paid_min for c in cands) + self._zero
-        self.add(all_paid <= max(int(round(cap_h * 60)), self.min_hours_cap_minutes),
+        self.add(all_paid <= max(int(round(cap_h * 60)) + self.extra_cap_minutes, self.min_hours_cap_minutes),
                  self.guard("other", "budget.weekly_hours_cap"))
+        if self.day_paid_cap is not None:
+            dd, cap_m = self.day_paid_cap
+            m.add(sum(y[c.idx] * c.paid_min for c in cands if c.day == dd) <= cap_m)
         wage_expr = sum(y[c.idx] * c.wage_units for c in cands) + sum(z * u for z, u in self.tip_terms) + self._zero
         ot_expr = sum(v * u for v, u in self.day_ot_terms) if self.day_ot_terms else 0
         if weekly_ot:
@@ -462,14 +481,19 @@ class Builder:
                     for a in _avail_for_day(p, e, d):
                         if a.kind.value == "preferred_on":
                             const_units += money(a.weight_dollars * (a.end - a.start) / 60)
+            # Cost only (SEMANTICS #25): coverage is minimized first, by tier, in `solve`.
             obj = (wage_expr + ot_expr + pref
-                   + sum(g * u for g, u in gap_terms)
-                   + sum(s.var * s.units_per for s in soft)
+                   + sum(s.var * s.units_per for s in soft if not s.cover)
                    + money(CHURN_DOLLARS) * sum(churn_terms))
             m.minimize(obj)
 
         built = Built(model=m, prep=p, y=y, x=x, gap=gap, works=works, weekly_ot=weekly_ot, soft=soft,
                       objective_const_units=const_units)
+        if not self.assume:
+            built.cover, built.cost_obj = cover, obj
+            built.paid = all_paid
+            built.paid_bound = sum(c.paid_min for c in cands)
+            built.max_len = max((c.end - c.start for c in cands), default=0)
         built.assumptions = {lit: key for key, lit in self.lits.items()}
         if self.assume:
             m.add_assumptions(list(self.lits.values()))
@@ -564,10 +588,17 @@ def default_workers() -> int:
     return min(8, os.cpu_count() or 1)
 
 
-def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint: Optional[dict] = None,
-          light_presolve: bool = True):
+LEX = os.environ.get("ENGINE_LEX", "1") != "0"  # 0: pre-C3 priced objective only (fallback)
+# Time shares of one solve: guided search, then the coverage stage; the cost stage gets the rest.
+GUIDE_SHARE, COVER_SHARE = (float(x) for x in os.environ.get("ENGINE_LEX_SHARES", "0.45,0.25").split(","))
+# Guided search prices: "scale:K" multiplies every tier's $/h so the lowest is ≥ K × the top wage
+# (tier ratios kept, so wage differences rarely outweigh a tier difference); "lift:K" adds K × top wage.
+GUIDE = os.environ.get("ENGINE_GUIDE", "scale:2")
+
+
+def _solver(time_limit_s: float, workers: Optional[int], light_presolve: bool) -> cp_model.CpSolver:
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = float(time_limit_s)
+    solver.parameters.max_time_in_seconds = float(max(0.05, time_limit_s))
     solver.parameters.num_workers = workers or default_workers()
     solver.parameters.log_search_progress = os.environ.get("ENGINE_LOG") == "1"
     for kv in filter(None, os.environ.get("ENGINE_CPSAT_PARAMS", "").split(",")):  # experiments only
@@ -578,11 +609,185 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
         solver.parameters.max_presolve_iterations = 1
         solver.parameters.cp_model_probing_level = 0
         solver.parameters.symmetry_level = 0
+    return solver
+
+
+def cover_weights(built: Built) -> tuple[dict[float, int], int]:
+    mins: dict[float, int] = {}
+    for key, _v, minutes, ub in built.cover:
+        mins[key] = mins.get(key, 0) + minutes * ub
+    return weights(mins, base=built.max_len + 1, floor=built.paid_bound)
+
+
+def pref_tiers(built: Built) -> dict[float, list[tuple[object, int, int]]]:
+    """Soft-rule terms by tier (the constraint's weight_dollars, read as a rank, SEMANTICS #25):
+    tier -> [(var, units per var unit, var upper bound)]. Within a tier every term carries the same
+    weight, so its units are proportional to the rule's own amount (hours, occurrences)."""
+    wt = {c.id: c.weight_dollars for c in built.prep.constraints}
+    out: dict[float, list] = {}
+    for s in built.soft:
+        if s.cover or s.constraint_id not in wt or s.units_per <= 0:
+            continue
+        v = s.var
+        if not isinstance(v, cp_model.IntVar):
+            continue
+        dom = built.model.proto.variables[v.index].domain
+        ub = int(dom[len(dom) - 1])
+        if ub > 0:
+            out.setdefault(wt[s.constraint_id], []).append((v, int(s.units_per), ub))
+    return out
+
+
+def _hint_from(m: cp_model.CpModel, s: cp_model.CpSolver) -> None:
+    m.clear_hints()
+    sol = list(s.response_proto.solution)
+    m.proto.solution_hint.vars.extend(range(len(sol)))
+    m.proto.solution_hint.values.extend(sol)
+
+
+def _priced(built: Built, guide: Optional[str]):
+    """Gap minutes × guided $/h (see GUIDE; None = gap_penalty_per_hour) + priced always_staffed + cost."""
+    mult, lift = 1.0, 0.0
+    if guide:
+        kind, k = guide.split(":")
+        top = max((e.wage_per_hour for e in built.prep.emps.values()), default=0.0)
+        low = min((key for key, *_ in built.cover if key != ALWAYS_TIER), default=1.0)
+        if kind == "scale":
+            mult = max(1.0, float(k) * top / max(low, 0.01))
+        else:
+            lift = float(k) * top
+    elastic = {id(t.var): t.units_per for t in built.soft if t.cover}
+    coef = [elastic[id(v)] if key == ALWAYS_TIER else money((key * mult + lift) * minutes / 60)
+            for key, v, minutes, _ub in built.cover]
+    return cp_model.LinearExpr.weighted_sum([v for _k, v, _m, _u in built.cover], coef) + built.cost_obj
+
+
+def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint: Optional[dict] = None,
+          light_presolve: bool = True, mode: str = "full"):
+    """Lexicographic (SEMANTICS #25), up to three CP-SAT runs on the same model, each hinted with the last:
+      1. guided search: a priced objective (gap minutes × (gap_penalty_per_hour + 2× top wage) +
+         cost), so the search sees wages and idle time; it only seeds stage 2;
+      2. coverage: minimize tier-weighted uncovered minutes (+ paid minutes below the lowest tier),
+         no money; it can only improve on stage 1's coverage;
+      3. cost: every tier's uncovered minutes locked at stage 2's result, minimize cost.
+    mode "full" runs all three, "lex" stages 2–3, "guide" stage 1 only (day LNS).
+    Returns the last stage's (solver, status); OPTIMAL only if stages 2 and 3 both proved it. An
+    unproven result is polished (shifts and roles fixed, cost minimized) so soft-penalty values
+    match the schedule.
+    `built.cover_stats` records the stages."""
+    t0 = time.perf_counter()
+    m = built.model
     if hint:
         for v, val in hint.items():
-            built.model.add_hint(v, val)
-    status = solver.solve(built.model)
-    return solver, status
+            m.add_hint(v, val)
+    if not built.cover or built.cost_obj is None:
+        solver = _solver(time_limit_s, workers, light_presolve)
+        return solver, solver.solve(m)
+    if not LEX:
+        m.minimize(_priced(built, None))
+        solver = _solver(time_limit_s, workers, light_presolve)
+        return solver, solver.solve(m)
+    stats = built.cover_stats = {"mode": mode}
+    if mode == "guide":
+        m.minimize(_priced(built, GUIDE))
+        solver = _solver(time_limit_s, workers, light_presolve)
+        return solver, solver.solve(m)
+    s0 = None
+    if mode == "full":
+        m.minimize(_priced(built, GUIDE))
+        s0 = _solver(time_limit_s * GUIDE_SHARE, workers, light_presolve)
+        st0 = s0.solve(m)
+        stats["guide"] = s0.status_name(st0)
+        if st0 not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            m.minimize(built.cost_obj)
+            return s0, st0
+        _hint_from(m, s0)
+    cover_share = COVER_SHARE if mode == "full" else COVER_SHARE / (1 - GUIDE_SHARE)
+
+    w, ratio = cover_weights(built)
+    by_tier: dict[float, list] = {}
+    for key, v, minutes, _ub in built.cover:
+        by_tier.setdefault(key, []).append((v, minutes))
+    stats.update({"tiers": len(by_tier), "tier_ratio": ratio})
+    s1, st1 = s0, cp_model.OPTIMAL
+    if s0 is None or any(s0.value(v) for _k, v, _m, _u in built.cover):  # nothing to improve when all is covered
+        m.minimize(cp_model.LinearExpr.weighted_sum([v for _k, v, _m, _u in built.cover],
+                                                    [w[k] * mi for k, _v, mi, _u in built.cover]) + built.paid)
+        s1 = _solver(time_limit_s * cover_share, workers, light_presolve)
+        st1 = s1.solve(m)
+        stats["cover"] = s1.status_name(st1)
+        if st1 not in (cp_model.OPTIMAL, cp_model.FEASIBLE):  # keep stage 1's schedule
+            if s0 is None:
+                m.minimize(built.cost_obj)
+                return s1, st1
+            s1, st1 = s0, cp_model.FEASIBLE
+        else:
+            _hint_from(m, s1)
+    for key, terms in by_tier.items():
+        m.add(cp_model.LinearExpr.weighted_sum([v for v, _ in terms], [mi for _, mi in terms])
+              <= sum(mi * s1.value(v) for v, mi in terms))
+    # Preferences (soft rules) by tier, before cost: they only break ties of coverage.
+    pt = pref_tiers(built)
+    if pt and any(s1.value(v) for terms in pt.values() for v, _c, _u in terms):
+        pw, pratio = weights({k: sum(c * u for _v, c, u in terms) for k, terms in pt.items()})
+        stats.update({"pref_tiers": len(pt), "pref_ratio": pratio})
+        m.minimize(cp_model.LinearExpr.weighted_sum(
+            [v for terms in pt.values() for v, _c, _u in terms],
+            [pw[k] * c for k, terms in pt.items() for _v, c, _u in terms]))
+        sp = _solver(max(0.5, (time_limit_s - (time.perf_counter() - t0)) * 0.5), workers, light_presolve)
+        stp = sp.solve(m)
+        stats["prefs"] = sp.status_name(stp)
+        if stp in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            s1 = sp
+            _hint_from(m, sp)
+            if stp != cp_model.OPTIMAL:
+                st1 = cp_model.FEASIBLE
+    if pt:
+        for terms in pt.values():
+            m.add(cp_model.LinearExpr.weighted_sum([v for v, _c, _u in terms], [c for _v, c, _u in terms])
+                  <= sum(c * int(s1.value(v)) for v, c, _u in terms))
+    m.minimize(built.cost_obj)
+    s2 = _solver(max(0.5, time_limit_s - (time.perf_counter() - t0)), workers, light_presolve)
+    st2 = s2.solve(m)
+    stats["cost"] = s2.status_name(st2)
+    stats["s"] = round(time.perf_counter() - t0, 2)
+    if st2 not in (cp_model.OPTIMAL, cp_model.FEASIBLE):  # keep the coverage stage's schedule
+        s2, st2 = s1, cp_model.FEASIBLE
+    if st2 != cp_model.OPTIMAL:
+        s2 = _polish(built, s2, workers)
+        stats["s"] = round(time.perf_counter() - t0, 2)
+    if st2 == cp_model.OPTIMAL and st1 != cp_model.OPTIMAL:
+        st2 = cp_model.FEASIBLE
+    return s2, st2
+
+
+def _polish(built: Built, s, workers: Optional[int]):
+    """The same shifts and roles with every other variable at its cheapest: an unproven stage can
+    stop with soft-penalty variables above what the schedule incurs, and soft violations are read
+    from them. Falls back to `s` (cost read as a solver objective) if the polish finds nothing."""
+    m = built.model.clone()
+    m.clear_hints()
+    sol = list(s.response_proto.solution)
+    for v in list(built.y.values()) + list(built.x.values()):
+        m.add(m.get_int_var_from_proto_index(v.index) == sol[v.index])
+    m.proto.solution_hint.vars.extend(range(len(sol)))
+    m.proto.solution_hint.values.extend(sol)
+    sp = _solver(2.0, workers, True)
+    if sp.solve(m) in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return sp
+    return _Fixed(s, built)
+
+
+class _Fixed:
+    """A coverage-stage solution read like a solver result (objective = its cost)."""
+
+    def __init__(self, s: cp_model.CpSolver, built: Built):
+        self._s = s
+        self.objective_value = float(s.value(built.cost_obj))
+        self.best_objective_bound = self.objective_value
+
+    def __getattr__(self, name):
+        return getattr(self._s, name)
 
 
 __all__ = ["Builder", "Built", "SoftTerm", "solve", "SCALE", "day_bounds", "max_shifts_per_day"]
