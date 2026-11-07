@@ -1,12 +1,12 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~00:45 CT (rebased on main c17640a)_
+_Last updated: 2026-11-07 ~02:30 CT (rebased on main 4f53a85)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
   (`db.py`): stores (config JSON + version), audit_log `(version, tool_name, args, actor)`, schedules,
   transcripts, kv (tradeoff choices / later fix plans + outreach), messages.
-- REST: `GET /api/health`, `POST /api/stores` (templates `empty` | `bigbox_small` | `bigbox_mid`),
+- REST: `GET /api/health`, `POST /api/stores` (templates `empty` | `bigbox_small` | `bigbox_mid` | `demo` | `tiny`),
   `GET/PUT /api/stores/{id}/config` (PUT = full replace, validated, bumps `config_version`, 422 on invalid),
   `GET /readiness` (checks in API.md order), `POST /solve` → `{schedule, validation}`, `POST /validate`,
   `GET /schedule`, `POST /gaps/explain` (deterministic phrasing of engine reasons, no LLM, no added facts),
@@ -44,7 +44,7 @@ _Last updated: 2026-11-07 ~00:45 CT (rebased on main c17640a)_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 43 in `apps/api/tests` (+2 live-LLM, skipped without a key), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 52 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -102,12 +102,50 @@ _Last updated: 2026-11-07 ~00:45 CT (rebased on main c17640a)_
 - `/fix` without the engine: 503 "Call-out fixer (engine.fix_day) has not landed yet." It switches to the real
   `shiftwright_engine.fix_day` automatically once that is exported.
 
-**Next:** use real fixtures once WS4 lands;
-outreach against the real `fix_day` once WS1 exports it.
+**Done (demo-worthy mock outreach + WS7 fixes + fixture templates):**
+- **Simulated replies** (mock messenger only; Twilio never auto-replies). `MOCK_AUTOREPLY` = `off` | `script` |
+  `prob` (default `script` from env; `/api/health.mock_autoreply` shows the active mode), `MOCK_REPLY_DELAY_S`
+  (default 4), `MOCK_SEED` (default 417).
+  - `script` (deterministic demo, by order texted in this outreach): 1st person → "Sorry, can't today";
+    2nd → "What time?", the system answers, then "Yes I can"; anyone after → "Yes I can".
+  - `prob`: accept iff a draw seeded by (seed, plan_id, employee_id) < `est_accept_prob`.
+  - A manual `POST /api/sms/mock-reply` from that number cancels the pending simulated reply and wins.
+- **Questions get a factual auto-answer** (all messengers): an outbound text restating only the offer's facts:
+  "It's Cashier, Sat 10 am to 2 pm, $15.50/hr. Your manager will see any other questions. Reply YES or NO".
+  Counts toward the text limit. Outreach keeps waiting.
+- **Phone thread for WS7:** `OutreachState.messages` is the thread in time order. Outbound = has `to_employee_id`,
+  `to_phone`, `sent_at`, `outreach_rank`. Inbound = `from_phone`, `received_at`, `interpreted_as`. System notes
+  (allowlist drop, rate limit, cancel, errors) are inbound with `from_phone: "system"`. SMS times are now 12-hour.
+- **Templates `demo` and `tiny`:** `POST /api/stores {"template": "demo"}` (or `"tiny"`) loads
+  `shiftwright_scenarios.load_demo_store()` / `load_tiny_store()` as-is under a new store id. `name` and
+  `jurisdiction` are optional for these (ignored); still required for the other templates (422 otherwise).
+  Verified in the Docker image (`docker build -f apps/api/deploy/Dockerfile .`): health ok, demo store 60 employees,
+  readiness green, law pack resolves, web served at `/`. Added `apps/api/deploy/Dockerfile.dockerignore`
+  (keeps local `.venv`, `node_modules`, `.env`, `.git`, `.claude` out of the build context).
+- **/solve:** if the engine or validator raises (incl. MemoryError), 500 `{"detail": "Schedule engine failed
+  (MemoryError: …). Nothing was saved."}`. Note: a local demo-store solve (20 s limit) peaked at ≈3 GB RSS, so a
+  1 GB container will OOM before Python can catch anything — WS1's memory work is what fixes that.
+- **Readiness details** use names: role names ("Nobody trained for: Guest Service Desk"), day names
+  ("No demand on Monday, Tuesday"), and rule notes instead of constraint ids for unconfirmed rules.
+- **/gaps/explain** uses 12-hour times ("Cashier Sat 10 am–2:30 pm uncovered (1 short, $120)"); whole-dollar
+  amounts drop the cents.
+- **ImportPreview** adds `target_fields: string[]` (dropdown options for this kind, in order) and
+  `required_fields: string[]` (subset that must be mapped).
+- **Card lock:** a new `POST /chat` while the previous turn is parked on a card (e.g. browser closed mid-card)
+  cancels that card (`{cancelled: true, reason: "superseded by a new message"}`), ends the old turn, and runs the new
+  one. Still 409 if the previous turn is mid-model-call (no card pending). Client disconnect also ends the turn.
+- **E2E demo outreach:** `apps/api/scripts/demo_outreach.py [BASE_URL] [--delay=4]` (demo template → solve → /fix
+  with the Saturday 06:04 call-outs e034/e052/e053 → start → stream until done; prints timings + thread) and
+  `tests/test_demo_outreach.py` — both skip while `engine.fix_day` is stubbed (exit 2 for the script).
+  Demo-store solve via the API today: 18 s, 174 shifts, 90.3% coverage, validator passed.
+
+**Next:** run `scripts/demo_outreach.py` once WS1 exports `fix_day`, and tune delays/timeouts for the demo.
 
 **Coordinator follow-ups (outside my folder):** WS4 fixture mismatch: `demo_scenario.json` narrative says
 "Payroll is 1,394 hours" but `config.budget.weekly_hours_cap` is 1393.5 (the agent rightly asks which wins).
-`/outreach/stream` and the step-separator rule could go in API.md. add `*.db`, `*.db-wal`, `*.db-shm` to root `.gitignore` (default
+API.md lines for: templates `demo`/`tiny` (+ optional name/jurisdiction), `ImportPreview.target_fields`/
+`required_fields`, `MOCK_AUTOREPLY`/`MOCK_REPLY_DELAY_S`/`MOCK_SEED` env vars, question auto-answer, card supersede rule
+(and `.env.example` entries for the three MOCK_ vars). Older items: add `*.db`, `*.db-wal`, `*.db-shm` to root `.gitignore` (default
 `DATABASE_URL` writes `./shiftwright.db`); move/point Railway at `apps/api/deploy/railway.toml`; add
 `SMS_ALLOWLIST=`, `DEMO_KEY=`, `MAX_TEXTS_PER_STORE_HOUR=20` to root `.env.example`; optionally document
 `POST /outreach/cancel` in API.md. (ws6-fixplan-plan-id request: accepted in v1.1, adopted.)
@@ -131,6 +169,6 @@ outreach against the real `fix_day` once WS1 exports it.
 - Template roles carry placeholder `gap_penalty_per_hour` values with description "Template default — review."
   (Role has no `source` field). Templates have no employees/demand and a 0-hour cap, so readiness stays red.
 - `/gaps/explain` text is a deterministic template over engine reasons (no LLM call) — safer and instant.
-- `/outreach/cancel` is an extra endpoint (not in API.md). Text-rate counters reset on restart.
+- Text-rate counters reset on restart (accepted for the demo).
 - Outreach state lives in memory per process (snapshotted to SQLite for GET after restart, but a running outreach
   does not resume after a restart).
