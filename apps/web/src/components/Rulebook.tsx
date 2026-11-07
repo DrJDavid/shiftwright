@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Constraint, LawPack, LawRule, StoreConfig } from '../contracts'
 import { fmtMoney } from '../lib/format'
+import { tagLabel } from '../lib/vocab'
 
 type Props = {
   config: StoreConfig
@@ -104,7 +105,7 @@ export function Rulebook({ config, lawPack, lawError, onSetStatus }: Props) {
         ))}
         <ul className="space-y-1">
           {lawRules.map((r) => (
-            <LawLine key={r.id} rule={r} />
+            <LawLine key={r.id} rule={r} config={config} />
           ))}
           {groups[0].constraints.map((c) => (
             <RuleLine key={c.id} c={c} text={describe(c, names, roles)} onSetStatus={onSetStatus} />
@@ -167,7 +168,7 @@ function Badge({ kind, children }: { kind: 'hard' | 'soft' | 'pay'; children: Re
   return <span className={`shrink-0 rounded border px-1 py-px text-[10px] leading-tight font-semibold ${cls}`}>{children}</span>
 }
 
-function LawLine({ rule }: { rule: LawRule }) {
+function LawLine({ rule, config }: { rule: LawRule; config: StoreConfig }) {
   const [open, setOpen] = useState(false)
   const strength = lawStrength(rule)
   const unverified = rule.verified === false || rule.confidence === 'low'
@@ -180,7 +181,10 @@ function LawLine({ rule }: { rule: LawRule }) {
         className="flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left hover:bg-paper"
       >
         <Badge kind={strength}>{strength === 'hard' ? 'Hard' : 'Pay'}</Badge>
-        <span className="min-w-0 flex-1 text-ink-2">{rule.summary}</span>
+        <span className="min-w-0 flex-1 text-ink-2">
+          {rule.summary}
+          {rule.type === 'minor_prohibited_roles' && <TaggedRoles rule={rule} config={config} />}
+        </span>
         <span className="shrink-0 rounded bg-rule-soft px-1 text-[10px] leading-4 text-ink-2">{levelLabel(rule)}</span>
       </button>
       {open && (
@@ -269,5 +273,25 @@ function RuleLine({
         </div>
       )}
     </li>
+  )
+}
+
+/** For hazardous-job rules: the tags it names and which of this store's roles carry them (v1.5 ROLE_TAGS). */
+function TaggedRoles({ rule, config }: { rule: LawRule; config: StoreConfig }) {
+  const p = (rule.params ?? {}) as { role_tags?: string[] }
+  const tags = p.role_tags ?? []
+  const byTag = (config.role_tags ?? {}) as Record<string, string[]>
+  return (
+    <span className="mt-0.5 flex flex-wrap gap-1">
+      {tags.map((t) => {
+        const roles = config.roles.filter((r) => (byTag[r.id] ?? []).includes(t))
+        return (
+          <span key={t} className="rounded bg-rule-soft px-1 text-[10px] text-ink-2" title={`Tag: ${t}`}>
+            {tagLabel(t)}
+            {roles.length ? `: ${roles.map((r) => r.name).join(', ')}` : ''}
+          </span>
+        )
+      })}
+    </span>
   )
 }

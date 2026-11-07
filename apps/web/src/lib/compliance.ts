@@ -3,6 +3,7 @@
 // are invented: limits come from each law rule's own params.
 import type { Employee, LawRule, Schedule, Shift, StoreConfig, ValidationReport, Violation } from '../contracts'
 import { fmtHours, fmtMoney, fmtRange, fmtTime, WEEKDAY_NAMES } from './format'
+import { shiftWage, tagLabel } from './vocab'
 
 export type RuleCheck = {
   rule: LawRule
@@ -111,16 +112,19 @@ export function checkRules(config: StoreConfig, schedule: Schedule, validation: 
       }
       case 'minor_prohibited_roles': {
         const below = num(p.age_below) ?? 18
+        const floor = num(p.age_min) // v1.5: optional lower bound (SEMANTICS #21)
         const tags = Array.isArray(p.role_tags) ? (p.role_tags as string[]) : []
         const roleTags = (config.role_tags ?? {}) as Record<string, string[]>
         const banned = Object.entries(roleTags)
           .filter(([, ts]) => ts.some((t) => tags.includes(t)))
           .map(([r]) => r)
-        const young = scheduled.filter((e) => e.age < below)
-        const hits = shifts.filter((s) => (emp.get(s.employee_id)?.age ?? 99) < below && s.segments.some((g) => banned.includes(g.role_id)))
+        const inBand = (age: number) => age < below && (floor == null || age >= floor)
+        const young = scheduled.filter((e) => inBand(e.age))
+        const hits = shifts.filter((s) => inBand(emp.get(s.employee_id)?.age ?? 99) && s.segments.some((g) => banned.includes(g.role_id)))
         const roleNames = banned.map((r) => config.roles.find((x) => x.id === r)?.name ?? r)
-        f.push(`${plural(young.length, 'employee')} under ${below} scheduled; ${roleNames.length ? roleNames.join(', ') : 'no roles'} tagged ${tags.join(', ').replace(/_/g, ' ') || '—'}.`)
-        f.push(hits.length ? `Under-${below} shifts in those roles: ${hits.map((s) => `${name(s.employee_id)} ${WEEKDAY_NAMES[s.day]}`).join(', ')}.` : `No one under ${below} works those roles.`)
+        const band = floor != null ? `aged ${floor}–${below - 1}` : `under ${below}`
+        f.push(`${plural(young.length, 'employee')} ${band} scheduled; ${roleNames.length ? roleNames.join(', ') : 'no roles'} tagged ${tags.map(tagLabel).join(', ') || '—'}.`)
+        f.push(hits.length ? `Shifts by employees ${floor != null ? `aged ${floor}–${below - 1}` : `under ${below}`} in those roles: ${hits.map((s) => `${name(s.employee_id)} ${WEEKDAY_NAMES[s.day]}`).join(', ')}.` : `No one ${floor != null ? `aged ${floor}–${below - 1}` : `under ${below}`} works those roles.`)
         break
       }
       case 'min_rest_between_shifts': {
@@ -152,6 +156,20 @@ export function checkRules(config: StoreConfig, schedule: Schedule, validation: 
         const below = min == null ? [] : scheduled.filter((e) => e.wage_per_hour < min)
         if (lowest) f.push(`Lowest wage scheduled: ${fmtMoney(lowest.wage_per_hour, { cents: true })} (${lowest.name})${min != null ? `; minimum ${fmtMoney(min, { cents: true })}` : ''}.`)
         if (below.length) f.push(`Below the minimum: ${below.map((e) => e.name).join(', ')}.`)
+        break
+      }
+      case 'tipped_minimum_wage': {
+        // SEMANTICS #15/#20: a shift is tipped iff every segment is a tipped role and the employee has a tipped wage.
+        const cash = num(p.cash_wage_per_hour)
+        const roleById = new Map(config.roles.map((r) => [r.id, r]))
+        const tippedEmps = scheduled.filter((e) => (byEmp.get(e.id) ?? []).some((s) => shiftWage(s, e, roleById).tipped))
+        if (tippedEmps.length === 0) {
+          f.push('No shifts this week are paid at a tipped wage.')
+          break
+        }
+        const low = tippedEmps.reduce((a, e) => (e.tipped_wage_per_hour! < a.tipped_wage_per_hour! ? e : a))
+        f.push(`${plural(tippedEmps.length, 'employee')} with tipped shifts; lowest tipped cash wage ${fmtMoney(low.tipped_wage_per_hour!, { cents: true })} (${low.name})${cash != null ? ` vs ${fmtMoney(cash, { cents: true })} required` : ''}.`)
+        f.push('Tips are never counted toward cost or pay here.')
         break
       }
       case 'predictive_scheduling': {

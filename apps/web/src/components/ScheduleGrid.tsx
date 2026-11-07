@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
+import { shiftWage } from '../lib/vocab'
 
 type Props = {
   schedule: Schedule
@@ -23,6 +24,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
   const [hover, setHover] = useState<Hover>(null)
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
+  const roleById = useMemo(() => new Map(config.roles.map((r) => [r.id, r])), [config.roles])
   const shifts = useMemo(() => schedule.shifts ?? [], [schedule.shifts])
   const gaps = schedule.gaps ?? []
   const days = [0, 1, 2, 3, 4, 5, 6]
@@ -97,7 +99,16 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
         ))}
       <div className="text-ink-2">
         {fmtDayDate(schedule.week_start, s.day).weekday} {fmtRange(s.start, s.end)}, {fmtHours(paidHours(s))} paid,{' '}
-        {fmtMoney(paidHours(s) * e.wage_per_hour)}
+        {(() => {
+          // SEMANTICS #20: shifts entirely in tipped roles pay the tipped cash wage (before any overtime premium).
+          const w = shiftWage(s, e, roleById)
+          return (
+            <>
+              {fmtMoney(paidHours(s) * w.wage)}
+              {w.tipped && <span className="text-warn"> at the tipped wage {fmtMoney(w.wage, { cents: true })}/h</span>}
+            </>
+          )
+        })()}
       </div>
       <ul>
         {s.segments.map((g, i) => (
