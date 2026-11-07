@@ -85,3 +85,32 @@ def test_readiness_flags_priority_below_pay():
     role.gap_penalty_per_hour = 1.0  # below every wage
     check = next(c for c in compute(cfg).checks if c.id == "priorities")
     assert check.ok is False and "below what their staff earn" in check.detail
+
+
+def test_rule_card_resolves_short_names_and_defaults_preference_weight(tmp_path):
+    import json
+    from pathlib import Path
+
+    from fastapi.testclient import TestClient
+    from api_helpers import make_store
+    from shiftwright_api.main import create_app
+    from shiftwright_api.settings import Settings
+
+    s = Settings.from_env()
+    s.database_url = f"sqlite:///{tmp_path}/t.db"
+    s.openrouter_api_key = ""
+    with TestClient(create_app(settings=s)) as c:
+        sid = make_store(c, template="tiny")["store"]["id"]
+        db = c.app.state.db
+        cfg = db.get_config(sid)
+        a, b = cfg.employees[0], cfg.employees[1]
+        short = lambda e: f"{e.name.split()[0]} {e.name.split()[-1][0]}."  # "Jules C."
+        ctx = T.ToolContext(db=db, store_id=sid)
+        card = T.propose_rule(ctx, {"constraint": {"kind": "not_together", "params": {"employee_ids": [short(a), short(b)]},
+                                                   "strength": "soft"},
+                                    "plain_text": f"{short(a)} and {short(b)} can't be on the same shift"})
+        assert card.props["constraint"]["params"]["employee_ids"] == [a.id, b.id]
+        res = card.apply({"decision": "soft"})  # no weight given: a preference gets the default, never an error
+        assert res.content.get("ok"), res.content
+        saved = next(x for x in db.get_config(sid).constraints if x.kind.value == "not_together" and x.status.value == "confirmed")
+        assert saved.weight_dollars == T.DEFAULT_SOFT_WEIGHT
