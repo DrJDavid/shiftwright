@@ -34,10 +34,36 @@
 - Mocks (`mock.py`, `baseline:mock-a`, `baseline:mock-b`): read the config from the prompt, sloppy greedy schedule +
   one of hallucinated_employee / minor_on_forklift / over_budget / truncated / unparseable / sloppy /
   claims_infeasible; never detect infeasibility (false "feasible"). Repair: ignored_callout / changed_past / careful.
-- Tests (14, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
+- Tests (16, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
   cached re-run identical; 2 sampled runs recounted from validation.json against report.json and the HTML row)
   plus OpenRouter request shape/retry/cache/truncation/HTTP error via `httpx.MockTransport`, prompt completeness,
   mock kinds → intended validator codes.
+
+**Engine at 120 s + re-scored baselines: `rescore-120`, Sat Nov 7 ~01:10 CT, main 41111c1 (no new spend).**
+`uv run python -m shiftwright_evals --quick --rescore-from real-quick-1 --run-id rescore-120` (engine defaults now
+`S=120,M=120,L=120`, 2 workers; 357 s wall). Baseline rows = real-quick-1 replies re-validated against today's scenarios,
+matched by scenario id + model (`ReplaySystem`); 0 API calls; all 30 reusable (config diffs are only new v1.5 fields:
+contract_version, events.label, roles.tipped, store.business_description, store.max_shifts_per_day). Call-out inputs
+(base schedule + call-outs) are reused so fix_day and the baselines repair the same schedule.
+Report: `packages/evals/reports/rescore-120/report.html`.
+
+| Weekly build (6) | 0 hard | Hard | Median legal coverage | Cost vs SW | Median time / schedule | API $ |
+|---|---|---|---|---|---|---|
+| Shiftwright (120 s) | 4/6 | 8 (7 always_staffed: "infeasible" on S legal_trap CA; 1 below_minimum_wage) | 91.8% | 1.00× | 116 s | – |
+| grok-4.7 | 5/6 | 2 | 90.0% | 1.01× | 1,299 s | 4.62 |
+| claude-opus-5.5 | 4/6 | 4 | 92.8% | 0.99× | 425 s | 9.38 |
+| gpt-6.1-terra-pro | 2/6 | 14 | 91.1% | 1.03× | 216 s | 1.81 |
+
+At 120 s the cost gap is gone (was 0.94–0.95× at 30 s). Honesty 2/2 for everyone; repair: Shiftwright 2/2 clean
+in 0.7–1.9 s. Caveat: the validator doesn't check `shifts_per_day` (SEMANTICS #23) yet; when WS2 adds it, Grok's
+clean S legal_trap schedule (one split day) fails under max_shifts_per_day=1 until WS4 sets 2 for that store.
+
+**Next (waiting on WS1 split shifts + quality, WS4 legal_trap CA max_shifts_per_day=2 + no min-wage trap + food scenarios):**
+real-quick-2 = `--quick --rescore-from real-quick-1 --run-id real-quick-2` (re-scoring stays valid while the
+store's employee/role ids, demand, hours and week are unchanged; otherwise those rows are listed under "Not
+re-scored" and need coordinator approval for new spend). Then drop `SUSPECT_EXPECTED` for S legal_trap CA, and add
+food scenarios to `build_cases(quick=True)` once `generate` supports them (food rows will have no cached baseline
+replies → they need a new prompt, ask first).
 
 **First real baseline run (approved by David): `real-quick-1`, Sat Nov 7 ~00:00–00:35 CT, main 0414a9b.**
 `--quick --max-output-tokens 128000 --concurrency 8 --budget-usd 42`. 30 OpenRouter calls, 0 retries, 0 truncated,
@@ -98,7 +124,11 @@ unparseable JSON can add up to one more call per run. **Recommendation:** approv
 
 **Blocked on:** nothing.
 
-**Harness additions (this slice):** `--budget-usd` guard (stops new paid calls when spend + average-cost
+**Harness additions (slice 5):** `--rescore-from RUN_ID` (ReplaySystem; per-scenario `config_changes.json`; blocking
+if employee/role ids, demand, hours, week or store id changed), engine default 120 s, "Minutes per weekly schedule,
+with schedule cost" chart, median + total time next to cost in the summary table, mock kinds keyed on store id.
+
+**Harness additions (slice 4):** `--budget-usd` guard (stops new paid calls when spend + average-cost
 projection exceeds it; spend from OpenRouter `usage.cost`, requested with `usage: {include: true}`), per-run
 `cost_usd` in the report, `SUSPECT_EXPECTED` in `suites.py` (honesty label `suspect` instead of FP), `--report-only`,
 request timeout 40 min, chart labels use the model name after the slash.
