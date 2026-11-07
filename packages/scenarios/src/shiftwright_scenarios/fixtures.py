@@ -15,16 +15,18 @@ def load_tiny_store() -> StoreConfig:
 
 
 DEMO_LOCALITIES = ("austin", "chicago", "seattle", "sf")
+DEMO_STORES = DEMO_LOCALITIES + ("restaurant",)  # "restaurant" = Harbor Grill #12, Chicago (sector food)
 
 
 def _demo_file(kind: str, locality: str) -> Path:
-    if locality not in DEMO_LOCALITIES:
-        raise ValueError(f"locality must be one of {DEMO_LOCALITIES}, got {locality!r}")
+    if locality not in DEMO_STORES:
+        raise ValueError(f"locality must be one of {DEMO_STORES}, got {locality!r}")
     return FIXTURES_DIR / (f"demo_{kind}.json" if locality == "austin" else f"demo_{kind}_{locality}.json")
 
 
 def load_demo_store(locality: str = "austin") -> StoreConfig:
-    """Store #0417 Austin TX by default; "chicago" | "seattle" | "sf" for the same store elsewhere."""
+    """Store #0417 Austin TX by default; "chicago" | "seattle" | "sf" for the same store elsewhere;
+    "restaurant" for Harbor Grill #12, Chicago (food)."""
     return StoreConfig.model_validate_json(_demo_file("store", locality).read_text())
 
 
