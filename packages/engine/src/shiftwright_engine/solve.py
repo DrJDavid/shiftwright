@@ -11,7 +11,8 @@ from shiftwright_contracts.models import ConstraintKind, Infeasibility, LawRuleT
 
 from .bounds import always_staffed_conflict
 from .explain import explain_with_prep
-from .greedy import greedy
+from .greedy import greedy, repair
+from .lex import role_tier
 from .why import annotate
 from .model import Builder, day_bounds, default_workers, max_shifts_per_day, solve
 from .output import (
@@ -179,13 +180,29 @@ COARSE_DAY_LNS_CANDS = 150_000
 ELASTIC_ALWAYS_DOLLARS_PER_HOUR = 1000.0  # day LNS: hard always_staffed priced, so any start can be improved
 
 
+def _open_by_day(p, roles: dict) -> dict[int, float]:
+    """Uncovered demand per day (headcount-minutes × gap_penalty_per_hour), from slot roles."""
+    have: dict[tuple[str, int], int] = {}
+    for (_e, a), r in roles.items():
+        have[(r, a)] = have.get((r, a), 0) + 1
+    pen = role_tier(p)
+    out: dict[int, float] = {}
+    for (r, a), dem in p.demand.items():
+        miss = dem - have.get((r, a), 0)
+        if miss > 0 and r in pen:
+            out[a // DAY] = out.get(a // DAY, 0) + miss * p.slot * pen[r]
+    return out
+
+
 def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
     """Improve the greedy week one day at a time: that day's full candidate grid, every other day's
     shifts fixed, hinted with the current week (y and x). Hard always_staffed is priced at
     $1000/h inside the day models so a start with holes can still be repaired.
+    Day models use the guided objective (`model.solve` mode "guide") with an hours allotment per
+    day; `greedy.repair` then fills what is still open, coverage first.
     Returns (chosen, roles, objective units, always_staffed holes left) or None if no day solved."""
     days = sorted(p.windows)
-    cur, roles, obj, holes = set(chosen0), dict(roles0), None, None
+    st8 = {"cur": set(chosen0), "roles": dict(roles0), "obj": None, "holes": None}
     always_ids = {c.id for c in p.constraints
                   if c.kind == ConstraintKind.always_staffed and c.strength == Strength.hard}
     rounds, solved = 0, 0
@@ -195,28 +212,52 @@ def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
 
     def on_grid(c) -> bool:
         return not coarse or (c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0)
+    b0 = p.cfg.budget
+    cap_min = int(round((b0.weekly_hours_cap + sum(a.extra_hours for a in b0.approvals)) * 60))
+
+    def day_solve(d: int, per: float, rest_days: list[int]) -> bool:
+        cur, roles = st8["cur"], st8["roles"]
+        paid = {dd: 0 for dd in days}
+        for i in cur:
+            paid[p.cands[i].day] = paid.get(p.cands[i].day, 0) + p.cands[i].paid_min
+        slack = max(0, cap_min - sum(paid.values()))
+        # Hours allotment under a binding budget: a day model sees only its share of the week's
+        # unused hours, by open demand, so it can't spend them all on its own lowest tier; what it
+        # doesn't use rolls on to the next day solved.
+        open_ = _open_by_day(p, roles)
+        later = sum(open_.get(dd, 0) for dd in rest_days)
+        share = slack if later <= 0 else int(slack * open_.get(d, 0) / later)
+        forced = {i for i in cur if p.cands[i].day != d}
+        def ok(c) -> bool:
+            return (c.day == d and on_grid(c)) or c.idx in cur
+        b = Builder(p, cand_ok=ok, forced=forced,
+                    elastic_always=ELASTIC_ALWAYS_DOLLARS_PER_HOUR if always_ids else 0.0,
+                    day_paid_cap=(d, paid.get(d, 0) + share)).build()
+        hint = {v: int(i in cur) for i, v in b.y.items()}
+        for (e, r, a), v in b.x.items():
+            hint[v] = int(roles.get((e, a)) == r)
+        s, st = solve(b, per, hint=hint, mode="guide")
+        if st not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            return False
+        st8["cur"] = {i for i, v in b.y.items() if s.boolean_value(v)}
+        st8["roles"] = {(e, a): r for (e, r, a), v in b.x.items() if s.boolean_value(v)}
+        st8["obj"] = s.objective_value
+        st8["holes"] = sum(s.value(t.var) for t in b.soft if t.constraint_id in always_ids)
+        return True
+
     while True:
         for k, d in enumerate(days):
-            remaining = until - time.perf_counter()
-            per = remaining / max(1, len(days) - k) - 1.0  # ~1 s to build a day model
+            per = (until - time.perf_counter()) / max(1, len(days) - k) - 1.0  # ~1 s to build a day model
             if per < 0.8:
                 stats["stages"].append({"stage": "day_lns", "rounds": rounds, "day_solves": solved,
-                                        "s": round(time.perf_counter() - t_start, 2), "holes": holes})
-                return None if obj is None else (cur, roles, obj, holes)
-            forced = {i for i in cur if p.cands[i].day != d}
-            b = Builder(p, cand_ok=lambda c, d=d: (c.day == d and on_grid(c)) or c.idx in cur, forced=forced,
-                        elastic_always=ELASTIC_ALWAYS_DOLLARS_PER_HOUR if always_ids else 0.0).build()
-            hint = {v: int(i in cur) for i, v in b.y.items()}
-            for (e, r, a), v in b.x.items():
-                hint[v] = int(roles.get((e, a)) == r)
-            s, st = solve(b, per, hint=hint)
-            if st in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                solved += 1
-                cur = {i for i, v in b.y.items() if s.boolean_value(v)}
-                roles = {(e, a): r for (e, r, a), v in b.x.items() if s.boolean_value(v)}
-                obj = s.objective_value
-                holes = sum(s.value(t.var) for t in b.soft if t.constraint_id in always_ids)
+                                        "s": round(time.perf_counter() - t_start, 2), "holes": st8["holes"]})
+                if st8["obj"] is None:
+                    return None
+                return st8["cur"], st8["roles"], st8["obj"], st8["holes"]
+            solved += day_solve(d, per, days[k:])
         rounds += 1
+
+
 
 
 def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional[Schedule] = None) -> Schedule:
@@ -227,7 +268,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
     "feasible" when it holds."""
     t0 = time.perf_counter()
     deadline = t0 + time_limit_s
-    reserve = min(5.0, max(1.0, time_limit_s * 0.15))  # phase 2 + output
+    reserve = min(6.5, max(1.0, time_limit_s * 0.22))  # repair / phase 2 rounds + output
     p = build_prep(config)
     stats: dict = {"num_candidate_shifts": len(p.cands), "notes": list(p.notes), "stages": []}
 
@@ -262,8 +303,9 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         if lns is not None and lns[3]:  # always_staffed holes left: hand the week to the hard model
             chosen0, roles0 = lns[0], lns[1]
             lns = None
+    roles_now: dict = {}
     if lns is not None:
-        chosen, _, obj1, _ = lns
+        chosen, roles_now, obj1, _ = lns
         bound1 = None
         status = cp_model.FEASIBLE
         stats["solver_status"] = "DAY_LNS"
@@ -299,11 +341,13 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
 
         if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             chosen = {c.idx for c in p.cands if c.idx in built.y and solver.boolean_value(built.y[c.idx])}
+            roles_now = {(e, a): r for (e, r, a), v in built.x.items() if solver.boolean_value(v)}
             obj1, bound1 = solver.objective_value, solver.best_objective_bound
         elif chosen0 or len(p.cands) <= SINGLE_STAGE_MAX_CANDS:
             if chosen0 is None:  # small model timed out (e.g. a loaded machine): greedy start as fallback
                 chosen0, roles0 = greedy(p)
             chosen, obj1, bound1 = chosen0, None, solver.best_objective_bound
+            roles_now = dict(roles0)
             stats["fallback"] = "greedy"
         else:
             stats["error"] = "No schedule found within the time limit."
@@ -311,18 +355,40 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         del built, solver, hint  # free the phase-1 model before phase 2
     sched_status = STATUS.get(status, "feasible")
 
-    # Phase 2: keep the chosen shifts, re-assign roles with a small churn tiebreak so
-    # people don't flicker between roles. Coverage/soft terms stay in the objective.
-    b2 = Builder(p, cand_ok=lambda c: c.idx in chosen, churn=True, force_cands=True).build()
-    s2, st2 = solve(b2, max(1.0, deadline - time.perf_counter() - 1.5))
-    stats["phase2_status"] = s2.status_name(st2)
-    if st2 not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        b2 = Builder(p, cand_ok=lambda c: c.idx in chosen, force_cands=True).build()  # retry without churn
-        s2, st2 = solve(b2, 2.0)
-        if st2 not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            stats["error"] = "No schedule found within the time limit."
-            return _base(config, "error", solver_stats=stats)
-    built, solver = b2, s2
+    # Coverage-first finishing, then phase 2: fill demand still open with legal extensions / short
+    # shifts (`repair`), then keep the chosen shifts and re-assign roles (coverage first, then cost
+    # with a small churn tiebreak so people don't flicker between roles). Phase 2 also re-checks
+    # every hard rule on the repaired week; if that fails, the week before the repair is kept.
+    # Phase 2's roles open new repairs, so this repeats while time allows.
+    good = None
+    for _round in range(6):
+        tr = time.perf_counter()
+        repaired, _, moves = repair(p, chosen, roles_now)
+        stats["stages"].append({"stage": "repair", "moves": moves, "s": round(time.perf_counter() - tr, 2)})
+        if good is not None and not moves:
+            break
+        tries = ([repaired] if moves else []) + ([chosen] if good is None else [])
+        for keep in tries:
+            b2 = Builder(p, cand_ok=lambda c, keep=keep: c.idx in keep, churn=True, force_cands=True).build()
+            s2, st2 = solve(b2, max(1.0, deadline - time.perf_counter() - 1.5), mode="lex")
+            if st2 not in (cp_model.OPTIMAL, cp_model.FEASIBLE) and st2 != cp_model.INFEASIBLE:
+                b2 = Builder(p, cand_ok=lambda c, keep=keep: c.idx in keep, force_cands=True).build()  # retry without churn
+                s2, st2 = solve(b2, 2.0, mode="lex")
+            if st2 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                good = (b2, s2, keep)
+                stats["phase2_status"] = s2.status_name(st2)
+                break
+            stats["repair_dropped"] = s2.status_name(st2)
+        else:
+            if good is None:
+                stats["error"] = "No schedule found within the time limit."
+                return _base(config, "error", solver_stats=stats)
+            break
+        b2, s2, chosen = good
+        roles_now = {(e, a): r for (e, r, a), v in b2.x.items() if s2.boolean_value(v)}
+        if deadline - time.perf_counter() < (time.perf_counter() - tr) + 1.0:
+            break
+    built, solver, chosen = good
     if obj1 is None:  # greedy fallback (objective includes the small churn tiebreak)
         obj1 = s2.objective_value
     shifts = annotate(p, shifts_from_solution(built, solver))

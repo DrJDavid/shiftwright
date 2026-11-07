@@ -163,7 +163,9 @@ class Role(BaseModel):
     name: str
     min_age: int = 0      # e.g. 18 for pit_operator (federal hazardous-occupation rule)
     gap_penalty_per_hour: float = Field(
-        ..., description="$ cost per headcount-hour left uncovered; encodes priority"
+        ..., description="$ cost per headcount-hour left uncovered; encodes priority. The engine "
+        "uses it only to rank roles into coverage tiers (higher = covered first), never as a price "
+        "against wages; reported gap_penalty_dollars still use it as $/h. See SEMANTICS.md #25."
     )
     description: str = ""
     tipped: bool = False  # v1.5. Customer tips are a regular part of pay in this role (SEMANTICS.md #20).

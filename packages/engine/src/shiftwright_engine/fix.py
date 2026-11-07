@@ -39,6 +39,7 @@ from shiftwright_contracts.models import (
 )
 
 from .explain import explain_with_prep
+from .lex import tier_weights
 from .premium import MODES, Premium, call_in_premium, extension_premium
 from .why import DAYS, annotate, span
 from .model import Builder, solve
@@ -407,16 +408,18 @@ class _Fix:
         return sum(self.slot / 60 for a in c.work_slots if any(residual.get((r, a), 0) > 0 for r in rs))
 
     def _best_callin(self, eid: str, residual, shifts) -> Optional[tuple[Cand, dict[int, str], float, float]]:
-        """Best call-in shift for eid against `residual` gaps: (cand, roles, gap hours covered, net $)."""
+        """Best call-in shift for eid against `residual` gaps: (cand, roles, gap hours covered, -cost).
+        Tier-weighted coverage first, then cost (SEMANTICS #25)."""
         p = self.p
-        pen = {r.id: r.gap_penalty_per_hour * self.slot / 60 for r in self.cfg.roles}
-        best = None
+        pen, _, _ = tier_weights(p, with_always=False)
+        best, best_key = None, None
         for c in p.by_emp_day.get((eid, self.d), []):
             if c.idx not in self.callin or not self._feasible_callin(c, shifts):
                 continue
             gain, hours, roles = 0.0, 0.0, {}
             for a in c.work_slots:
-                opts = [(pen.get(r, 0), r) for r in p.allowed_roles[eid] if residual.get((r, a), 0) > 0]
+                opts = [(pen.get(r, 0), r) for r in p.allowed_roles[eid]
+                        if residual.get((r, a), 0) > 0 and pen.get(r, 0) > 0]
                 if opts:
                     v, r = max(opts)
                     gain += v
@@ -424,9 +427,9 @@ class _Fix:
                     roles[a] = r
                 else:
                     roles[a] = p.allowed_roles[eid][0]
-            net = gain - (c.wage_units + c.extra_units) / SCALE
-            if hours > 0 and (best is None or net > best[3]):
-                best = (c, roles, hours, net)
+            net = -(c.wage_units + c.extra_units) / SCALE
+            if hours > 0 and (best_key is None or (gain, net) > best_key):
+                best, best_key = (c, roles, hours, net), (gain, net)
         return best
 
     def _candidate(self, rank: int, c: Cand, shift: Shift, hours: float, prem: Premium) -> OutreachCandidate:

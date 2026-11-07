@@ -1315,7 +1315,7 @@
           "type": "integer"
         },
         "gap_penalty_per_hour": {
-          "description": "$ cost per headcount-hour left uncovered; encodes priority",
+          "description": "$ cost per headcount-hour left uncovered; encodes priority. The engine uses it only to rank roles into coverage tiers (higher = covered first), never as a price against wages; reported gap_penalty_dollars still use it as $/h. See SEMANTICS.md #25.",
           "title": "Gap Penalty Per Hour",
           "type": "number"
         },

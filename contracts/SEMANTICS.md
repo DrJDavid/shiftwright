@@ -176,6 +176,20 @@ with the v1.1 changes below folded in.
     `schedule_if_all_accept`. Every employee whose schedule differs from `FixRequest.schedule` must be named
     by an action or a candidate (validated by `validate_fix`).
 
+25. **Coverage first, then cost** (*PUNCHLIST C3, approved by David*). The engine's objective is
+    lexicographic. First it maximizes covered demand headcount-minutes **tier by tier**: roles are
+    ranked by `Role.gap_penalty_per_hour` (higher = higher tier; roles with equal values share a tier),
+    and no amount of lower-tier coverage outweighs higher-tier coverage. Only among schedules that tie
+    on coverage does it minimize cost (wages, overtime, premiums, soft penalties, churn).
+    `gap_penalty_per_hour` therefore **orders tiers; it is not a price** traded against wages. Hard
+    rules (including the hours budget) are unchanged, and `fix_day` follows the same ordering.
+    `cheaper_to_leave_gap` must not appear for a gap that someone legal, available, trained and within
+    budget could fill. Reported metrics keep their formulas (#13: `gap_penalty_dollars` and
+    `objective_dollars` are still computed with `gap_penalty_per_hour` as dollars). Implementation
+    note: when a strict tier ordering doesn't fit CP-SAT's integer range, adjacent tiers are weighted
+    geometrically (each tier's minute worth at least ~12× the next on the demo stores), and the
+    search is time-limited, so the ordering is the solver's target, not a proof.
+
 ## Minimum wage (*v1.1*)
 
 15. **`below_minimum_wage`** (hard): for every employee with at least one shift, if
