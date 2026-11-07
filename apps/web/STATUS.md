@@ -1,6 +1,6 @@
 # WS7 status
 
-_Updated Sat Nov 7, slice 6. Rebased on main 94567f6 (contracts v1.5)._day)._day not yet)._
+_Updated Sat Nov 7, slice 7 (final pass before freeze). Rebased on main 3720fea._day)._day not yet)._
 
 ## How David runs it locally
 
@@ -21,6 +21,20 @@ In the app: **Store ▾** (top right) lists the demo stores the server has (`GET
   remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
+
+**Slice 7 (final pass)**
+- Blank store: hours start open every day (9a–9p, labelled a starting guess) with "Same hours every day … Apply to
+  open days" and "Closed on: Mon … Sun" toggles; the clipped per-row Closed checkbox is gone.
+- Harbor Grill #12 (template `demo_restaurant`) appears in Store ▾ from `/api/templates`; `?demo=restaurant` too.
+  The Fix tab prefills its scenario (Saturday 3:30p, e005 Lane Flores + e028 Noel Garcia) for food stores.
+- Fix tab: refreshes the schedule right after `/outreach/start` (call-outs removed, actions applied, per WS6) and
+  offers "Just make today's changes, don't text anyone" (`POST /fix/apply`; mock supports it too).
+- Receipt: rules nothing in the schedule triggers (no tagged roles, nobody in the age band, not applicable this week)
+  are one-liners under "Also checked"; Harbor Grill went from 6 to 4 pages, Austin 3, Chicago 4.
+- Engine "why" text humanized in the grid tooltip and Fix tab; tipped roles marked "(tipped)" in the legend.
+- Final 1280×720 pass, live API + real engine, beats build → receipt → call-outs → texts → phone:
+  Austin, Chicago and Harbor Grill each build in ~18 s, fix in <2 s, fill by text; after outreach the badge is
+  "0 hard violations ✓" in all three (WS6's fix works) and called-out shifts are gone from the saved schedule.
 
 **Slice 6 (contracts v1.5: any business)**
 - `store_basics`: "What kind of business is this?" (`sector`) and "In a few words" (`business_description`) first;
@@ -173,6 +187,18 @@ solve → grid, stats, validator badge + report. (Solve runs WS6's engine stub u
 - Coverage heatmap: cells are slot-sized; a gap shorter than a slot still marks the whole cell red (hover shows the exact range).
 
 ## Remaining demo issues
+
+Final pass (slice 7):
+1. **WS1/WS2, visible in the Harbor Grill demo:** right after **Build schedule** the validator reports 2 hard
+   `metrics_mismatch` (engine `total_wage_cost` $16,050.40 vs validator $14,259.50; objective likewise). The engine
+   and validator price tipped hours differently (SEMANTICS #20). After the call-out fix the saved schedule is
+   re-validated and shows 0 hard, but a receipt printed right after the build says "Did not pass".
+2. The Harbor Grill receipt says the Chicago tipped minimum, fryer/cooking and alcohol rules have no violations, but
+   with no 14–15-year-olds scheduled the fryer rule is listed under "Also checked" (true, but the demo story wants a
+   15-year-old trained on the fryer — WS4's fixture doesn't schedule one this week).
+3. Plan coverage numbers are week-level, so a Saturday rescue moves 90.0% → 90.2%.
+
+Earlier notes:
 
 Still open after slice 6 (WS6 is on 1–3): the badge shows "1 hard violation" after outreach (metrics_mismatch on
 soft-rule cost); called-out shifts stay in the saved schedule; extension actions aren't applied. New: a store
