@@ -258,7 +258,11 @@ export default function App() {
                 aria-selected={tab === t.id}
                 disabled={!t.ready}
                 title={t.ready ? undefined : 'Not built yet'}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  setTab(t.id)
+                  // These views need the width; the chat is one click away.
+                  if (t.id === 'fix' || t.id === 'receipt' || t.id === 'store') setChatOpen(false)
+                }}
                 className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold ${
                   tab === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'
                 } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted`}
@@ -301,7 +305,13 @@ export default function App() {
               config={config}
               result={result}
               lawPack={lawPack}
-              onSchedule={(schedule) => setResult({ schedule, validation: null })}
+              onSchedule={(schedule) => {
+                // The API saves each accepted call-in with a fresh validator report; fall back to the state's copy.
+                api
+                  .latestSchedule(config.store.id)
+                  .then(setResult)
+                  .catch(() => setResult({ schedule, validation: null }))
+              }}
             />
           </div>
           {openGap && result && (

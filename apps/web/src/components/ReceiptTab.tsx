@@ -323,6 +323,8 @@ function CallOutRepairs({ config, outreach }: { config: StoreConfig; outreach: O
   const name = (id: string) => config.employees.find((e) => e.id === id)?.name ?? id
   const by = new Map((outreach.premium?.by_employee ?? []).map((b) => [b.employee_id, b]))
   const total = accepted.reduce((c, id) => c + (by.get(id)?.premium_pay_dollars ?? 0), 0)
+  const notes = new Set(accepted.map((id) => by.get(id)?.note ?? ''))
+  const shared = notes.size === 1 ? [...notes][0] : null
   return (
     <section className="mt-5 break-inside-avoid">
       <H>Call-out repairs</H>
@@ -335,6 +337,7 @@ function CallOutRepairs({ config, outreach }: { config: StoreConfig; outreach: O
         .
       </p>
       {outreach.premium?.note && <p className="mb-1 text-xs text-muted">{h(outreach.premium.note)}</p>}
+      {shared && <p className="mb-1 text-xs text-ink-2">Basis for each: {h(shared)}</p>}
       <table className="w-full">
         <thead>
           <tr className="text-left text-xs text-muted">
@@ -350,7 +353,7 @@ function CallOutRepairs({ config, outreach }: { config: StoreConfig; outreach: O
               <tr key={id} className="border-t border-rule-soft align-top">
                 <td className="py-1 pr-2">{name(id)}</td>
                 <td className="py-1 pr-2 text-right tabular-nums">{b ? fmtMoney(b.premium_pay_dollars, { cents: true }) : '—'}</td>
-                <td className="py-1 text-xs text-ink-2">{b ? h(b.note) : 'Not reported by the server'}</td>
+                <td className="py-1 text-xs text-ink-2">{b ? (shared ? 'As above' : h(b.note)) : 'Not reported by the server'}</td>
               </tr>
             )
           })}

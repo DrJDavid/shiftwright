@@ -357,9 +357,9 @@ function PlanView({
         </p>
       )}
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-rule bg-rule">
-        <Big label="Coverage now" value={fmtPct(plan.coverage_before_pct)} tone="text-gap" />
-        <Big label="If the first choices say yes" value={fmtPct(plan.coverage_after_best_pct)} tone="text-pine-dark" />
-        <Big label="If nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
+        <Big label="After the call-outs" value={fmtPct(plan.coverage_before_pct)} tone="text-gap" />
+        <Big label="Plan, if the first choices say yes" value={fmtPct(plan.coverage_after_best_pct)} tone="text-pine-dark" />
+        <Big label="Plan, if nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
       </div>
 
       <ModeBanner plan={plan} outreach={outreach} h={h} lawById={lawById} />
@@ -625,12 +625,27 @@ function ModeBanner({
                 : 'No scheduling-law premium here'}
             {label ? ` · ${label}` : ''}.
           </span>{' '}
-          {h(prem.note)}
+          <NoteWithSource text={h(prem.note)} />
         </p>
       ) : label ? (
         <p className="mt-0.5 text-ink-2">Premiums below come from {label}; the outreach confirms whether they're owed.</p>
       ) : null}
     </div>
+  )
+}
+
+/** Plain first part of a note, with any quoted source text folded away. */
+function NoteWithSource({ text }: { text: string }) {
+  const i = text.search(/\s(Exempt:|")/)
+  if (i < 0) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, i)}{' '}
+      <details className="inline">
+        <summary className="inline cursor-pointer text-xs text-pine-dark underline">source text</summary>
+        <span className="block text-xs text-muted">{text.slice(i + 1)}</span>
+      </details>
+    </>
   )
 }
 
@@ -780,9 +795,11 @@ function Phone({
             type="button"
             onClick={onStart}
             disabled={!plan.plan_id || plan.outreach_queue.length === 0}
-            className="w-full rounded-md bg-pine px-4 py-2.5 font-semibold text-white hover:bg-pine-dark disabled:opacity-50"
+            className={`w-full rounded-md px-4 py-2.5 font-semibold disabled:opacity-50 ${
+              status === 'idle' ? 'bg-pine text-white hover:bg-pine-dark' : 'border border-rule text-ink-2 hover:border-ink'
+            }`}
           >
-            {status === 'idle' ? 'Start texting' : 'Start again'}
+            {status === 'idle' ? 'Start texting' : status === 'filled' ? 'Text again from the top' : 'Try the list again'}
           </button>
         ) : (
           <>
