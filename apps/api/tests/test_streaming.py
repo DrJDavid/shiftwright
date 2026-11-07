@@ -11,6 +11,7 @@ from api_helpers import make_store, parse_sse
 from shiftwright_api.agent import llm as llm_mod
 from shiftwright_api.agent.llm import LLMResponse, OpenRouterClient, ToolCall
 from shiftwright_api.main import create_app
+from shiftwright_contracts.models import Event
 
 
 def _sse_body(chunks: list[dict]) -> bytes:
@@ -64,3 +65,31 @@ def test_chat_forwards_each_token(settings):
         events = parse_sse(r.text)
         assert events == [("text", {"delta": "Hi"}), ("text", {"delta": " there"}), ("text", {"delta": "!"}),
                           ("done", {})]
+
+
+def test_text_from_separate_steps_is_separated(settings):
+    from shiftwright_api.agent.llm import FakeLLM, call, say
+    fake = FakeLLM([LLMResponse(content="Saved.", tool_calls=call("readiness_check").tool_calls), say("Next up.")])
+    with TestClient(create_app(settings=settings, llm=fake)) as c:
+        sid = make_store(c)["store"]["id"]
+        events = parse_sse(c.post(f"/api/stores/{sid}/chat", json={"mode": "onboard", "messages": [
+            {"role": "user", "content": "x"}]}).text)
+        assert [d["delta"] for e, d in events if e == "text"] == ["Saved.", "\n\nNext up."]
+
+
+def test_coverage_grid_widens_to_cover_events(settings):
+    from shiftwright_api.agent.llm import FakeLLM, call, say
+    from api_helpers import tiny_config
+    fake = FakeLLM([call("ask_coverage_grid", day_type="truck_day"), say("ok")])
+    with TestClient(create_app(settings=settings, llm=fake)) as c:
+        sid = make_store(c)["store"]["id"]
+        cfg = tiny_config().model_copy(deep=True)
+        cfg.store.id = sid
+        day = next(h.day for h in cfg.store.hours if h.close > h.open and h.day < 5)
+        cfg.events = [e for e in cfg.events if e.kind.value != "truck"]
+        cfg.events.append(Event(id="ev_t", kind="truck", day=day, start=240, end=600))
+        assert c.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json")).status_code == 200
+        events = parse_sse(c.post(f"/api/stores/{sid}/chat?auto_cards=scripted", json={
+            "mode": "onboard", "messages": [{"role": "user", "content": "x"}], "card_script": {}}).text)
+        card = next(d for e, d in events if e == "card")
+        assert card["props"]["days"] == [day] and card["props"]["start_minute"] == 240

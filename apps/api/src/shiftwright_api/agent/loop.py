@@ -50,6 +50,18 @@ def repair_transcript(messages: list[dict]) -> list[dict]:
     return out
 
 
+CARD_RESULT_MAX_CHARS = 2000
+
+
+def _compact(card_result: dict) -> dict:
+    """Big card submissions (coverage grids, 60-person training matrices) are applied server-side;
+    echoing them back to the model costs tokens and adds nothing. The model can read the config."""
+    if len(json.dumps(card_result, default=str)) <= CARD_RESULT_MAX_CHARS:
+        return card_result
+    return {"submitted": True, "keys": list(card_result)[:20],
+            "note": "Large submission applied (see 'changed'); call get_config_summary for details."}
+
+
 def _summary(name: str, content: dict) -> str:
     if "error" in content:
         return f"{name}: error"
@@ -76,10 +88,12 @@ async def run_turn(
     tools = specs_for(mode)
     system = {"role": "system", "content": system_prompt(mode, store_id)}
 
+    said = False
     try:
         for _ in range(MAX_STEPS):
             resp: Optional[LLMResponse] = None
             streamed = False
+            sep = "\n\n" if said else ""  # keep text from separate steps from running together
             try:
                 if hasattr(llm, "stream"):
                     async for piece in llm.stream([system, *transcript], tools):
@@ -87,7 +101,8 @@ async def run_turn(
                             resp = piece
                         elif piece:
                             streamed = True
-                            yield "text", {"delta": piece}
+                            yield "text", {"delta": sep + piece}
+                            sep, said = "", True
                 else:
                     resp = await llm.complete([system, *transcript], tools)
             except Exception as e:  # noqa: BLE001 - surfaced to the client
@@ -101,7 +116,8 @@ async def run_turn(
                 assistant["tool_calls"] = [tc.to_openai() for tc in resp.tool_calls]
             transcript.append(assistant)
             if resp.content and not streamed:
-                yield "text", {"delta": resp.content}
+                yield "text", {"delta": sep + resp.content}
+                said = True
             if not resp.tool_calls:
                 break
             for tc in resp.tool_calls:
@@ -125,7 +141,7 @@ async def run_turn(
                             if inspect.isawaitable(out):
                                 out = await out
                             if isinstance(out, ToolResult):
-                                out.content = {"card_result": card_result, **out.content}
+                                out.content = {"card_result": _compact(card_result), **out.content}
                         result = out if isinstance(out, ToolResult) else ToolResult(out)
                     except asyncio.CancelledError:
                         raise
