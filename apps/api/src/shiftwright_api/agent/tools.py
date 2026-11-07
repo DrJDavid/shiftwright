@@ -155,9 +155,7 @@ def ask_store_basics(ctx: ToolContext, args: dict) -> CardRequest:
         if _cancelled(result):
             return CANCELLED
         fields = {k: v for k, v in result.items() if k != "id"}
-        if isinstance(fields.get("hours"), list):  # a closed day is simply absent
-            fields["hours"] = [h for h in fields["hours"] if isinstance(h, dict) and not h.get("closed")
-                               and "open" in h and "close" in h]
+        _drop_closed(fields)
 
         def fn(d):
             d["store"].update(fields)
@@ -587,8 +585,16 @@ def confirm_employee_availability(ctx: ToolContext, args: dict) -> Union[CardReq
 # --------------------------------------------------------------------------- #
 # Mutation tools
 # --------------------------------------------------------------------------- #
+def _drop_closed(fields: dict) -> None:
+    """A closed day is simply absent from Store.hours (the model sometimes sends {day, closed: true})."""
+    if isinstance(fields.get("hours"), list):
+        fields["hours"] = [h for h in fields["hours"] if isinstance(h, dict) and not h.get("closed")
+                           and "open" in h and "close" in h]
+
+
 def set_store_basics(ctx: ToolContext, args: dict) -> ToolResult:
     fields = {k: v for k, v in (args.get("fields") or args).items() if k != "id"}
+    _drop_closed(fields)
 
     def fn(d):
         d["store"].update(fields)

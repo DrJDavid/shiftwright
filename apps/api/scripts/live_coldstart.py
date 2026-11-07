@@ -118,7 +118,7 @@ async def main(turns: int, out: str | None) -> int:
         rd = readiness.compute(db.get_config(sid), equipment.state(db, sid))
         print("  readiness:", "READY" if rd.ready else f"failing {[c.id for c in rd.checks if not c.ok]}",
               "| warn:", [c.id for c in rd.checks if c.severity == "warn"])
-        if rd.ready and n >= 3:
+        if rd.ready and n >= 4:
             ready = True
             break
     cfg = db.get_config(sid)

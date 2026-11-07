@@ -151,3 +151,20 @@ def test_tipped_wage_checked_against_full_minimum_without_tip_rule(client):
     has_tip_rule = any(r["type"] == "tipped_minimum_wage" for r in pack["rules"])
     if not has_tip_rule:
         assert not check["ok"] and e.name in check["detail"] and "full minimum applies" in check["detail"]
+
+
+def test_closed_days_dropped_and_chat_employee_defaults(client, fake_llm):
+    from shiftwright_api.agent.llm import call, say
+    sid = make_store(client, template="bigbox_small")["store"]["id"]
+    fake_llm.script([call("set_store_basics", fields={"hours": [{"day": 0, "closed": True},
+                                                                 {"day": 1, "open": 660, "close": 1260}],
+                                                       "sector": "food", "business_description": "taqueria"}),
+                     call("upsert_employee", employee={"id": "kevin", "name": "Kevin Ng", "age": 15,
+                                                       "phone": "312-555-0109", "wage_per_hour": 17.1,
+                                                       "trained_role_ids": ["cashier"]}),
+                     say("ok")])
+    client.post(f"/api/stores/{sid}/chat", json={"mode": "onboard", "messages": [{"role": "user", "content": "x"}]})
+    cfg = client.get(f"/api/stores/{sid}/config").json()
+    assert cfg["store"]["hours"] == [{"day": 1, "open": 660, "close": 1260}] and cfg["store"]["sector"] == "food"
+    kev = cfg["employees"][0]
+    assert kev["phone"] == "+13125550109" and kev["status"] == "part_time" and kev["home_department_id"]
