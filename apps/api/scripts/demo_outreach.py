@@ -101,6 +101,15 @@ def run(base: str | None = None, reply_delay_s: float = 4.0, template: str = "de
         for m in last["messages"]:
             who = f"-> {m['to_employee_id']}" if m.get("to_employee_id") else f"<- {m['from_phone']}"
             print(f"   {(m.get('sent_at') or m.get('received_at'))[11:19]} {who}: {m['body']}")
+        final = c.get(f"/api/stores/{sid}/schedule").json()
+        ids = {x["employee_id"] for x in callouts}
+        out["callout_shifts_after_now"] = [(x["employee_id"], x["start"], x["end"]) for x in final["schedule"]["shifts"]
+                                           if x["employee_id"] in ids and x["day"] == callouts[0]["day"]
+                                           and x["end"] > callouts[0]["reported_at"]]
+        val = final.get("validation") or {}
+        out["violation_codes"] = sorted({v["code"] for v in val.get("violations", [])})
+        print(f"saved schedule: validation passed={val.get('passed')} codes={out['violation_codes']}; "
+              f"call-out shifts after now: {out['callout_shifts_after_now']}")
         if last.get("premium"):
             p = last["premium"]
             print(f"   premium: {p['status']} {p['law_rule_ids']} — {p['note'][:160]}")

@@ -12,12 +12,14 @@ NON_BLOCKING = {"provisional_rules"}
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
-def compute(config: StoreConfig, equipment_review: dict[str, str] | None = None) -> Readiness:
-    """`equipment_review`: kv state from equipment.py ({role_id: auto|confirmed|rejected})."""
+def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readiness:
+    """`equipment_review`: kv state from equipment.state(). Checks carry `severity` ok | warn | block
+    (warn = shown, never blocks)."""
     checks: list[ReadinessCheck] = []
 
-    def add(id_: str, label: str, ok: bool, detail: str) -> None:
-        checks.append(ReadinessCheck(id=id_, label=label, ok=ok, detail=detail))
+    def add(id_: str, label: str, ok: bool, detail: str, severity: str | None = None) -> None:
+        sev = severity or ("ok" if ok else ("warn" if id_ in NON_BLOCKING else "block"))
+        checks.append(ReadinessCheck(id=id_, label=label, ok=ok, detail=detail, severity=sev))
 
     s = config.store
     open_days = sorted({h.day for h in s.hours if h.close > h.open})
@@ -59,13 +61,32 @@ def compute(config: StoreConfig, equipment_review: dict[str, str] | None = None)
 
     names = {r.id: r.name for r in config.roles}
     review = equipment_review or {}
-    auto = [names[r] for r, st in review.items() if st == "auto" and r in names]
-    tagged = [names[r] for r, tags in config.role_tags.items() if "powered_industrial_truck" in tags and r in names]
-    # ok: the protective tag is already applied; this lists what the leader should confirm or reject.
-    add("equipment_roles", "Powered-equipment roles", True,
-        (f"Tagged automatically as powered industrial trucks, so minor-labor rules apply: {', '.join(auto)}. "
-         "Please confirm or reject.") if auto else
-        (f"Powered industrial truck roles: {', '.join(tagged)}." if tagged else "No powered-equipment roles."))
+    auto = [f"{names[r]} ({', '.join(v.get('tags') or [])})" for r, v in review.items()
+            if isinstance(v, dict) and v.get("status") == "auto" and r in names]
+    tagged = {r: tags for r, tags in config.role_tags.items() if tags and r in names}
+    # ok: the protective tags are already applied; this lists what the leader should confirm or reject.
+    add("equipment_roles", "Hazard and equipment roles", True,
+        (f"Tagged automatically, so minor-labor rules apply: {'; '.join(auto)}. Please confirm or reject.") if auto
+        else ("Tagged roles: " + "; ".join(f"{names[r]} ({', '.join(t)})" for r, t in tagged.items()) + "."
+              if tagged else "No hazard or equipment roles tagged."), severity="warn" if auto else "ok")
+
+    minors = {r: [e.name for e in config.employees if e.age < 18 and r in e.trained_role_ids] for r in tagged}
+    minors = {r: v for r, v in minors.items() if v}
+    add("minors_on_tagged_roles", "Minors trained on tagged roles", True,
+        ("Minor-labor rules in the law pack decide whether they may work these: " + "; ".join(
+            f"{names[r]} ({', '.join(tagged[r])}): {', '.join(v)}" for r, v in minors.items()) + ".") if minors
+        else "No minors trained on tagged roles.", severity="warn" if minors else "ok")
+
+    add("business_type", "Business type", True,
+        f"{s.sector.value}" + (f": {s.business_description}" if s.business_description else "") if s.sector
+        else "Business type not set; every sector's labor rules are applied to be safe.",
+        severity="ok" if s.sector else "warn")
+
+    est = sorted({d.role_id for d in config.demand if d.source.value == "estimate"})
+    add("staffing_draft", "Staffing levels confirmed", True,
+        "Staffing levels are a draft (estimated, not confirmed) for: " + ", ".join(names.get(r, r) for r in est)
+        + ". Confirm them on a staffing card." if est else "No draft staffing.",
+        severity="warn" if est else "ok")
 
     b = config.budget
     add("budget", "Payroll budget", b.weekly_hours_cap > 0,
@@ -78,10 +99,22 @@ def compute(config: StoreConfig, equipment_review: dict[str, str] | None = None)
     else:
         rate, rule_id = floor
         low = [e for e in config.employees if e.wage_per_hour < rate]
-        add("minimum_wage", "Wages at or above minimum wage", not low,
-            f"All wages ≥ ${rate:.2f}/hr ({rule_id})." if not low else
-            f"Below the ${rate:.2f}/hr minimum ({rule_id}): "
-            + ", ".join(f"{e.name} (${e.wage_per_hour:.2f})" for e in low))
+        # SEMANTICS #20/#15: tipped cash wages vs tipped_minimum_wage, or the full minimum when there is none
+        tipped_roles = {r.id for r in config.roles if r.tipped}
+        tip = minimum_wage(pack, s.week_start, LawRuleType.tipped_minimum_wage, "cash_wage_per_hour")
+        t_rate, t_rule = tip if tip else (rate, rule_id)
+        low_tip = [e for e in config.employees if e.tipped_wage_per_hour is not None
+                   and tipped_roles & set(e.trained_role_ids) and e.tipped_wage_per_hour < t_rate]
+        parts = []
+        if low:
+            parts.append(f"Below the ${rate:.2f}/hr minimum ({rule_id}): "
+                         + ", ".join(f"{e.name} (${e.wage_per_hour:.2f})" for e in low))
+        if low_tip:
+            parts.append(f"Tipped cash wage below ${t_rate:.2f}/hr ({t_rule}"
+                         + ("" if tip else "; no tipped minimum wage in the law pack, so the full minimum applies")
+                         + "): " + ", ".join(f"{e.name} (${e.tipped_wage_per_hour:.2f})" for e in low_tip))
+        add("minimum_wage", "Wages at or above minimum wage", not (low or low_tip),
+            f"All wages ≥ ${rate:.2f}/hr ({rule_id})." if not parts else " ".join(parts))
 
     prov = [c.note or c.kind.value.replace("_", " ") for c in config.constraints
             if c.status == RuleStatus.provisional]
@@ -92,17 +125,18 @@ def compute(config: StoreConfig, equipment_review: dict[str, str] | None = None)
     return Readiness(ready=ready, checks=checks)
 
 
-def minimum_wage(pack: LawPack, on: date) -> tuple[float, str] | None:
-    """Highest minimum_wage rule in effect on `on` (most protective wins), as (rate, rule id)."""
+def minimum_wage(pack: LawPack, on: date, rule_type: LawRuleType = LawRuleType.minimum_wage,
+                 key: str = "dollars_per_hour") -> tuple[float, str] | None:
+    """Highest rule of `rule_type` in effect on `on` (most protective wins), as (rate, rule id)."""
     best: tuple[float, str] | None = None
     for r in pack.rules:
-        if r.type != LawRuleType.minimum_wage:
+        if r.type != rule_type:
             continue
         eff = r.params.get("effective")
         try:
             if eff and date.fromisoformat(str(eff)) > on:
                 continue
-            rate = float(r.params["dollars_per_hour"])
+            rate = float(r.params[key])
         except (KeyError, TypeError, ValueError):
             continue
         if best is None or rate > best[0]:

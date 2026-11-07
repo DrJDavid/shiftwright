@@ -42,6 +42,17 @@ _MID_EXTRA = [
 ]
 _ROLE_TAGS = {"pit_operator": ["powered_industrial_truck"]}
 
+# restaurant_small (v1.5): structure only, like the big-box templates
+_RESTAURANT = [
+    ("leadership", "Leadership", [("manager_on_duty", "Manager on Duty", 100, 18)]),
+    ("kitchen", "Kitchen", [("line_cook", "Line Cook", 40, 0), ("prep", "Prep", 15, 0),
+                            ("dishwasher", "Dishwasher", 20, 0)]),
+    ("front_of_house", "Front of House", [("server", "Server", 35, 0), ("host", "Host", 15, 0),
+                                          ("bartender", "Bartender", 25, 0)]),
+]
+_RESTAURANT_TAGS = {"line_cook": ["cooking", "fryer"], "bartender": ["alcohol_service"]}
+_TIPPED = {"server", "bartender"}
+
 
 def next_monday(today: date | None = None) -> date:
     today = today or date.today()
@@ -91,27 +102,32 @@ def from_fixture(template: str, store_id: str | None = None) -> StoreConfig:
 
 
 def build(template: str, name: str, jurisdiction: Jurisdiction, store_id: str | None = None) -> StoreConfig:
-    spec = {"empty": [], "bigbox_small": _SMALL, "bigbox_mid": _SMALL + _MID_EXTRA}[template]
+    spec = {"empty": [], "bigbox_small": _SMALL, "bigbox_mid": _SMALL + _MID_EXTRA,
+            "restaurant_small": _RESTAURANT}[template]
     departments = [Department(id=d, name=n) for d, n, _ in spec]
     roles = [
-        Role(id=r, department_id=d, name=rn, gap_penalty_per_hour=pen, min_age=age, description=DEFAULT_NOTE)
+        Role(id=r, department_id=d, name=rn, gap_penalty_per_hour=pen, min_age=age, description=DEFAULT_NOTE,
+             tipped=r in _TIPPED and template == "restaurant_small")
         for d, _, rs in spec
         for r, rn, pen, age in rs
     ]
-    hours = [] if template == "empty" else [dict(day=d, open=8 * 60, close=22 * 60) for d in range(7)]
+    open_, close = (11 * 60, 22 * 60) if template == "restaurant_small" else (8 * 60, 22 * 60)
+    hours = [] if template == "empty" else [dict(day=d, open=open_, close=close) for d in range(7)]
     store = Store(
         id=store_id or new_store_id(),
         name=name,
         jurisdiction=jurisdiction,
         week_start=next_monday(),
         hours=hours,
+        sector="food" if template == "restaurant_small" else None,
     )
     role_ids = {r.id for r in roles}
     return StoreConfig(
         store=store,
         departments=departments,
         roles=roles,
-        role_tags={k: v for k, v in _ROLE_TAGS.items() if k in role_ids},
+        role_tags={k: v for k, v in {**_ROLE_TAGS, **(_RESTAURANT_TAGS if template == "restaurant_small" else {})}.items()
+                   if k in role_ids},
         employees=[],
         demand=[],
         budget=Budget(weekly_hours_cap=0),
@@ -120,7 +136,8 @@ def build(template: str, name: str, jurisdiction: Jurisdiction, store_id: str | 
 
 KNOWN_LOCALITIES = ["chicago", "seattle", "sf"]
 _LABELS = {"empty": "Empty store (start from scratch)", "bigbox_small": "Big-box store, small (roles only)",
-           "bigbox_mid": "Big-box store, mid-size (roles only)"}
+           "bigbox_mid": "Big-box store, mid-size (roles only)",
+           "restaurant_small": "Small restaurant (roles only)"}
 
 
 def available() -> list[dict]:

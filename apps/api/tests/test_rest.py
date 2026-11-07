@@ -81,7 +81,7 @@ def test_readiness(client):
     assert rd.ready is False
     assert [c.id for c in rd.checks] == [
         "store_basics", "jurisdiction", "roles", "employees", "training", "demand", "priorities", "equipment_roles",
-        "budget", "minimum_wage", "provisional_rules"]
+        "minors_on_tagged_roles", "business_type", "staffing_draft", "budget", "minimum_wage", "provisional_rules"]
 
     sid = _put_tiny(client)
     rd = Readiness.model_validate(client.get(f"/api/stores/{sid}/readiness").json())
@@ -164,10 +164,17 @@ def test_locality_demo_templates(client):
 def test_templates_list(client):
     t = client.get("/api/templates").json()["templates"]
     ids = [x["id"] for x in t]
-    assert ids[:3] == ["empty", "bigbox_small", "bigbox_mid"] and "demo" in ids and "tiny" in ids
+    assert ids[:4] == ["empty", "bigbox_small", "bigbox_mid", "restaurant_small"] and "demo" in ids and "tiny" in ids
     demo = next(x for x in t if x["id"] == "demo")
     assert demo["jurisdiction"]["state"] == "TX" and "Store #0417" in demo["label"]
     for x in t:  # every listed template can be created
         body = {"template": x["id"]} if x["jurisdiction"] else {"template": x["id"], "name": "x",
                                                                   "jurisdiction": {"state": "TX"}}
         assert client.post("/api/stores", json=body).status_code == 200, x
+
+
+def test_restaurant_small_template(client):
+    cfg = StoreConfig.model_validate(make_store(client, template="restaurant_small"))
+    assert cfg.store.sector.value == "food"
+    assert {r.id for r in cfg.roles if r.tipped} == {"server", "bartender"}
+    assert cfg.role_tags["line_cook"] == ["cooking", "fryer"]

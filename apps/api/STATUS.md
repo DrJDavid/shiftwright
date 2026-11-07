@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~07:40 CT (rebased on main fb4dadf)_
+_Last updated: 2026-11-07 ~08:50 CT (rebased on main 94567f6, contracts v1.5)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -44,7 +44,7 @@ _Last updated: 2026-11-07 ~07:40 CT (rebased on main fb4dadf)_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 69 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 75 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -258,6 +258,51 @@ _Last updated: 2026-11-07 ~07:40 CT (rebased on main fb4dadf)_
   - Commit of `labor_model` / `labor_standards` stores rows and returns the unchanged StoreConfig.
   - **For API.md (ImportKind):** add `labor_model`, `labor_standards`, `labor_hours`, `sales_forecast`, `workload`;
     WS7's csv_import kind list needs them. Agent `ask_csv_import` enum + onboarding prompt v3.2 include them.
+
+**Done (contracts v1.5: any business, cold start):**
+- **Prompts** core v3 / onboard v4: any hourly business; ask what the business is first and set `sector` +
+  `business_description`; never assume trucks/departments/forecasts/tips; napkin flow (describe a normal week →
+  `ask_department_staffing` with `prefill` + `rationale` quoting the leader, labeled a guess → confirm); events by
+  sector with `label`; hazard tags explained; tipped cash wage only if stated; rule 12: leader decisions (tags,
+  wages, rule strength) are recorded only after they answer. CSV-mapping LLM prompt is industry-neutral.
+- **Day groups** from actual open days: `all`, `weekday`, `weekend`, `saturday`, `sunday`, each open day `mon`…`sun`;
+  peaks accept those or comma lists (`"fri,sat"`). `coverage_grid` `day_type: "custom"` (days authoritative);
+  `truck_day` falls back to custom without truck events. `department_staffing` props add `rationale`
+  {role_id: sentence} (default: "A starting guess from your hours and N trained; change it.").
+  `events` card props add `kinds` ordered by sector (food: delivery, private_event, catering, promo, other, …).
+- **Hazard tagger** (`equipment.py`) for every `ROLE_TAGS` tag by role name/id keywords (e.g. Fry Cook → fryer +
+  cooking, Deli Slicer → meat_slicer, Bartender → alcohol_service, Delivery Driver → motor_vehicle_driving;
+  not: Server, Host, Dishwasher, Drive Up, Barista, Prep, Cashier). Review state per role
+  {status, tags}; confirm/reject applies to that role's auto tags (old {role_id: "auto"} kv still read).
+- **Readiness** checks now carry `severity: "ok"|"warn"|"block"` (proposal for API.md; `ok` unchanged). New warn
+  checks (ok stays true so they never block): `minors_on_tagged_roles` (names minors trained on any tagged role),
+  `business_type` ("Business type not set; every sector's labor rules are applied to be safe."), `staffing_draft`
+  (roles with `estimate` demand). `minimum_wage` also checks `tipped_wage_per_hour` (for people trained on a tipped
+  role) against `tipped_minimum_wage.cash_wage_per_hour`, or the full minimum when the pack has none.
+  Order: … priorities, equipment_roles, minors_on_tagged_roles, business_type, staffing_draft, budget, minimum_wage,
+  provisional_rules.
+- **Chat-entered people:** `upsert_employee` carries the Employee schema; fills home_department_id (first role's
+  department), status part_time, hire_date = week start, E.164 phone. Closed days (`{day, closed: true}`) are
+  dropped from store hours (card and `set_store_basics`).
+- **Fix/outreach schedule (WS7 issues):** `/outreach/start` and new **`POST /api/stores/{id}/fix/apply {plan_id}`**
+  (→ `{schedule, validation}`; idempotent per plan; proposal for API.md) save the plan's `schedule_if_none_accept`
+  (the engine's schedule with the called-out shifts removed and the immediate actions applied) as the new
+  schedule; outreach then builds on it. Every saved schedule adopts the validator's recomputed metrics and is
+  validated again, so no `metrics_mismatch`. `premium.by_employee` refreshes after each re-fix (booked people keep
+  their price at booking). Note: the engine drops a called-out shift entirely, including the part before `now`.
+  E2E (Austin, real engine, after these): filled in 13.7 s; saved validation passed; no call-out shifts after now.
+- **Template `restaurant_small`** (sector food; Manager on Duty, Line Cook [cooking, fryer], Prep, Dishwasher,
+  Server [tipped], Host, Bartender [tipped, alcohol_service]; 11 am–10 pm daily; placeholder priorities).
+- **Cold-start rehearsal** `scripts/live_coldstart.py` ("30-seat taqueria in Chicago", chat only, owner confirms
+  every drafted card). Final run: **ready in 4 owner turns** (5 with the rules turn), 20 LLM calls, ≈0.79M prompt
+  chars, 74 s: sector food + description, Tue–Sun per-day hours (Mon closed), 7 roles with server/bartender
+  tipped, line cook tagged fryer + cooking (from "the line cooks run the fryer"), bartender alcohol_service,
+  10 people from one chat message, per-day staffing from the napkin description (leader source), private event
+  "Rehearsal dinner" Sat 4–7 pm +2 servers, produce deliveries Tue/Fri, 4-hour minimum (hard), Kevin's school-day
+  limit logged + set as availability. Earlier runs found and fixed: employee upserts failing on missing fields,
+  closed-day hours rejected, the agent confirming a tag the owner hadn't answered (rule 12). Not exercised yet:
+  tipped cash wages (no `tipped_minimum_wage` in the dataset yet ⇒ full minimum applies, so a $9.48 cash wage
+  blocks readiness — correct per SEMANTICS #20) and the fryer rule blocking a 15-year-old (needs WS3's rule).
 
 **Next:** re-run the Seattle what-if once WS1 honours `FixRequest.outreach_mode` (expect a group_offer thread).
 

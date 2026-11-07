@@ -20,3 +20,5 @@ def test_demo_outreach_fills():
     res = mod.run(reply_delay_s=0.05)
     assert res["status"] == "filled", res
     assert res["first_text_s"] is not None and res["first_text_s"] < 2.0
+    assert res["callout_shifts_after_now"] == [], res["callout_shifts_after_now"]
+    assert "metrics_mismatch" not in res["violation_codes"], res["violation_codes"]

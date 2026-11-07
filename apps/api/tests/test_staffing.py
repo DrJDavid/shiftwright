@@ -65,7 +65,7 @@ def test_imported_forklift_role_is_tagged_and_reviewable(client):
     assert r.json()["role_tags"]["forklift_operator"] == ["powered_industrial_truck"]
     assert int(r.headers["X-Import-Warning-Count"]) >= 1
     w = client.get(f"/api/stores/{sid}/import/roster/warnings").json()["warnings"]
-    assert any("powered industrial truck" in x for x in w)
+    assert any("powered_industrial_truck" in x for x in w)
     check = next(c for c in client.get(f"/api/stores/{sid}/readiness").json()["checks"] if c["id"] == "equipment_roles")
     assert "Forklift Operator" in check["detail"] and "confirm" in check["detail"]
     r = client.post(f"/api/stores/{sid}/equipment_roles", json={"role_id": "forklift_operator", "decision": "reject"})
@@ -105,3 +105,66 @@ def test_priorities_block_readiness(client):
     rd = client.get(f"/api/stores/{sid}/readiness").json()
     check = next(c for c in rd["checks"] if c["id"] == "priorities")
     assert rd["ready"] is False and not check["ok"] and "Cashier" in check["detail"]
+
+
+
+def test_tags_for_all_role_tags():
+    from shiftwright_api.equipment import tags_for
+    cases = {"Fry Cook": {"fryer", "cooking"}, "Line Cook": {"cooking"}, "Deli Slicer": {"meat_slicer"},
+             "Bartender": {"alcohol_service"}, "Delivery Driver": {"motor_vehicle_driving"},
+             "Bakery Mixer": {"bakery_machine"}, "Baler Operator": {"baler_compactor"}, "Lumber Saw": {"power_saw"},
+             "Ladder Stocker": {"ladder_scaffold"}, "Forklift": {"powered_industrial_truck"},
+             "Server": set(), "Host": set(), "Dishwasher": set(), "Drive Up": set(), "Barista": set(),
+             "Prep": set(), "Cashier": set()}
+    for name, want in cases.items():
+        assert set(tags_for("x", name)) == want, name
+
+
+def test_minors_on_tagged_roles_and_business_type_warn(client):
+    sid = make_store(client)["store"]["id"]
+    cfg = tiny_config().model_copy(deep=True)
+    cfg.store.id = sid
+    cfg.store.sector = None
+    role = cfg.roles[0]
+    cfg.role_tags[role.id] = ["fryer"]
+    kid = cfg.employees[0]
+    kid.age = 15
+    kid.trained_role_ids = list({*kid.trained_role_ids, role.id})
+    client.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json"))
+    rd = client.get(f"/api/stores/{sid}/readiness").json()
+    checks = {c["id"]: c for c in rd["checks"]}
+    assert checks["minors_on_tagged_roles"]["severity"] == "warn" and kid.name in checks["minors_on_tagged_roles"]["detail"]
+    assert checks["business_type"]["severity"] == "warn" and checks["business_type"]["ok"] is True
+
+
+def test_tipped_wage_checked_against_full_minimum_without_tip_rule(client):
+    sid = make_store(client)["store"]["id"]
+    cfg = tiny_config().model_copy(deep=True)
+    cfg.store.id = sid
+    role = cfg.roles[0]
+    role.tipped = True
+    e = next(x for x in cfg.employees if role.id in x.trained_role_ids)
+    e.tipped_wage_per_hour = 2.13
+    client.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json"))
+    check = next(c for c in client.get(f"/api/stores/{sid}/readiness").json()["checks"] if c["id"] == "minimum_wage")
+    pack = client.get("/api/laws/resolve", params={"state": cfg.store.jurisdiction.state}).json()
+    has_tip_rule = any(r["type"] == "tipped_minimum_wage" for r in pack["rules"])
+    if not has_tip_rule:
+        assert not check["ok"] and e.name in check["detail"] and "full minimum applies" in check["detail"]
+
+
+def test_closed_days_dropped_and_chat_employee_defaults(client, fake_llm):
+    from shiftwright_api.agent.llm import call, say
+    sid = make_store(client, template="bigbox_small")["store"]["id"]
+    fake_llm.script([call("set_store_basics", fields={"hours": [{"day": 0, "closed": True},
+                                                                 {"day": 1, "open": 660, "close": 1260}],
+                                                       "sector": "food", "business_description": "taqueria"}),
+                     call("upsert_employee", employee={"id": "kevin", "name": "Kevin Ng", "age": 15,
+                                                       "phone": "312-555-0109", "wage_per_hour": 17.1,
+                                                       "trained_role_ids": ["cashier"]}),
+                     say("ok")])
+    client.post(f"/api/stores/{sid}/chat", json={"mode": "onboard", "messages": [{"role": "user", "content": "x"}]})
+    cfg = client.get(f"/api/stores/{sid}/config").json()
+    assert cfg["store"]["hours"] == [{"day": 1, "open": 660, "close": 1260}] and cfg["store"]["sector"] == "food"
+    kev = cfg["employees"][0]
+    assert kev["phone"] == "+13125550109" and kev["status"] == "part_time" and kev["home_department_id"]

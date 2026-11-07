@@ -246,8 +246,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         tagged = extra.get("tagged") or []
         equipment.record_auto(db(), store_id, tagged)
         if tagged:
-            warnings.append(f"Tagged as powered industrial truck (minor-labor rules apply; please confirm or reject): "
-                            f"{', '.join(n for _, n in tagged)}.")
+            warnings.append(f"Tagged hazard/equipment roles (minor-labor rules use these; please confirm or reject): "
+                            f"{equipment.describe(tagged)}.")
         db().put(store_id, "import_warnings", kind, warnings)
         response.headers["X-Import-Warning-Count"] = str(len(warnings))
         return cfg
@@ -260,7 +260,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
 
     @app.post("/api/stores/{store_id}/equipment_roles", response_model=StoreConfig)
     def equipment_review(store_id: str, body: dict = Body(...)) -> StoreConfig:
-        """{role_id, decision: "confirm"|"reject"} for an automatically tagged powered-equipment role."""
+        """{role_id, decision: "confirm"|"reject"} for a role's automatic ROLE_TAGS tags."""
         load(store_id)
         try:
             return equipment.decide(db(), store_id, str(body.get("role_id", "")), str(body.get("decision", "")))
@@ -288,6 +288,18 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         except integrations.StubUnavailable as e:
             raise HTTPException(503, str(e))
         return app.state.outreach.save_plan(store_id, plan, callouts, req.day, req.now, sched)
+
+    @app.post("/api/stores/{store_id}/fix/apply")
+    def fix_apply(store_id: str, body: dict = Body(...)) -> dict:
+        """Apply a plan's immediate actions without texting anyone (also done by /outreach/start):
+        saves schedule_if_none_accept (call-outs removed, actions applied) with a fresh validation."""
+        load(store_id)
+        try:
+            app.state.outreach.apply_plan(store_id, str(body.get("plan_id", "")))
+        except KeyError:
+            raise HTTPException(404, f"No fix plan {body.get('plan_id')!r}")
+        sched, val = db().latest_schedule(store_id)
+        return {"schedule": sched.model_dump(mode="json"), "validation": val.model_dump(mode="json") if val else None}
 
     @app.post("/api/stores/{store_id}/outreach/start", response_model=OutreachState)
     async def outreach_start(store_id: str, body: dict = Body(...)) -> OutreachState:
