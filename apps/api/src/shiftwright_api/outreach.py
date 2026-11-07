@@ -70,6 +70,16 @@ class OutreachManager:
         self.max_texts_per_hour = max_texts_per_hour
         self.runs: dict[str, Run] = {}
         self.sent_at: dict[str, deque[float]] = {}  # store_id -> monotonic send times (last hour)
+        self.changed: dict[str, asyncio.Event] = {}  # store_id -> set (then replaced) on every state change
+
+    def change_event(self, store_id: str) -> asyncio.Event:
+        """An event that is set the next time this store's outreach state changes."""
+        return self.changed.setdefault(store_id, asyncio.Event())
+
+    def _notify(self, store_id: str) -> None:
+        ev = self.changed.pop(store_id, None)
+        if ev:
+            ev.set()
 
     def _texts_left(self, store_id: str) -> int:
         q = self.sent_at.setdefault(store_id, deque())
@@ -103,6 +113,7 @@ class OutreachManager:
 
     def _persist(self, run: Run) -> None:
         self.db.put(run.store_id, "outreach", "state", run.state.model_dump(mode="json"))
+        self._notify(run.store_id)
 
     # ---------------------------------------------------------------- start
     async def start(self, store_id: str, plan_id: str) -> OutreachState:
