@@ -174,9 +174,40 @@ export function mockScore(cfg: StoreConfig, shifts: Shift[], producedBy: string)
     soft_violations: [],
     metrics,
     infeasibility: null,
-    solver_stats: { mock: true },
+    solver_stats: { mock: true, tradeoffs: mockTradeoffs(cfg, gaps, metrics) },
   }
   return schedule
+}
+
+/**
+ * SEMANTICS #25 `solver_stats.tradeoffs`, shape only: "what if the hours budget covered this gap" for the two
+ * biggest gaps, priced at the trained people's average wage. Not a re-solve like the engine's.
+ */
+function mockTradeoffs(cfg: StoreConfig, gaps: Gap[], m: ScheduleMetrics) {
+  const covered = (g: Gap) => (g.missing_headcount * (g.end - g.start)) / 60
+  return [...gaps]
+    .sort((a, b) => covered(b) - covered(a))
+    .slice(0, 2)
+    .map((g, i) => {
+      const trained = cfg.employees.filter((e) => e.trained_role_ids.includes(g.role_id))
+      const wage = trained.length ? trained.reduce((w, e) => w + e.wage_per_hour, 0) / trained.length : 0
+      const extra = round2(covered(g))
+      const demandHours = cfg.demand.reduce((h, d) => h + (d.headcount * (d.end - d.start)) / 60, 0)
+      return {
+        id: `mock_t${i + 1}`,
+        kind: 'budget_gap',
+        role_id: g.role_id,
+        day: g.day,
+        window: [g.start, g.end],
+        extra_hours: extra,
+        if_kept: { wage_cost: m.total_wage_cost, hours: m.total_hours, coverage_pct: m.coverage_pct },
+        if_dropped: {
+          wage_cost: round2(m.total_wage_cost + extra * wage),
+          hours: round2(m.total_hours + extra),
+          coverage_pct: demandHours ? Math.min(100, round2(m.coverage_pct + (extra / demandHours) * 100)) : m.coverage_pct,
+        },
+      }
+    })
 }
 
 function round2(n: number) {

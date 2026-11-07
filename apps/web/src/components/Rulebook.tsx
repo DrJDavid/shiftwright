@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { Constraint, LawPack, LawRule, StoreConfig } from '../contracts'
-import { fmtMoney, placeLabel } from '../lib/format'
+import { placeLabel } from '../lib/format'
 import { describeConstraint } from '../lib/ruleNames'
 import { tagLabel } from '../lib/vocab'
+import { strengthLabel } from '../lib/strength'
 
 type Props = {
   config: StoreConfig
@@ -203,13 +204,8 @@ function RuleLine({
         aria-expanded={hasDetail ? open : undefined}
         className={`flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left ${hasDetail ? 'hover:bg-paper' : 'cursor-default'}`}
       >
-        <Badge kind={c.strength}>{c.strength === 'hard' ? 'Hard' : 'Soft'}</Badge>
-        <span className={`min-w-0 flex-1 ${provisional ? 'text-muted' : 'text-ink-2'}`}>
-          {text}
-          {c.strength === 'soft' && c.weight_dollars ? (
-            <span className="text-muted"> · {fmtMoney(c.weight_dollars)}</span>
-          ) : null}
-        </span>
+        <Badge kind={c.strength}>{strengthLabel(c)}</Badge>
+        <span className={`min-w-0 flex-1 ${provisional ? 'text-muted' : 'text-ink-2'}`}>{text}</span>
         <span className="shrink-0 rounded bg-rule-soft px-1 text-[10px] leading-4 text-ink-2">{SOURCE_LABEL[c.source]}</span>
       </button>
       {open && (

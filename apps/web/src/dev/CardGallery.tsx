@@ -64,7 +64,7 @@ const SAMPLES: { type: CardType; props: unknown }[] = [
       question: 'Saturday is 6 hours short on Cashier. Approve extra hours?',
       options: [
         { id: 'a', label: 'Approve 6 extra hours', cost_dollars: 87, effect: 'Covers the Saturday gap.' },
-        { id: 'b', label: 'Leave the gap', cost_dollars: 0, effect: '$180 gap cost stays.' },
+        { id: 'b', label: 'Leave the gap', cost_dollars: 0, effect: 'Saturday stays 6 hours short on Cashier.' },
       ],
     },
   },

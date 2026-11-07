@@ -9,6 +9,7 @@ import { humanizer } from '../lib/humanize'
 import { minorProtections } from '../lib/minors'
 import { MinorLine } from './MinorLine'
 import { describeConstraint } from '../lib/ruleNames'
+import { strengthLabel } from '../lib/strength'
 
 type Props = {
   api: Api
@@ -98,8 +99,8 @@ function Receipt({
   const hard = (validation?.violations ?? []).filter((v) => v.severity === 'hard')
   const soft = (validation?.violations ?? []).filter((v) => v.severity === 'soft')
   const constraints = (config.constraints ?? []).filter((c) => c.status === 'confirmed')
-  const softCost = new Map<string, number>()
-  for (const s of schedule.soft_violations ?? []) if (s.constraint_id) softCost.set(s.constraint_id, (softCost.get(s.constraint_id) ?? 0) + s.penalty_dollars)
+  const notMet = new Map<string, number>()
+  for (const s of schedule.soft_violations ?? []) if (s.constraint_id) notMet.set(s.constraint_id, (notMet.get(s.constraint_id) ?? 0) + 1)
   const m = validation?.recomputed_metrics
 
   return (
@@ -200,7 +201,7 @@ function Receipt({
               <th className="py-1 pr-2 font-medium">Rule</th>
               <th className="py-1 pr-2 font-medium">Type</th>
               <th className="py-1 pr-2 font-medium">From</th>
-              <th className="py-1 text-right font-medium">Cost this week</th>
+              <th className="py-1 text-right font-medium">This week</th>
             </tr>
           </thead>
           <tbody>
@@ -210,7 +211,7 @@ function Receipt({
                 <tr key={c.id} className="border-t border-rule-soft align-top">
                   <td className="py-1 pr-2">{describeConstraint(c, config)}</td>
                   <td className="py-1 pr-2 whitespace-nowrap">
-                    {c.strength === 'hard' ? 'Hard' : `Soft, ${fmtMoney(c.weight_dollars ?? 0)}`}
+                    {strengthLabel(c)}
                   </td>
                   <td className="py-1 pr-2 capitalize">{c.source}</td>
                   <td className="py-1 text-right whitespace-nowrap tabular-nums">
@@ -218,19 +219,19 @@ function Receipt({
                       ? vs.length
                         ? <span className="text-gap">{plural(vs.length, 'violation')}</span>
                         : 'Met'
-                      : softCost.has(c.id)
-                        ? fmtMoney(softCost.get(c.id)!, { cents: true })
+                      : notMet.has(c.id)
+                        ? `Not met ${plural(notMet.get(c.id)!, 'time')}`
                         : vs.length
-                          ? plural(vs.length, 'item')
-                          : '$0'}
+                          ? `Not met ${plural(vs.length, 'time')}`
+                          : 'Met'}
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        {softCost.size === 0 && soft.length > 0 && (
-          <p className="mt-1 text-xs text-muted">Per-rule soft costs come from the scheduler's soft violations; this schedule lists none, so soft items are counted from the compliance check.</p>
+        {notMet.size === 0 && soft.length > 0 && (
+          <p className="mt-1 text-xs text-muted">The scheduler listed no unmet preferences, so these are counted from the compliance check.</p>
         )}
       </section>
 
@@ -321,8 +322,6 @@ function MetricsTable({
     ['Overtime hours', (x) => fmtHours(x.overtime_hours)],
     ['Premium pay', (x) => fmtMoney(x.premium_pay_dollars ?? 0, { cents: true })],
     ['Coverage', (x) => fmtCoverage(x.coverage_pct, demand)],
-    ['Uncovered (gap) cost', (x) => fmtMoney(x.gap_penalty_dollars)],
-    ['Soft-rule cost', (x) => fmtMoney(x.soft_penalty_dollars)],
   ]
   return (
     <table className="w-full self-start">

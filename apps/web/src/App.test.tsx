@@ -273,3 +273,27 @@ describe('sample business (B7)', () => {
     expect(t.calls.find((c) => c.url === '/api/workplaces/generated')?.body).toEqual({ sector: 'retail', size: 'M', difficulty: 'legal_trap', seed: 42 })
   })
 })
+
+describe('decisions waiting (C3)', () => {
+  it('opens the chat drawer and focuses the message box', async () => {
+    setup('/signup')
+    await signUp()
+    await screen.findByRole('heading', { name: 'New workplace' })
+    fireEvent.click(screen.getByRole('button', { name: 'Or explore a sample workplace' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Austin, TX/ }))
+    await screen.findByRole('complementary', { name: 'Setup steps' })
+    const build = await waitFor(() => {
+      const b = screen.queryByRole('button', { name: 'Build anyway' }) ?? screen.getByRole('button', { name: 'Build my schedule' })
+      expect(b.hasAttribute('disabled')).toBe(false)
+      return b
+    })
+    fireEvent.click(build)
+    await screen.findByRole('tablist', { name: 'Views' }, { timeout: 5000 })
+
+    const ask = screen.getByRole('button', { name: 'Ask Shiftwright' })
+    expect(ask.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(await screen.findByRole('button', { name: /^\d+ decisions? waiting$/ }))
+    expect(ask.getAttribute('aria-expanded')).toBe('true')
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Message')))
+  })
+})

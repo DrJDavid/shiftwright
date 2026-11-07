@@ -20,6 +20,8 @@ export function ScheduleStats({ schedule, validation, employeeName, demand }: Pr
   // The in-browser mock never runs the real validator; don't let the badge claim it did.
   const mock = schedule.produced_by.startsWith('mock')
   const unchecked = mock || !validation
+  // SEMANTICS #25: preferences are ranked, not priced, so count the ones broken instead of a dollar total.
+  const notMet = (schedule.soft_violations ?? []).length
 
   return (
     <div className="relative flex items-stretch gap-px border-b border-rule bg-rule">
@@ -38,9 +40,9 @@ export function ScheduleStats({ schedule, validation, employeeName, demand }: Pr
       <Stat label="Coverage">
         <span className="text-xl font-semibold">{fmtCoverage(m.coverage_pct, demand)}</span>
       </Stat>
-      <Stat label="Gap cost">
-        <span className={`text-xl font-semibold ${m.gap_penalty_dollars > 0 ? 'text-gap' : ''}`}>
-          {fmtMoney(m.gap_penalty_dollars)}
+      <Stat label="Preferences not met">
+        <span className="text-xl font-semibold" aria-label={`Preferences not met: ${notMet}`}>
+          {notMet}
         </span>
       </Stat>
       <div className="flex shrink-0 items-center bg-panel px-3">
@@ -87,7 +89,7 @@ export function ScheduleStats({ schedule, validation, employeeName, demand }: Pr
               {validation.violations.map((v, i) => (
                 <li key={i} className="flex gap-2">
                   <span className={`shrink-0 font-semibold ${v.severity === 'hard' ? 'text-gap' : 'text-warn'}`}>
-                    {v.severity === 'hard' ? 'Hard' : 'Soft'}
+                    {v.severity === 'hard' ? 'Hard' : 'Preference'}
                   </span>
                   <span>
                     {v.message}

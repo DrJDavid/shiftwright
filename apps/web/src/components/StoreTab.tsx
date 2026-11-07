@@ -4,6 +4,7 @@ import { fmtDayDate, fmtHours, fmtMoney, fmtRange, fmtTime, WEEKDAY_NAMES } from
 import { roleColors } from '../lib/roles'
 import { eventName, SECTOR_LABEL, tagLabel } from '../lib/vocab'
 import { describeConstraint } from '../lib/ruleNames'
+import { priorityLabel, strengthLabel } from '../lib/strength'
 
 type Section = 'people' | 'roles' | 'training' | 'demand' | 'availability' | 'budget'
 const SECTIONS: { id: Section; label: string }[] = [
@@ -226,7 +227,7 @@ function Roles({ config, colors }: { config: StoreConfig; colors: Map<string, st
               <thead>
                 <tr className="text-xs text-muted">
                   <th className="px-3 py-1 text-left font-medium">Role</th>
-                  <th className="px-3 py-1 text-right font-medium">Gap cost</th>
+                  <th className="px-3 py-1 text-left font-medium">Priority</th>
                   <th className="px-3 py-1 text-left font-medium">Min age</th>
                   <th className="px-3 py-1 text-right font-medium">Trained</th>
                 </tr>
@@ -246,7 +247,7 @@ function Roles({ config, colors }: { config: StoreConfig; colors: Map<string, st
                           </span>
                         ))}
                       </td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(r.gap_penalty_per_hour)}/h</td>
+                      <td className="px-3 py-1.5 text-ink-2">{priorityLabel(r, config.roles)}</td>
                       <td className="px-3 py-1.5 text-ink-2">{r.min_age ? `${r.min_age}+` : 'Any'}</td>
                       <td className={`px-3 py-1.5 text-right tabular-nums ${trained === 0 ? 'font-semibold text-gap' : trained < 3 ? 'text-warn' : ''}`}>{trained}</td>
                     </tr>
@@ -258,7 +259,8 @@ function Roles({ config, colors }: { config: StoreConfig; colors: Map<string, st
         )
       })}
       <p className="col-span-2 text-xs text-muted">
-        Gap cost is what one uncovered hour of the role is worth. Shiftwright leaves a gap only when filling it costs more than this.
+        Priority decides what stays covered when hours or people run short: higher priorities are covered first, and cost never
+        decides whether a shift gets covered.
       </p>
     </div>
   )
@@ -519,7 +521,6 @@ function Availability({ config }: { config: StoreConfig }) {
                     <li key={i}>
                       <span className={`mr-1.5 rounded px-1 text-[11px] font-semibold ${AV_KIND[a.kind].cls}`}>{AV_KIND[a.kind].label}</span>
                       {a.when}
-                      {a.kind !== 'unavailable' && a.weight ? <span className="text-muted"> · {fmtMoney(a.weight)}</span> : null}
                       {a.note && <span className="text-muted"> · {a.note}</span>}
                     </li>
                   ))}
@@ -577,8 +578,8 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
         </dl>
         {b.weekly_hours_cap > 0 && demandHours > b.weekly_hours_cap && (
           <p className="mt-2 text-sm text-warn">
-            Demand is {fmtHours(demandHours - b.weekly_hours_cap)} more than the cap, so some gaps are expected. Shiftwright picks which
-            to leave by each role's gap cost.
+            Demand is {fmtHours(demandHours - b.weekly_hours_cap)} more than the cap, so some gaps are expected. Lower-priority roles are
+            left short first.
           </p>
         )}
         {(b.approvals ?? []).length > 0 && (
@@ -606,11 +607,10 @@ function Budget({ config, onOpenRulebook }: { config: StoreConfig; onOpenRuleboo
           {constraints.map((c) => (
             <li key={c.id} className="flex gap-2">
               <span className={`shrink-0 rounded border px-1 text-[10px] leading-4 font-semibold ${c.strength === 'hard' ? 'border-ink/70' : 'border-pine/50 text-pine-dark'}`}>
-                {c.strength === 'hard' ? 'Hard' : 'Soft'}
+                {strengthLabel(c)}
               </span>
               <span className={c.status === 'provisional' ? 'text-muted' : 'text-ink-2'}>
                 {describeConstraint(c, config)}
-                {c.strength === 'soft' && c.weight_dollars ? <span className="text-muted"> · {fmtMoney(c.weight_dollars)}</span> : null}
                 {c.status === 'provisional' && <span className="text-warn"> · unconfirmed</span>}
               </span>
             </li>

@@ -78,7 +78,7 @@ export function RolesCard({ props, status, result, onSubmit, onCancel }: CardPro
                         ))}
                         {!r.priority &&
                           (r.gap_penalty_per_hour > 0 ? (
-                            <option value="custom">Custom (${r.gap_penalty_per_hour}/h)</option>
+                            <option value="custom">Custom</option>
                           ) : (
                             <option value="custom" disabled>
                               Pick…

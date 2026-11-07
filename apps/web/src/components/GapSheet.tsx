@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Api } from '../api/client'
 import type { Gap, GapReason, GapReasonCode, LawPack, StoreConfig } from '../contracts'
-import { fmtDayDate, fmtMoney, fmtRange } from '../lib/format'
+import { fmtDayDate, fmtRange } from '../lib/format'
 import { describeConstraint } from '../lib/ruleNames'
 
 type Props = {
@@ -72,7 +72,7 @@ export function GapSheet({ api, storeId, gap, weekStart, config, lawPack, onClos
             {role?.name ?? gap.role_id}, {day.weekday} {fmtRange(gap.start, gap.end)}
           </h3>
           <p className="text-sm text-ink-2">
-            {gap.missing_headcount} {gap.missing_headcount === 1 ? 'person' : 'people'} short · {fmtMoney(gap.penalty_dollars)} gap cost
+            {gap.missing_headcount} {gap.missing_headcount === 1 ? 'person' : 'people'} short
           </p>
         </div>
         <button type="button" onClick={onClose} className="rounded px-2 py-1 text-sm text-muted hover:bg-paper hover:text-ink">

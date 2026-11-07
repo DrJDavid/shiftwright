@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import type { ConflictMenuProps, OptionResult, TradeoffProps } from '../api/protocol'
-import { fmtMoney } from '../lib/format'
+import { costLabel } from '../lib/format'
 import { CardFrame, type CardProps } from './CardFrame'
 import { useOptionalCardEnv } from './context'
 
@@ -27,7 +27,7 @@ function OptionList({
 }) {
   const [pick, setPick] = useState<string | null>(null)
   const chosen = options.find((o) => o.id === result?.option_id)
-  const summary = status === 'submitted' && chosen ? `${chosen.label} (${fmtMoney(chosen.cost_dollars)}).` : null
+  const summary = status === 'submitted' && chosen ? `${chosen.label}${typeof chosen.cost_dollars === 'number' ? ` (${costLabel(chosen.cost_dollars)})` : ''}.` : null
   return (
     <CardFrame title={title} status={status} summary={summary} onCancel={onCancel} submitLabel="Choose" canSubmit={pick !== null} formId={formId}>
       <form
@@ -50,7 +50,7 @@ function OptionList({
                 <span className="font-semibold">{o.label}</span>
                 {o.detail && <span className="block text-xs text-ink-2">{o.detail}</span>}
               </span>
-              <span className="shrink-0 font-semibold tabular-nums">{o.cost_dollars > 0 ? `+${fmtMoney(o.cost_dollars)}` : fmtMoney(o.cost_dollars)}</span>
+              <span className="shrink-0 font-semibold tabular-nums">{costLabel(o.cost_dollars)}</span>
             </label>
           ))}
         </div>

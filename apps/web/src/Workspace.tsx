@@ -42,6 +42,11 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const [scheduleView, setScheduleView] = useState<'week' | 'coverage'>('week')
   const rulesRef = useRef<HTMLElement>(null)
   const [chatOpen, setChatOpen] = useState(false)
+  const chatBox = useRef<HTMLDivElement>(null)
+  const openChat = useCallback(() => {
+    setChatOpen(true)
+    setTimeout(() => chatBox.current?.querySelector<HTMLInputElement>('input[aria-label="Message"]')?.focus())
+  }, [])
   // B4: setup mode until a schedule exists (GET /schedule answered), then workspace mode.
   const [scheduleChecked, setScheduleChecked] = useState(false)
   const [openGap, setOpenGap] = useState<Gap | null>(null)
@@ -292,6 +297,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
               onGapClick={setOpenGap}
               callouts={callouts}
               lawRules={lawPack?.rules}
+              onOpenChat={openChat}
               onDayClick={(d) => {
                 setCoverageDay(d)
                 setScheduleView('coverage')
@@ -410,7 +416,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
                   : 'hidden'
           }
         >
-          <div className={`grid min-h-0 w-full ${setup ? 'max-w-3xl grid-rows-[minmax(0,1fr)]' : 'flex-1 grid-rows-[auto_minmax(0,1fr)]'}`}>
+          <div ref={chatBox} className={`grid min-h-0 w-full ${setup ? 'max-w-3xl grid-rows-[minmax(0,1fr)]' : 'flex-1 grid-rows-[auto_minmax(0,1fr)]'}`}>
             {!setup && (
               <div className="flex items-center justify-between border-b border-rule bg-panel px-4 py-2">
                 <span className="font-semibold">Ask Shiftwright</span>
