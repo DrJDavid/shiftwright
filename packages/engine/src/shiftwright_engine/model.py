@@ -46,7 +46,9 @@ class Builder:
 
     def __init__(self, prep: Prep, assume: bool = False,
                  cand_ok: Optional[Callable[[object], bool]] = None,
-                 churn: bool = False, force_cands: bool = False):
+                 churn: bool = False, force_cands: bool = False, forced: Optional[set[int]] = None,
+                 fixed_roles: Optional[dict[tuple[str, int], str]] = None, elastic_always: float = 0.0,
+                 min_hours_cap_minutes: int = 0, forced_days: Optional[set[tuple[str, int]]] = None):
         self.p = prep
         self.assume = assume
         self.churn = churn
@@ -54,6 +56,11 @@ class Builder:
         self.m = cp_model.CpModel()
         self.lits: dict[tuple[str, str], cp_model.IntVar] = {}
         self.cand_ok = cand_ok
+        self.forced = forced or set()  # these candidates MUST be worked (fixer: frozen shifts)
+        self.fixed_roles = fixed_roles or {}  # (emp, abs slot) -> role that may not change (fixer: before now)
+        self.elastic_always = elastic_always  # >0: hard always_staffed priced at this $/h instead (fixer)
+        self.min_hours_cap_minutes = min_hours_cap_minutes  # budget hours cap is at least this (fixer)
+        self.forced_days = forced_days or set()  # (emp, day) that must have one of their candidates (fixer)
         self._zero = self.m.new_constant(0)
 
     # --- assumption literals -------------------------------------------------
@@ -84,8 +91,8 @@ class Builder:
                 continue
             y[c.idx] = m.new_bool_var(f"y{c.idx}")
         cands = [c for c in p.cands if c.idx in y]
-        if self.force_cands:
-            for c in cands:
+        for c in cands:
+            if self.force_cands or c.idx in self.forced:
                 m.add(y[c.idx] == 1)
 
         # one shift per employee-day; works[e,d]
@@ -97,6 +104,8 @@ class Builder:
             w = m.new_bool_var(f"w[{eid},{d}]")
             m.add(sum(y[c.idx] for c in lst) == w)
             works[(eid, d)] = w
+            if (eid, d) in self.forced_days:
+                m.add(w == 1)
 
         # working / on-shift expressions per (e, abs slot)
         # on[e,a] is defined by a running sum (shifts starting at a minus shifts ending at a) instead
@@ -138,6 +147,9 @@ class Builder:
                 x[(eid, r, a)] = v
                 vs.append(v)
             m.add(sum(vs) == wexpr)
+            fr = self.fixed_roles.get((eid, a))
+            if fr is not None and (eid, fr, a) in x:
+                m.add(x[(eid, fr, a)] == 1)
         if self.churn and CHURN_DOLLARS > 0:
             for (eid, r, a), v in x.items():
                 prev = x.get((eid, r, a - slot))
@@ -214,6 +226,9 @@ class Builder:
         days = sorted(p.windows)
         for con in p.constraints:
             k, hard = con.kind, con.strength == Strength.hard
+            elastic = False
+            if hard and k == ConstraintKind.always_staffed and self.elastic_always > 0 and not self.assume:
+                hard, elastic = False, True
             if not hard and self.assume:
                 continue
             g = self.guard("constraint", con.id) if hard else []
@@ -301,8 +316,9 @@ class Builder:
                         else:
                             unc = m.new_bool_var("")
                             m.add(sum(terms) + unc >= 1)
-                            soft.append(SoftTerm(unc, money(con.weight_dollars * slot_h), slot_h, con.id, k.value,
-                                                 None, dollars_per=con.weight_dollars * slot_h))
+                            w = self.elastic_always if elastic else con.weight_dollars
+                            soft.append(SoftTerm(unc, money(w * slot_h), slot_h, con.id, k.value,
+                                                 None, dollars_per=w * slot_h))
                         t += p.slot
             elif k == ConstraintKind.preferred_role:
                 eid, rid = con.params.get("employee_id"), con.params.get("role_id")
@@ -339,7 +355,8 @@ class Builder:
         b = p.cfg.budget
         cap_h = b.weekly_hours_cap + sum(a.extra_hours for a in b.approvals)
         all_paid = sum(y[c.idx] * c.paid_min for c in cands) + self._zero
-        self.add(all_paid <= int(round(cap_h * 60)), self.guard("other", "budget.weekly_hours_cap"))
+        self.add(all_paid <= max(int(round(cap_h * 60)), self.min_hours_cap_minutes),
+                 self.guard("other", "budget.weekly_hours_cap"))
         wage_expr = sum(y[c.idx] * c.wage_units for c in cands) + self._zero
         ot_expr = 0
         if weekly_ot:
@@ -352,6 +369,7 @@ class Builder:
         # --- objective ----------------------------------------------------------------
         if not self.assume:
             pref = sum(y[c.idx] * c.pref_units for c in cands if c.pref_units) if cands else 0
+            pref += sum(y[c.idx] * c.extra_units for c in cands if c.extra_units) if cands else 0
             # preferred_on: constant penalty for the full window, minus overlap (already in pref_units)
             for e in p.cfg.employees:
                 for d in days:

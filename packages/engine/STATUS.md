@@ -9,9 +9,7 @@
 - Large models (> `SINGLE_STAGE_MAX_CANDS` = 8 000 candidates, i.e. the demo store) start from a
   **greedy hint** (`greedy.py`: lazy greedy on "gap penalty removed − cost", respects one shift/day,
   weekly caps, budget, max days, rest; hard always_staffed slots weighted $1000/h). It gives a
-  feasible ~$30.9k demo schedule in ~1.5 s, so CP-SAT always has a solution. `solve.STRATEGY` can
-  be set to `"coarse"` (older two-stage: hourly-grid model first, then full grid hinted) — kept for
-  comparison, it benchmarks about the same.
+  feasible ~$30.9k demo schedule in ~1.5 s, so CP-SAT always has a solution. The older coarse two-stage strategy was removed (it benchmarked the same; numbers below).
 - Speed-ups in this slice (the big wins are the first two):
   - light presolve in `model.solve` (`max_presolve_iterations=1`, probing 0, symmetry 0): full
     presolve took ~15 s of the 30 s on the demo store;
@@ -38,7 +36,7 @@
   wages are below CA's minimum (the engine never changes wages).
 - Metrics follow `contracts/SEMANTICS.md` (v1.1).
 
-**Benchmarks** (`uv run python packages/engine/scripts/bench.py [--single] [--strategy coarse|greedy] [--limit 30] [--only tiny|demo|like]`;
+**Benchmarks** (`uv run python packages/engine/scripts/bench.py [--single] [--limit 30] [--only tiny|demo|like]`;
 time_limit_s=30, 8 workers, 14-core Mac; CP-SAT is non-deterministic, ±$1k between runs on demo):
 
 | store | setup | wall | objective | best bound | coverage | hard viol. |
@@ -57,18 +55,53 @@ Demo coverage ceiling is ~95.2% (budget 1,393.5 h vs 1,463 h of demand), so at 3
 ~1 point of max coverage and ~4–5% above the best known schedule. The reported `relative_gap` (~11%)
 is mostly a weak bound; ≤1% proven gap in <30 s is NOT reached. Fine for the demo.
 
-**Next steps (in order):**
-1. **v1.1 5-minute breaks + per-minute coverage** (`BREAK_GRANULARITY_MINUTES=5`): place breaks at
-   5-min resolution with their exact duration (10-min rest = 10 min), make coverage/gap terms per
-   minute (a slot with a 10-min break counts 20/30 covered). Probably model demand per slot but
-   subtract break-minutes; `output.make_shift` must split RoleSegments at break bounds; metrics
-   and `gaps_from_shifts` per minute. Should also fix tiny_store-under-CA infeasibility.
-2. **`fix_day` (M2)** — not implemented and NOT exported from `shiftwright_engine` (the API detects
-   it by import; don't export a placeholder). Plan: `Builder(cand_ok=...)` restricted to the day,
-   existing shifts of other days fixed, call-outs removed; FixPlan.plan_id stays None.
-3. Perf if time: better bound (e.g. LP-only worker params) or a second greedy variant; `week_stability`/`previous`.
+**fix_day (M2) — done, exported** (`fix.py`; `fix_day(req, time_limit_s=8)`):
+- Base = the schedule with the call-outs' shifts on `req.day` removed from `now` on (a call-out whose
+  shift started before `now` keeps the part before `now` only if that is ≥ the min shift length;
+  otherwise the whole shift is dropped and noted).
+- Candidates: one frozen candidate per base shift (other days: forced as is, roles fixed; the day:
+  roles before `now` fixed); extensions (later end, or earlier start never before `now`; break layouts
+  must keep breaks before `now`); call-ins for people not working that day, not called out, not
+  declined, starting ≥ `now` rounded up to the slot (wage + $15 disruption in the objective;
+  preferences not charged, SEMANTICS #16). Builder options added: `forced`, `forced_days`,
+  `fixed_roles`, `elastic_always` (hard always_staffed priced at $1000/h so a fix always exists),
+  `min_hours_cap_minutes` (budget cap never below the frozen hours), `Cand.extra_units`.
+- Model N (no call-ins) → `schedule_if_none_accept` + `actions` (extend / reassign / drop_coverage);
+  model A (all allowed levers) → `schedule_if_all_accept`; A's call-ins + up to 5 alternates (best
+  feasible call-in per person against N's remaining gaps, Python hard checks) form the queue, ranked
+  jointly by open gap hours the shift can cover / added $ × (accepted+1)/(offered+2). Queue is empty
+  when A picks no call-in (so the API's "filled" works after an accept).
+- Demo call-out (Sat 06:04, e034/e052/e053): fix_day ~0.6 s; both schedules 0 hard violations;
+  coverage before 92.4–92.7% → worst 93.4–93.6% → best 94.2–94.5%; queue top 2 = e023, e027.
+  `scripts/fix_demo.py` prints the plan. Tests: `tests/test_fix.py` (tiny + demo: <10 s, frozen
+  past/other days, validator clean, declines excluded, accept → refix keeps the shift).
+- Predictive-scheduling premium: placeholder only (`_premium`: change_premium_hours × wage if the pack
+  has the rule) — must be replaced per SEMANTICS #17 (next step 2).
 
-**Blocked on:** nothing. Rebased onto main fafe76a (contracts v1.1).
+**Eval fixes this slice:** `bounds.always_staffed_conflict` proves hard always_staffed infeasibility
+fast (per-day exact min shifts 1/2/3+ by slot bitmasks vs days the eligible people can work);
+S legal_trap CA is genuinely infeasible under our model (4 leaders × 5 days = 20 < 21 shifts needed:
+CA daily OT >8 h is not allowed, so 2 shifts can't cover 08–22 plus each other's meal) → reported
+in ~3 s naming c_lod_always, c_max_days, shift-length rules, CA meal/rest/daily OT. Caveat: the
+proof is relative to the engine's break layouts (rest breaks rounded to 30 min, limited positions).
+If CP-SAT finds nothing in time, the greedy schedule is checked by the phase-2 model and returned as
+"feasible" (M legal_trap CA: feasible, 81% coverage, only the expected below_minimum_wage).
+"infeasible" only when CP-SAT or the bound proves it. Employees in a hard always_staffed role get
+flexible rest-break layouts and are not pruned. `ENGINE_WORKERS` env sets CP-SAT workers (default
+min(8, cpu)); `ENGINE_LOG=1` logs CP-SAT search. Memory work not done (Railway now 8 GB).
+
+**Next steps (in order):**
+1. Shift.why (contracts v1.2): factual one-liners for every shift from solve_week and fix_day.
+2. SEMANTICS #17 predictive-scheduling premiums in fix_day from law-pack params only (Chicago,
+   Seattle; see data/laws/STATUS.md "Extra param keys"); call-in mode (one-to-one text vs group
+   offer) affects Seattle exemption; extensions premium-bearing in Seattle.
+3. v1.1 5-minute breaks + per-minute coverage (`BREAK_GRANULARITY_MINUTES=5`): place breaks at
+   5-min resolution with exact durations; coverage/gap per minute; `output.make_shift` splits
+   RoleSegments at break bounds; metrics and `gaps_from_shifts` per minute.
+4. Check WS4's Chicago/Seattle demo variants solve in ≤30 s. Perf of big CA models (M legal_trap:
+   189k candidates, CP-SAT finds nothing in 30 s; greedy fallback is used).
+
+**Blocked on:** nothing. Rebased onto main 4f53a85.
 
 **Interpretations / shortcuts (please review — validator WS2 should agree):**
 - Hours = paid hours: shift length minus unpaid breaks. Budget hours and `max_hours_week` use paid hours.

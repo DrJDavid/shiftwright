@@ -53,6 +53,7 @@ class Cand:
     is_open: bool = False
     is_close: bool = False
     weekend: bool = False
+    extra_units: int = 0  # objective-only cost (fixer: call-in disruption + premiums)
 
     @property
     def abs_start(self) -> int:
@@ -364,7 +365,6 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
         for day, (w0, w1) in sorted(windows.items()):
             avail = list(_avail_for_day(p, e, day))
             unavail = [(a.start, a.end) for a in avail if a.kind == AvailabilityKind.unavailable]
-            o, c = store_open[day]
             max_day_min = p.minor_day_cap(e, day)
             latest_end = p.minor_latest_end(e, day)
             lst = p.by_emp_day.setdefault((e.id, day), [])
@@ -380,50 +380,61 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                     if any(a < end and start < b for a, b in unavail):
                         continue
                     for brks in break_variants(p, start, length, flexible):
-                        unpaid = sum(b.end - b.start for b in brks if not b.paid)
-                        paid = length - unpaid
-                        if paid > week_cap:
+                        cand = make_cand(p, e, day, start, end, brks, avail, week_cap, max_day_min)
+                        if cand is None:
                             continue
-                        if max_day_min is not None and paid > max_day_min:
-                            continue
-                        daily_ot = 0
-                        if p.daily_ot is not None:
-                            thr = int(p.daily_ot.params["threshold_hours"] * 60)
-                            if paid > thr:
-                                if not cfg.budget.overtime_allowed:
-                                    continue
-                                daily_ot = paid - thr
-                        wage = paid / 60 * e.wage_per_hour
-                        if daily_ot:
-                            wage += daily_ot / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)
-                            dbl = p.daily_ot.params.get("double_threshold_hours")
-                            if dbl is not None and paid > dbl * 60:
-                                wage += (paid - dbl * 60) / 60 * e.wage_per_hour * (2 - p.daily_ot.params["multiplier"])
-                        pref, detail = 0.0, []
-                        for a in avail:
-                            if a.kind == AvailabilityKind.unavailable:
-                                continue
-                            ov = max(0, min(end, a.end) - max(start, a.start)) / 60
-                            if a.kind == AvailabilityKind.preferred_off and ov > 0:
-                                pref += a.weight_dollars * ov
-                                detail.append(("preferred_off", ov, a.weight_dollars * ov))
-                            elif a.kind == AvailabilityKind.preferred_on:
-                                pref -= a.weight_dollars * ov  # constant added in model
-                        bset = [(b.start, b.end) for b in brks]
-                        on = [day * DAY + t for t in range(start, end, slot)]
-                        work = [day * DAY + t for t in range(start, end, slot)
-                                if not any(x <= t < y for x, y in bset)]
                         if useful is not None:
+                            work = cand.work_slots
                             if not work or not useful.intersection(work):
                                 continue
                             if length > lo and (work[0] not in useful or work[-1] not in useful):
                                 continue
-                        cand = Cand(
-                            idx=len(p.cands), emp=e.id, day=day, start=start, end=end, breaks=brks,
-                            on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
-                            daily_ot_min=daily_ot, pref_units=money(pref), pref_detail=detail,
-                            is_open=start < o, is_close=end > c, weekend=day in (5, 6),
-                        )
                         p.cands.append(cand)
                         lst.append(cand)
     return p
+
+
+def make_cand(p: Prep, e: Employee, day: int, start: int, end: int, brks: list[Break], avail: list,
+              week_cap: int, max_day_min: Optional[int], idx: Optional[int] = None,
+              charge_preferences: bool = True, strict: bool = True) -> Optional[Cand]:
+    """One candidate shift with its cost terms; None if it breaks a per-shift hard cap
+    (weekly cap, minor day cap, daily OT when overtime is not allowed)."""
+    cfg, slot = p.cfg, p.slot
+    length = end - start
+    unpaid = sum(b.end - b.start for b in brks if not b.paid)
+    paid = length - unpaid
+    if strict and (paid > week_cap or (max_day_min is not None and paid > max_day_min)):
+        return None
+    daily_ot = 0
+    if p.daily_ot is not None:
+        thr = int(p.daily_ot.params["threshold_hours"] * 60)
+        if paid > thr:
+            if strict and not cfg.budget.overtime_allowed:
+                return None
+            daily_ot = paid - thr
+    wage = paid / 60 * e.wage_per_hour
+    if daily_ot:
+        wage += daily_ot / 60 * e.wage_per_hour * (p.daily_ot.params["multiplier"] - 1)
+        dbl = p.daily_ot.params.get("double_threshold_hours")
+        if dbl is not None and paid > dbl * 60:
+            wage += (paid - dbl * 60) / 60 * e.wage_per_hour * (2 - p.daily_ot.params["multiplier"])
+    pref, detail = 0.0, []
+    for a in (avail if charge_preferences else []):
+        if a.kind == AvailabilityKind.unavailable:
+            continue
+        ov = max(0, min(end, a.end) - max(start, a.start)) / 60
+        if a.kind == AvailabilityKind.preferred_off and ov > 0:
+            pref += a.weight_dollars * ov
+            detail.append(("preferred_off", ov, a.weight_dollars * ov))
+        elif a.kind == AvailabilityKind.preferred_on:
+            pref -= a.weight_dollars * ov  # constant added in model
+    on = [day * DAY + t for t in range(start, end, slot)]
+    work = [day * DAY + t for t in range(start, end, slot)
+            if not any(b.start < t + slot and t < b.end for b in brks)]
+    o, c = p.store_open.get(day, (start, end))
+    return Cand(
+        idx=len(p.cands) if idx is None else idx, emp=e.id, day=day, start=start, end=end, breaks=brks,
+        on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
+        daily_ot_min=daily_ot, pref_units=money(pref), pref_detail=detail,
+        is_open=start < o, is_close=end > c, weekend=day in (5, 6),
+    )
