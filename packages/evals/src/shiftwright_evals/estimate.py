@@ -54,9 +54,30 @@ def case_sizes(quick: bool) -> list[dict]:
     return rows
 
 
-def estimate(quick: bool, models: list[str], reasoning_x: float, catalog: dict | None = None) -> dict:
+def realistic_sizes(quick: bool) -> list[dict]:
+    """Chat prompts exactly as sent (narrative + CSVs). Answer = a CSV line per shift of a sloppy full
+    schedule (mock greedy, ~40 chars/line) + ~3,000 chars of prose and assumptions."""
+    from .realistic import chat_messages, export_texts, realistic_cases
+    rows = []
+    for case in realistic_cases(quick):
+        cfg = case.config.model_dump(mode="json")
+        n_shifts = len(mock.greedy(cfg))
+        rows.append({"scenario": case.scenario_id, "size": case.size,
+                     "prompt_chars": len(prompts.render(chat_messages(case, export_texts(case)))),
+                     "answer_chars": n_shifts * 40 + 3000})
+    return rows
+
+
+# Shiftwright intake agent (AGENT_MODEL, default anthropic/claude-sonnet-5.5): an assumption, not a measurement.
+INTAKE_CALLS_PER_STORE = 30
+INTAKE_PROMPT_TOKENS_PER_CALL = 25_000
+INTAKE_OUTPUT_TOKENS_PER_CALL = 800
+
+
+def estimate(quick: bool, models: list[str], reasoning_x: float, catalog: dict | None = None,
+             suite: str = "solver") -> dict:
     catalog = catalog or fetch_models()
-    sizes = case_sizes(quick)
+    sizes = realistic_sizes(quick) if suite == "realistic" else case_sizes(quick)
     out = {"scenarios": len(sizes), "chars_per_token": CHARS_PER_TOKEN, "reasoning_x": reasoning_x, "models": {}}
     for mid in models:
         m = catalog.get(mid)
@@ -81,6 +102,17 @@ def estimate(quick: bool, models: list[str], reasoning_x: float, catalog: dict |
                               "likely_truncated": truncated,
                               "price_per_mtok": [round(float(m["pricing"]["prompt"]) * 1e6, 3),
                                                  round(float(m["pricing"]["completion"]) * 1e6, 3)]}
+    if suite == "realistic":
+        agent = os.environ.get("AGENT_MODEL") or "anthropic/claude-sonnet-5.5"
+        m = catalog.get(agent)
+        if m:
+            pt = INTAKE_CALLS_PER_STORE * INTAKE_PROMPT_TOKENS_PER_CALL * len(sizes)
+            ot = INTAKE_CALLS_PER_STORE * INTAKE_OUTPUT_TOKENS_PER_CALL * len(sizes)
+            pi, po = price(m, INTAKE_PROMPT_TOKENS_PER_CALL)
+            out["models"][f"intake agent ({agent})"] = {
+                "prompt_tokens": pt, "output_tokens": ot, "usd": round(pt * pi + ot * po, 2),
+                "assumption": f"{INTAKE_CALLS_PER_STORE} agent calls/store × {INTAKE_PROMPT_TOKENS_PER_CALL} prompt "
+                              f"+ {INTAKE_OUTPUT_TOKENS_PER_CALL} output tokens (not measured)"}
     out["total_usd"] = round(sum(v.get("usd", 0) for v in out["models"].values()), 2)
     by_size: dict[str, list] = {}
     for s in sizes:
@@ -94,11 +126,13 @@ def estimate(quick: bool, models: list[str], reasoning_x: float, catalog: dict |
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="shiftwright_evals.estimate")
     p.add_argument("--quick", action="store_true")
+    p.add_argument("--suite", choices=["solver", "realistic"], default="solver")
     p.add_argument("--models", default=os.environ.get("BASELINE_MODELS") or DEFAULT_MODELS)
     p.add_argument("--reasoning-x", type=float, default=2.0,
                    help="hidden reasoning tokens as a multiple of the visible answer (billed as output)")
     a = p.parse_args(argv)
-    print(json.dumps(estimate(a.quick, [m.strip() for m in a.models.split(",") if m.strip()], a.reasoning_x), indent=1))
+    print(json.dumps(estimate(a.quick, [m.strip() for m in a.models.split(",") if m.strip()], a.reasoning_x,
+                              suite=a.suite), indent=1))
     return 0
 
 

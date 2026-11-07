@@ -19,6 +19,7 @@ from .mock import MOCK_MODELS
 from .report import build
 from .runner import run_all
 from .suites import SUITES, build_cases
+from .realistic import SKIPPED, ChatBaseline, ShiftwrightIntake
 from .systems import BaselineSystem, ReplaySystem, ShiftwrightSystem
 
 PKG_ROOT = Path(__file__).resolve().parents[2]  # packages/evals
@@ -28,7 +29,7 @@ def parse_args(argv):
     p = argparse.ArgumentParser(prog="shiftwright_evals", description=__doc__)
     p.add_argument("--quick", action="store_true", help="1 seed, S+M only")
     p.add_argument("--mock-baselines", action="store_true", help="canned bad outputs instead of real models")
-    p.add_argument("--suites", default="weekly,honesty,repair", help=f"comma list from {SUITES}")
+    p.add_argument("--suites", default="weekly,honesty,repair,realistic", help=f"comma list from {SUITES}")
     p.add_argument("--models", default=None, help="override BASELINE_MODELS (comma list)")
     p.add_argument("--no-engine", action="store_true", help="skip the Shiftwright engine (reported unavailable)")
     p.add_argument("--engine-time-limit", default="S=120,M=120,L=120",
@@ -74,6 +75,7 @@ async def _amain(args) -> int:
     notes = []
     real_client = None
     guard = None
+    real_intake = False
     reuse_inputs = None
     if args.rescore_from:
         old_dir = args.out_dir / args.rescore_from
@@ -85,6 +87,8 @@ async def _amain(args) -> int:
     elif args.mock_baselines:
         client = CachedClient(MockClient(), cache_dir / "llm-mock" if cache_dir else None)
         systems += [BaselineSystem(m, client, mock=True) for m in MOCK_MODELS]
+        if "realistic" in suites:
+            systems += [ChatBaseline(m, client, mock=True) for m in MOCK_MODELS]
     else:
         models = [m.strip() for m in (args.models or os.environ.get("BASELINE_MODELS", "")).split(",") if m.strip()]
         if not models or not os.environ.get("OPENROUTER_API_KEY"):
@@ -98,10 +102,25 @@ async def _amain(args) -> int:
                 paid = guard = BudgetGuard(real_client, args.budget_usd, planned)
             client = CachedClient(paid, cache_dir / "llm" if cache_dir else None)
             systems += [BaselineSystem(m, client) for m in models]
+            if "realistic" in suites:
+                systems += [ChatBaseline(m, client) for m in models]
+                real_intake = True
     for n in notes:
         print(f"note: {n}", file=sys.stderr)
 
+    if "realistic" in suites:
+        systems.append(ShiftwrightIntake(agent="real" if real_intake else "fake",
+                                         time_limit_s=parse_limits(args.engine_time_limit)
+                                         if "=" not in args.engine_time_limit else
+                                         max(parse_limits(args.engine_time_limit).values()),
+                                         workers=args.engine_workers))
+        if args.no_engine:
+            systems[-1].available, systems[-1].unavailable_reason = False, "engine disabled (--no-engine)"
+        elif not real_intake:
+            notes.append("shiftwright:intake uses the API's FakeLLM (no agent model): the narrative is not read; "
+                         "only the CSV imports shape the store")
     cases = build_cases(suites, args.quick)
+    notes += [f"skipped: {s}" for s in SKIPPED]
     print(f"run {run_id}: {len(cases)} scenarios x {len(systems)} systems -> {run_dir}")
     if not engine.available:
         print(f"note: shiftwright unavailable: {engine.unavailable_reason}", file=sys.stderr)
@@ -114,6 +133,7 @@ async def _amain(args) -> int:
     manifest = {
         "run_id": run_id, "quick": args.quick, "mock_baselines": args.mock_baselines and not args.rescore_from, "suites": suites,
         "scenarios": [c.scenario_id for c in cases],
+        "intake_agent": next((s.agent for s in systems if isinstance(s, ShiftwrightIntake)), None),
         "systems": [{"name": s.name, "available": s.available, "unavailable_reason": s.unavailable_reason,
                      **({"engine_source_hash": s.src_hash, "fix_day": s.can_fix} if s is engine else {})}
                     for s in systems],

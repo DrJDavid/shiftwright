@@ -42,6 +42,7 @@ def _tag(text: str, name: str):
 # once, so every failure kind appears at least once in --quick.
 QUICK_ORDER = ["s-easy", "s-tight", "s-legal_trap", "m-easy", "m-tight", "m-legal_trap"]
 MODEL_OFFSET = {"mock-a": 0, "mock-b": 1}
+CHAT_ORDER = ["Austin, Texas", "California", "Texas", "Chicago, Illinois"]
 
 
 def _pick(model: str, store_id: str, kinds: list[str], suite: str = "weekly") -> str:
@@ -54,6 +55,8 @@ def _pick(model: str, store_id: str, kinds: list[str], suite: str = "weekly") ->
         if key in QUICK_ORDER:
             i = QUICK_ORDER.index(key) + int(m.group(3)) - 1 + MODEL_OFFSET.get(model, 0)
             return kinds[i % len(kinds)]
+    if suite == "chat" and store_id in CHAT_ORDER:  # realistic quick stores, keyed on the stated location
+        return kinds[(CHAT_ORDER.index(store_id) + MODEL_OFFSET.get(model, 0)) % len(kinds)]
     h = int(hashlib.sha256(f"{model}|{suite}|{store_id}".encode()).hexdigest(), 16)
     return kinds[h % len(kinds)]
 
@@ -181,9 +184,85 @@ def repair(model: str, cfg: dict, current: dict, callouts: list[dict], text: str
     return "```json\n" + json.dumps({"schedule": sched, "call_list": call_list}, separators=(",", ":")) + "\n```", "stop"
 
 
+CHAT_KINDS = ["careful", "wrong_ids", "no_breaks", "over_budget", "unparseable"]
+
+
+def _csv_block(text: str, name: str) -> list[dict]:
+    import csv as _csv
+    import io as _io
+    m = re.search(rf"{name}\.csv:\n```\n(.*?)\n```", text, re.S)
+    return list(_csv.DictReader(_io.StringIO(m.group(1)))) if m else []
+
+
+def _t12(m: int) -> str:
+    m %= 1440
+    h, mm = divmod(m, 60)
+    return f"{h % 12 or 12}:{mm:02d} {'AM' if h < 12 else 'PM'}"
+
+
+def _parse12(s: str) -> int:
+    m = re.match(r"(\d{1,2}):(\d{2}) ([AP])M", s.strip())
+    return (int(m[1]) % 12 + (12 if m[3] == "P" else 0)) * 60 + int(m[2])
+
+
+def chat(model: str, text: str) -> tuple[str, str]:
+    """A manager's chat reply: prose, stated assumptions, then a CSV built greedily from forecast.csv and
+    training.csv (availability ignored), with one failure kind injected."""
+    store = re.search(r"in ([^.]+)\. Here's", text)
+    kind = _pick(model, store.group(1) if store else text[:80], CHAT_KINDS, suite="chat")
+    if kind == "unparseable":
+        return ("Here's a draft plan: openers come in at 6, mid shift 11-7, closers 2-10. Rotate weekends "
+                "fairly and keep minors off the forklift. Let me know if you want it as a file!"), "stop"
+    trained: dict[str, list[str]] = {}
+    for r in _csv_block(text, "training"):
+        trained.setdefault(r["Job Code"], []).append(r["TM_ID"])
+    hours: dict[str, float] = {}
+    busy: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    rows = []
+    for f in _csv_block(text, "forecast"):
+        start, end = _parse12(f["Start Time"]), _parse12(f["End Time"])
+        if end <= start:
+            end += 1440
+        t = start
+        while t < end:
+            e2 = min(end, t + 480)
+            pool = sorted(trained.get(f["Job Code"], []), key=lambda x: (hours.get(x, 0), x))
+            placed = 0
+            for tm in pool:
+                if placed >= int(f["Req HC"]):
+                    break
+                spans = busy.setdefault((tm, f["Date"]), [])
+                if any(a < e2 and t < b for a, b in spans):
+                    continue
+                spans.append((t, e2))
+                hours[tm] = hours.get(tm, 0) + (e2 - t) / 60
+                rows.append([tm, f["Date"], t, e2, f["Job Code"]])
+                placed += 1
+            t = e2
+    out = []
+    for tm, d, a, b, job in rows:
+        if kind == "wrong_ids":
+            tm = tm[:-1] + str((int(tm[-1]) + 5) % 10) if tm else tm
+        if kind in ("careful", "over_budget") and b - a > 360:
+            mid = a + (b - a) // 2 // 30 * 30
+            out += [[tm, d, _t12(a), _t12(mid), job], [tm, d, _t12(mid + 30), _t12(b), job]]  # 30-min lunch gap
+        else:
+            out.append([tm, d, _t12(a), _t12(b), job])
+        if kind == "over_budget":
+            out.append([tm, d, _t12(b), _t12(min(b + 120, 1439)), job])
+    lines = ["TM_ID,Date,Start,End,Job"] + [",".join(map(str, r)) for r in out]
+    return ("Here's next week's schedule. Assumptions:\n- Shifts are at most 8 hours.\n- Everyone in "
+            "training.csv can work those jobs any day.\n\n```csv\n" + "\n".join(lines) + "\n```\n"), "stop"
+
+
 def respond(model: str, messages: list[dict]) -> tuple[str, str]:
-    text = messages[-1]["content"] if len(messages) == 2 else messages[1]["content"]
-    if len(messages) > 2:  # a retry after an unparseable reply: these mocks don't learn
+    text = next(m["content"] for m in messages if m["role"] == "user")
+    retry = any(m["role"] == "assistant" for m in messages)
+    if text.startswith("I manage a "):
+        if retry:
+            return "Sorry, I can't produce a file here.", "stop"
+        return chat(model, text)
+    if retry:  # a retry after an unparseable reply: these mocks don't learn
         return "Apologies, here it is again in a table: (no JSON)", "stop"
     cfg = _tag(text, "store_config")
     if cfg is None:

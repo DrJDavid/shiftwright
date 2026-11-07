@@ -22,19 +22,35 @@ def esc(x) -> str:
     return html.escape(str(x), quote=True)
 
 
+def _model(name: str) -> str:
+    return name.split(":", 1)[1] if ":" in name else name
+
+
 def color_for(systems: list[str]) -> dict[str, str]:
-    out, i = {}, 0
+    """Shiftwright is always green; a model keeps one colour across its baseline:/chat: systems."""
+    out, by_model = {}, {}
     for s in systems:
-        if s == "shiftwright":
+        if s.startswith("shiftwright"):
             out[s] = SW_COLOR
-        else:
-            out[s] = PALETTE[i % len(PALETTE)]
-            i += 1
+            continue
+        m = _model(s)
+        if m not in by_model:
+            by_model[m] = PALETTE[len(by_model) % len(PALETTE)]
+        out[s] = by_model[m]
     return out
 
 
+def is_realistic(name: str) -> bool:
+    return name.startswith("chat:") or name == "shiftwright:intake"
+
+
 def short(name: str) -> str:
-    return "Shiftwright" if name == "shiftwright" else name.removeprefix("baseline:").split("/")[-1]
+    if name == "shiftwright":
+        return "Shiftwright"
+    if name == "shiftwright:intake":
+        return "Shiftwright"
+    m = _model(name).split("/")[-1]
+    return m
 
 
 def fmt(x, nd=1, suffix="") -> str:
@@ -130,19 +146,20 @@ def stacked_codes(agg: dict, systems: list[str], suite: str, title: str) -> str:
     return "".join(parts)
 
 
-def cost_time_chart(agg: dict, systems: list[str], colors: dict[str, str]) -> str:
+def cost_time_chart(agg: dict, systems: list[str], colors: dict[str, str], suite: str = "weekly",
+                    title: str = "Minutes per weekly schedule (median), with schedule cost") -> str:
     """Median time per weekly schedule, with each system's schedule cost (vs Shiftwright) and pass rate
     in the caption, so cost is never shown without time and legality."""
     items = []
     for s in systems:
-        a = agg[s]["weekly"]
-        if not a["median_latency_s"]:
+        a = agg[s][suite]
+        if a["median_latency_s"] is None:
             items.append((short(s), None, colors[s], "not run"))
             continue
-        cost = fmt(a["median_cost_vs_sw"], 2, "× cost") if s != "shiftwright" else "1.00× cost"
+        cost = fmt(a["median_cost_vs_sw"], 2, "× cost") if not s.startswith("shiftwright") else "1.00× cost"
         items.append((short(s), a["median_latency_s"] / 60, colors[s], f'{cost} · {a["passed"]}/{a["scored"]} legal'))
     vmax = max([v for _, v, _, _ in items if v] + [1])
-    return bar_chart(items, "Minutes per weekly schedule (median), with schedule cost", unit=" min", vmax=vmax, caption_w=230)
+    return bar_chart(items, title, unit=" min", vmax=vmax, caption_w=230)
 
 
 def scatter(rows: list[dict], systems: list[str], colors: dict[str, str]) -> str:
@@ -362,6 +379,61 @@ def _runs_table(rows, rel: str) -> str:
     return "".join(out)
 
 
+def _pass_items(agg, names, colors, suite, notes):
+    items = []
+    for s in names:
+        a = agg[s][suite]
+        if a["scored"]:
+            items.append((short(s), a["pass_rate"], colors[s], f'{a["passed"]} of {a["scored"]} schedules'))
+        else:
+            items.append((short(s), None, colors[s], f'not run: {notes.get(s, "")}'))
+    return items
+
+
+def _cov_items(agg, names, colors, suite, notes):
+    items = []
+    for s in names:
+        a = agg[s][suite]
+        if not a["scored"]:
+            items.append((short(s), None, colors[s], f'not run: {notes.get(s, "")}'))
+        elif a["median_legal_coverage"] is None:
+            items.append((short(s), None, colors[s], "no schedule without hard violations"))
+        else:
+            items.append((short(s), a["median_legal_coverage"], colors[s], f'{a["passed"]} legal schedules'))
+    return items
+
+
+def _realistic_table(rows, agg, names, colors) -> str:
+    out = ['<table class="summary"><tr><th>System</th><th class="n">Stores</th><th class="n">0 hard violations</th>'
+           '<th class="n">Hard violations</th><th class="n">No loadable schedule</th><th class="n">Budget respected</th>'
+           '<th class="n">Median coverage<br>(readable)</th><th class="n">Median time</th><th class="n">API cost</th>'
+           '<th>Intake / assumptions</th></tr>']
+    for s in names:
+        a = agg[s]["realistic"]
+        mine = [r for r in rows if r["system"] == s and r["suite"] == "realistic"]
+        sw = f'<span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}'
+        if not a["scored"]:
+            note = next((r["note"] for r in mine if r.get("note")), "") or _why_unavailable(agg, s)
+            out.append(f'<tr><td>{sw}</td><td colspan="9" class="note">not run ({esc(note)})</td></tr>')
+            continue
+        if s == "shiftwright:intake":
+            rec = [r["intake_recall"] for r in mine if r.get("intake_recall") is not None]
+            failed = sorted({k for r in mine for k in r.get("imports_failed", [])})
+            extra = (f'facts captured from the narrative: {fmt(100 * sum(rec) / len(rec), 0, "%") if rec else "–"}'
+                     + (f'; CSV imports rejected: {", ".join(failed)}' if failed else ""))
+        else:
+            n = [r.get("assumptions") or 0 for r in mine]
+            extra = f'stated assumptions: {sum(n)} (contradictions with the CSVs not scored)'
+        out.append(f'<tr><td>{sw}</td><td class="n">{a["scored"]}</td><td class="n">{a["passed"]} / {a["scored"]}</td>'
+                   f'<td class="n">{a["hard_total"]}</td><td class="n">{a["unparseable"] + a["truncated"]}</td>'
+                   f'<td class="n">{a["budget_ok"]} / {a["parsed"]}</td><td class="n">{fmt(a["median_coverage"], 1, "%")}</td>'
+                   f'<td class="n">{fmt_duration(a["median_latency_s"])}</td>'
+                   f'<td class="n">{"$%.2f" % agg[s]["cost_usd"] if not s.startswith("shiftwright") else "–"}</td>'
+                   f'<td class="note">{esc(extra)}</td></tr>')
+    out.append("</table>")
+    return "".join(out)
+
+
 def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     rows = collect(run_dir)
     systems = manifest["systems"]
@@ -369,13 +441,18 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     agg = aggregate(rows, names)
     agg["_notes"] = {s["name"]: s.get("unavailable_reason") or "" for s in systems}
     colors = color_for(names)
+    real_names = [n for n in names if is_realistic(n)]
+    real_names = sorted(real_names, key=lambda n: (n != "shiftwright:intake", n))
+    names = [n for n in names if not is_realistic(n)]
     ex, ex_sw = worked_example(rows)
+    rex, rex_sw = worked_example(rows, suite="realistic", ref="shiftwright:intake", prefix="chat:")
     report_dir.mkdir(parents=True, exist_ok=True)
     rel = os.path.relpath(run_dir, report_dir)
 
     data = {"run_id": manifest["run_id"], "mock_baselines": manifest["mock_baselines"], "systems": systems,
             "aggregates": {k: v for k, v in agg.items() if k != "_notes"}, "rows": rows,
-            "worked_example": ex["key"] if ex else None}
+            "worked_example": ex["key"] if ex else None,
+            "realistic_worked_example": rex["key"] if rex else None}
     (report_dir / "report.json").write_text(json.dumps(data, indent=1) + "\n")
 
     pass_items = []
@@ -432,6 +509,35 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     for s in systems:
         if not s["available"]:
             p.append(f'<p class="note"><b>{esc(short(s["name"]))}</b> unavailable: {esc(s["unavailable_reason"])}.</p>')
+    has_real = any(r["suite"] == "realistic" for r in rows)
+    if has_real:
+        from .realistic import LIMITATIONS
+        p.append("<h2>From the same raw inputs</h2>")
+        p.append('<p class="note">Every system gets only what a store manager has: their own description of the '
+                 'store, the corporate CSV exports (roster, training, availability, forecast, history) and the location. '
+                 'No law pack, no rules, no config. <b>Chat</b> = one plain chat turn with the CSVs pasted in, asking '
+                 'for a CSV schedule. <b>Shiftwright</b> = the real product: CSV import with the proposed mappings, the '
+                 'onboarding chat, then the solver. Every schedule is mapped back to the true employee and job ids '
+                 'and checked by the validator against the true store, including the real labor law for its location.'
+                 f'{" Shiftwright intake agent: " + esc(manifest.get("intake_agent") or "") + "." if manifest.get("intake_agent") else ""}</p>')
+        if manifest.get("intake_agent") == "fake":
+            p.append('<div class="banner">Shiftwright intake ran with the API\'s fake agent (no model key): it does not '
+                     'read the narrative, so only the CSV imports shaped its store.</div>')
+        p.append("<div class='charts'>")
+        p.append(bar_chart(_pass_items(agg, real_names, colors, "realistic", agg["_notes"]),
+                           "Same raw inputs: schedules with zero hard violations"))
+        p.append(stacked_codes(agg, real_names, "realistic", "Same raw inputs: hard violations by rule"))
+        p.append(bar_chart(_cov_items(agg, real_names, colors, "realistic", agg["_notes"]),
+                           "Same raw inputs: median coverage of legal schedules"))
+        p.append(cost_time_chart(agg, real_names, colors, suite="realistic",
+                                 title="Same raw inputs: minutes per schedule, with cost"))
+        p.append("</div>")
+        p.append(_realistic_table(rows, agg, real_names, colors))
+        p.append("<h3>Worked example: same raw inputs</h3>")
+        p.append(_worked(rex, rex_sw, run_dir, rel, colors))
+        p.append('<div class="banner" style="background:#f4f4f4;border-color:#999;font-weight:400;font-size:18px">'
+                 '<b>Limitations.</b><ul>' + "".join(f"<li>{esc(x)}</li>" for x in LIMITATIONS) + '</ul></div>')
+        p.append("<h2 style='margin-top:60px'>Solver vs. LLM-as-solver (both given Shiftwright's config, law pack and rules)</h2>")
     p.append("<h2>Hard rules</h2><div class='charts'>")
     p.append(bar_chart(pass_items, "Weekly schedules with zero hard violations"))
     p.append(stacked_codes(agg, names, "weekly", "Hard violations by rule (weekly build, all runs)"))
@@ -466,7 +572,6 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     p.append(_repair_table(rows, names, colors))
     p.append("<h2>Worked example</h2>")
     p.append(_worked(ex, ex_sw, run_dir, rel, colors))
-    p.append("<h2>Intake</h2><p class='note'>Intake suite (stretch): not implemented in this run.</p>")
     p.append("<h2>All runs</h2>")
     p.append(_runs_table(rows, rel))
     p.append("</main></body></html>\n")

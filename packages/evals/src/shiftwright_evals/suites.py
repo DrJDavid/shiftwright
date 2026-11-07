@@ -7,7 +7,7 @@ from shiftwright_contracts.models import StoreConfig
 from shiftwright_laws import resolve
 from shiftwright_scenarios import Scenario, generate
 
-SUITES = ["weekly", "honesty", "repair", "intake"]
+SUITES = ["weekly", "honesty", "repair", "realistic"]
 REPAIR_NOW = 6 * 60 + 4  # 06:04, as in the demo script
 
 # Scenarios whose `expected` flag is known to be wrong (decided by David, Sat Nov 7). A system that says
@@ -43,11 +43,12 @@ class Case:
         return bool(self.scenario.expected.get("infeasible"))
 
 
-def make_case(suite: str, size: str, difficulty: str, seed: int, jurisdiction: str = "TX") -> Case:
-    sc = generate(seed, size, difficulty, jurisdiction)
+def make_case(suite: str, size: str, difficulty: str, seed: int, jurisdiction: str = "TX",
+              sector: str = "retail") -> Case:
+    sc = generate(seed, size, difficulty, jurisdiction, **({"sector": sector} if sector != "retail" else {}))
     sc.config.law_pack = resolve(sc.config.store.jurisdiction)
     jur = jurisdiction.replace("/", "-")
-    sid = f"{suite}-{size}-{difficulty}-{jur}-s{seed}"
+    sid = f"{suite}-{'food-' if sector == 'food' else ''}{size}-{difficulty}-{jur}-s{seed}"
     return Case(suite, sid, size, difficulty, seed, jurisdiction, sc)
 
 
@@ -66,6 +67,9 @@ def build_cases(suites: list[str], quick: bool) -> list[Case]:
         for size in sizes:
             for seed in h_seeds:
                 cases.append(make_case("honesty", size, "infeasible", seed))
+    if "realistic" in suites:
+        from .realistic import realistic_cases
+        cases.extend(realistic_cases(quick))
     if "repair" in suites:
         for size in ["S", "M"]:
             for seed in seeds:

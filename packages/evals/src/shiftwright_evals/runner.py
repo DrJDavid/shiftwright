@@ -161,7 +161,7 @@ async def run_all(cases: list[Case], systems: list, run_dir: Path, concurrency: 
             for s in systems:
                 if getattr(s, "replay", False) and block:
                     s.blocked[case.scenario_id] = "; ".join(block)
-    repair_cases = [c for c in cases if c.suite == "repair"]
+    repair_cases = [c for c in cases if c.suite == "repair" and any(not getattr(s, "realistic", False) for s in systems)]
     prepared = await asyncio.gather(*(prepare_repair(c, engine, run_dir / "_inputs" / c.scenario_id,
                                                      reuse_inputs / c.scenario_id if reuse_inputs else None)
                                       for c in repair_cases))
@@ -174,7 +174,9 @@ async def run_all(cases: list[Case], systems: list, run_dir: Path, concurrency: 
         nonlocal done
         # The engine has its own worker limit (fair latency); the semaphore here bounds API calls.
         async with (contextlib.nullcontext() if isinstance(system, ShiftwrightSystem) else sem):
-            if getattr(system, "replay", False):
+            if getattr(system, "realistic", False):
+                out = await system.run_realistic(case)
+            elif getattr(system, "replay", False):
                 out = system.run(case.scenario_id)
             elif case.suite == "repair":
                 r = repairs[case.scenario_id]
@@ -187,4 +189,7 @@ async def run_all(cases: list[Case], systems: list, run_dir: Path, concurrency: 
         lat = f"{out.latency_s:.1f}s" if out.latency_s is not None else "-"
         log(f"[{done:3d}/{total}] {system.name:32s} {case.scenario_id:36s} {out.outcome:12s} {lat}")
 
-    await asyncio.gather(*(one(s, c) for s in systems for c in cases))
+    pairs = [(s, c) for s in systems for c in cases
+             if (c.suite == "realistic") == bool(getattr(s, "realistic", False))]
+    total = len(pairs)
+    await asyncio.gather(*(one(s, c) for s, c in pairs))
