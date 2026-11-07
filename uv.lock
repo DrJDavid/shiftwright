@@ -791,11 +791,21 @@ name = "shiftwright-evals"
 version = "0.1.0"
 source = { editable = "packages/evals" }
 dependencies = [
+    { name = "httpx" },
     { name = "shiftwright-contracts" },
+    { name = "shiftwright-laws" },
+    { name = "shiftwright-scenarios" },
+    { name = "shiftwright-validator" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shiftwright-contracts", editable = "contracts" }]
+requires-dist = [
+    { name = "httpx" },
+    { name = "shiftwright-contracts", editable = "contracts" },
+    { name = "shiftwright-laws", editable = "data/laws" },
+    { name = "shiftwright-scenarios", editable = "packages/scenarios" },
+    { name = "shiftwright-validator", editable = "packages/validator" },
+]
 
 [[package]]
 name = "shiftwright-insights"

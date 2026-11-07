@@ -3,10 +3,19 @@ name = "shiftwright-evals"
 version = "0.1.0"
 description = "Engine vs baseline evals, scored by the validator (WS5)."
 requires-python = ">=3.12"
-dependencies = ["shiftwright-contracts"]
+dependencies = [
+  "shiftwright-contracts",
+  "shiftwright-scenarios",
+  "shiftwright-validator",
+  "shiftwright-laws",
+  "httpx",
+]
 
 [tool.uv.sources]
 shiftwright-contracts = { workspace = true }
+shiftwright-scenarios = { workspace = true }
+shiftwright-validator = { workspace = true }
+shiftwright-laws = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
