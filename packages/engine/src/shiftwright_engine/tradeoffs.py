@@ -1,6 +1,7 @@
 """Tradeoffs for the manager (SEMANTICS #25): what keeping a rule or the budget really costs.
 
-After the main solve, up to `MAX_SOLVES` short what-if solves, each from an actual CP-SAT run on a
+After the main solve, up to `MAX_SOLVES` short what-if solves (together within half the solve
+limit, see `solve_week`), each from an actual CP-SAT run on a
 neighbourhood of the final week (never estimated):
   - budget_gap: a gap left open because of the hours budget. The gap's day is re-solved for
     everyone trained for the role with the budget raised by the gap's hours (at least one minimum
@@ -76,7 +77,7 @@ def tradeoffs(p: Prep, sched: Schedule, chosen: set[int], roles: dict, limit_s: 
     solves = 0
 
     def time_ok() -> bool:
-        return solves < MAX_SOLVES and (until is None or time.perf_counter() + limit_s <= until)
+        return solves < MAX_SOLVES and (until is None or time.perf_counter() + limit_s + 1.0 <= until)  # ~1 s build
 
     # Budget gaps: biggest tier × missing headcount-hours first, one per role-day.
     cands = [g for g in sched.gaps if any(r.code == GapReasonCode.budget_cap for r in g.reasons)]
@@ -108,7 +109,8 @@ def tradeoffs(p: Prep, sched: Schedule, chosen: set[int], roles: dict, limit_s: 
     # Preferences kept: soft rules with no violation, naming at most 3 employees.
     broken = {v.constraint_id for v in sched.soft_violations}
     for con in sorted(p.constraints, key=lambda c: -c.weight_dollars):
-        if MAX_SOLVES - solves < 2 or not time_ok():
+        if MAX_SOLVES - solves < 2 or not time_ok() or (
+                until is not None and time.perf_counter() + 2 * (limit_s + 1.0) > until):
             break
         if con.strength != Strength.soft or con.id in broken or con.kind == ConstraintKind.always_staffed:
             continue

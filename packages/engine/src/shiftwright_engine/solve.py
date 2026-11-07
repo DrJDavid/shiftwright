@@ -178,6 +178,7 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
 
 
 COARSE_DAY_LNS_CANDS = 150_000
+DAY_LNS_MIN_S = 0.8  # least CP-SAT time worth giving a day model
 ELASTIC_ALWAYS_DOLLARS_PER_HOUR = 1000.0  # day LNS: hard always_staffed priced, so any start can be improved
 
 
@@ -247,15 +248,20 @@ def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
         return True
 
     while True:
-        for k, d in enumerate(days):
-            per = (until - time.perf_counter()) / max(1, len(days) - k) - 1.0  # ~1 s to build a day model
-            if per < 0.8:
+        order = days
+        fit = int((until - time.perf_counter()) // (DAY_LNS_MIN_S + 1.0))
+        if 0 < fit < len(days):  # short limit / slow machine: the days with the most open demand first
+            open_ = _open_by_day(p, st8["roles"])
+            order = sorted(sorted(days, key=lambda dd: -open_.get(dd, 0))[:fit])
+        for k, d in enumerate(order):
+            per = (until - time.perf_counter()) / max(1, len(order) - k) - 1.0  # ~1 s to build a day model
+            if per < DAY_LNS_MIN_S:
                 stats["stages"].append({"stage": "day_lns", "rounds": rounds, "day_solves": solved,
                                         "s": round(time.perf_counter() - t_start, 2), "holes": st8["holes"]})
                 if st8["obj"] is None:
                     return None
                 return st8["cur"], st8["roles"], st8["obj"], st8["holes"]
-            solved += day_solve(d, per, days[k:])
+            solved += day_solve(d, per, order[k:])
         rounds += 1
 
 
@@ -419,7 +425,8 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
             tt = time.perf_counter()
             roles_final = {(e, a): r for (e, r, a), v in built.x.items() if solver.boolean_value(v)}
             stats["tradeoffs"] = tradeoffs(p, sched, chosen, roles_final,
-                                           limit_s=min(5.0, max(1.0, time_limit_s * 0.1)))
+                                           limit_s=min(5.0, max(1.0, time_limit_s * 0.1)),
+                                           until=tt + time_limit_s * 0.5)
             stats["tradeoffs_s"] = round(time.perf_counter() - tt, 2)
     return sched
 
