@@ -60,7 +60,7 @@ class Builder:
                  fixed_roles: Optional[dict[tuple[str, int], str]] = None, elastic_always: float = 0.0,
                  min_hours_cap_minutes: int = 0, forced_days: Optional[set[tuple[str, int]]] = None,
                  one_shift_days: Optional[set[tuple[str, int]]] = None,
-                 day_paid_cap: Optional[tuple[int, int]] = None):
+                 day_paid_cap: Optional[tuple[int, int]] = None, extra_cap_minutes: int = 0):
         self.p = prep
         self.assume = assume
         self.churn = churn
@@ -72,6 +72,7 @@ class Builder:
         self.fixed_roles = fixed_roles or {}  # (emp, abs slot) -> role that may not change (fixer: before now)
         self.elastic_always = elastic_always  # >0: hard always_staffed priced at this $/h instead (fixer)
         self.min_hours_cap_minutes = min_hours_cap_minutes  # budget hours cap is at least this (fixer)
+        self.extra_cap_minutes = extra_cap_minutes  # what-if: hours budget raised by this (tradeoffs)
         self.forced_days = forced_days or set()  # (emp, day) that must have one of their candidates (fixer)
         self.one_shift_days = one_shift_days or set()  # (emp, day) limited to one shift (fixer call-ins)
         self.day_paid_cap = day_paid_cap  # (day, minutes): paid minutes allotted to that day (day LNS)
@@ -456,7 +457,7 @@ class Builder:
         b = p.cfg.budget
         cap_h = b.weekly_hours_cap + sum(a.extra_hours for a in b.approvals)
         all_paid = sum(y[c.idx] * c.paid_min for c in cands) + self._zero
-        self.add(all_paid <= max(int(round(cap_h * 60)), self.min_hours_cap_minutes),
+        self.add(all_paid <= max(int(round(cap_h * 60)) + self.extra_cap_minutes, self.min_hours_cap_minutes),
                  self.guard("other", "budget.weekly_hours_cap"))
         if self.day_paid_cap is not None:
             dd, cap_m = self.day_paid_cap
@@ -618,6 +619,25 @@ def cover_weights(built: Built) -> tuple[dict[float, int], int]:
     return weights(mins, base=built.max_len + 1, floor=built.paid_bound)
 
 
+def pref_tiers(built: Built) -> dict[float, list[tuple[object, int, int]]]:
+    """Soft-rule terms by tier (the constraint's weight_dollars, read as a rank, SEMANTICS #25):
+    tier -> [(var, units per var unit, var upper bound)]. Within a tier every term carries the same
+    weight, so its units are proportional to the rule's own amount (hours, occurrences)."""
+    wt = {c.id: c.weight_dollars for c in built.prep.constraints}
+    out: dict[float, list] = {}
+    for s in built.soft:
+        if s.cover or s.constraint_id not in wt or s.units_per <= 0:
+            continue
+        v = s.var
+        if not isinstance(v, cp_model.IntVar):
+            continue
+        dom = built.model.proto.variables[v.index].domain
+        ub = int(dom[len(dom) - 1])
+        if ub > 0:
+            out.setdefault(wt[s.constraint_id], []).append((v, int(s.units_per), ub))
+    return out
+
+
 def _hint_from(m: cp_model.CpModel, s: cp_model.CpSolver) -> None:
     m.clear_hints()
     sol = list(s.response_proto.solution)
@@ -706,6 +726,26 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
     for key, terms in by_tier.items():
         m.add(cp_model.LinearExpr.weighted_sum([v for v, _ in terms], [mi for _, mi in terms])
               <= sum(mi * s1.value(v) for v, mi in terms))
+    # Preferences (soft rules) by tier, before cost: they only break ties of coverage.
+    pt = pref_tiers(built)
+    if pt and any(s1.value(v) for terms in pt.values() for v, _c, _u in terms):
+        pw, pratio = weights({k: sum(c * u for _v, c, u in terms) for k, terms in pt.items()})
+        stats.update({"pref_tiers": len(pt), "pref_ratio": pratio})
+        m.minimize(cp_model.LinearExpr.weighted_sum(
+            [v for terms in pt.values() for v, _c, _u in terms],
+            [pw[k] * c for k, terms in pt.items() for _v, c, _u in terms]))
+        sp = _solver(max(0.5, (time_limit_s - (time.perf_counter() - t0)) * 0.5), workers, light_presolve)
+        stp = sp.solve(m)
+        stats["prefs"] = sp.status_name(stp)
+        if stp in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            s1 = sp
+            _hint_from(m, sp)
+            if stp != cp_model.OPTIMAL:
+                st1 = cp_model.FEASIBLE
+    if pt:
+        for terms in pt.values():
+            m.add(cp_model.LinearExpr.weighted_sum([v for v, _c, _u in terms], [c for _v, c, _u in terms])
+                  <= sum(c * int(s1.value(v)) for v, c, _u in terms))
     m.minimize(built.cost_obj)
     s2 = _solver(max(0.5, time_limit_s - (time.perf_counter() - t0)), workers, light_presolve)
     st2 = s2.solve(m)

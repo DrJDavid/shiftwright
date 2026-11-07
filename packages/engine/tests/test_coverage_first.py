@@ -164,3 +164,54 @@ def test_extension_that_only_adds_an_unpaid_meal_is_a_law_reason():
     tail = next(g for g in gaps if g.start == 780)
     reasons = [(r.employee_id, r.code.value, r.law_rule_id) for r in explain_with_prep(p, sched, tail)]
     assert reasons == [("e1", "law_rule", "CA.meal_break.1")]
+
+
+def test_preference_kept_even_when_breaking_it_is_cheaper():
+    """A $1 soft rule against a $80/day wage difference: priced, the cheap worker breaks it; ranked
+    (preferences before cost), the rule holds and the pricier worker covers."""
+    from shiftwright_contracts.models import Constraint, ConstraintKind, RuleStatus, Source, Strength
+
+    cfg = _store([emp("cheap", ["cashier"], wage=10.0), emp("pricey", ["cashier"], wage=20.0)],
+                 {"cashier": 30.0}, [("cashier", 480, 960, 1)], 40)
+    rule = Constraint(id="c-off", kind=ConstraintKind.max_days_per_week, params={"days": 0},
+                      strength=Strength.soft, weight_dollars=1.0, applies_to_employee_ids=["cheap"],
+                      source=Source.leader, status=RuleStatus.confirmed)
+    cfg = cfg.model_copy(update={"constraints": cfg.constraints + [rule]})
+    s = solve_week(cfg, time_limit_s=10)
+    assert _hard(cfg, s) == []
+    assert s.metrics.coverage_pct == 100.0
+    assert {x.employee_id for x in s.shifts} == {"pricey"}
+    assert not s.soft_violations
+
+
+def test_budget_gap_tradeoff_from_a_real_what_if():
+    """The cashier gap is left only by the hours budget: a what-if with more hours covers it, and
+    the tradeoff carries that solve's real numbers."""
+    cfg = _store([emp("hi", ["truck_unload"], wage=40.0), emp("lo", ["cashier"], wage=10.0)],
+                 {"truck_unload": 30.0, "cashier": 25.0},
+                 [("truck_unload", 480, 960, 1), ("cashier", 480, 960, 1)], 8)
+    s = solve_week(cfg, time_limit_s=10)
+    tr = [t for t in s.solver_stats["tradeoffs"] if t["kind"] == "budget_gap"]
+    assert tr and tr[0]["role_id"] == "cashier" and tr[0]["day"] == 4
+    t = tr[0]
+    assert t["if_kept"] == {"wage_cost": s.metrics.total_wage_cost, "hours": s.metrics.total_hours,
+                            "coverage_pct": s.metrics.coverage_pct}
+    assert t["if_dropped"]["coverage_pct"] > t["if_kept"]["coverage_pct"]
+    assert t["extra_hours"] > 0 and t["if_dropped"]["hours"] == t["if_kept"]["hours"] + t["extra_hours"]
+    assert t["if_dropped"]["wage_cost"] > t["if_kept"]["wage_cost"]
+
+
+def test_preference_cost_tradeoff_from_real_solves():
+    from shiftwright_contracts.models import Constraint, ConstraintKind, RuleStatus, Source, Strength
+
+    cfg = _store([emp("cheap", ["cashier"], wage=10.0), emp("pricey", ["cashier"], wage=20.0)],
+                 {"cashier": 30.0}, [("cashier", 480, 960, 1)], 40)
+    rule = Constraint(id="c-off", kind=ConstraintKind.max_days_per_week, params={"days": 0},
+                      strength=Strength.soft, weight_dollars=1.0, applies_to_employee_ids=["cheap"],
+                      source=Source.leader, status=RuleStatus.confirmed)
+    cfg = cfg.model_copy(update={"constraints": cfg.constraints + [rule]})
+    s = solve_week(cfg, time_limit_s=10)
+    tr = [t for t in s.solver_stats["tradeoffs"] if t["kind"] == "preference_cost"]
+    assert [t["rule_id"] for t in tr] == ["c-off"]
+    assert tr[0]["if_kept"]["wage_cost"] - tr[0]["if_dropped"]["wage_cost"] == 80.0
+    assert tr[0]["if_dropped"]["coverage_pct"] == tr[0]["if_kept"]["coverage_pct"] == 100.0

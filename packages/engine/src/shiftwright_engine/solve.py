@@ -13,6 +13,7 @@ from .bounds import always_staffed_conflict
 from .explain import explain_with_prep
 from .greedy import greedy, repair
 from .lex import role_tier
+from .tradeoffs import tradeoffs
 from .why import annotate
 from .model import Builder, day_bounds, default_workers, max_shifts_per_day, solve
 from .output import (
@@ -408,6 +409,18 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         "total_s": round(time.perf_counter() - t0, 3),
     })
     sched.solver_stats = stats
+    # Tradeoffs for the manager (SEMANTICS #25): short what-if solves after the main solve.
+    if os.environ.get("ENGINE_TRADEOFFS", "1") != "0":
+        main_s = time.perf_counter() - t0
+        if main_s >= time_limit_s:
+            stats["tradeoffs"] = []
+            stats["notes"].append("Tradeoffs skipped: the main solve used its whole time limit.")
+        else:
+            tt = time.perf_counter()
+            roles_final = {(e, a): r for (e, r, a), v in built.x.items() if solver.boolean_value(v)}
+            stats["tradeoffs"] = tradeoffs(p, sched, chosen, roles_final,
+                                           limit_s=min(5.0, max(1.0, time_limit_s * 0.1)))
+            stats["tradeoffs_s"] = round(time.perf_counter() - tt, 2)
     return sched
 
 
