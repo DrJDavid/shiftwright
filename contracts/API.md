@@ -83,6 +83,7 @@ and starts the new turn; 409 only if the previous turn is mid model call.
 | `training_matrix` | `{employees:[{id,name}], roles}` | `{employee_id: role_id[]}` |
 | `coverage_grid` | `{day_type: "weekday"\|"saturday"\|"sunday"\|"truck_day", roles, slot_minutes, days: int[], start_minute: int, prefill: headcount[role][slot]}` | same grid |
 | `events` | `{events}` | `{events}` |
+| `department_staffing` | v1.3. `{department: Department, roles: Role[], day_groups: [{id: "weekday"\|"saturday"\|"sunday", days: int[]}], hours: DayHours[], pre_open_minutes, post_close_minutes, suggested: {role_id: RoleStaffing}}` | `{staffing: {role_id: RoleStaffing}}` |
 | `csv_import` | `{kind, preview?: ImportPreview}` | `{committed: boolean, rows: number}` |
 | `propose_rule` | `{constraint: Constraint, evidence, plain_text}` | `{decision: "hard"\|"soft"\|"not_a_rule", weight_dollars?}` |
 | `tradeoff` | `{question, options:[{id,label,cost_dollars,effect}]}` | `{option_id}` |
@@ -92,6 +93,19 @@ and starts the new turn; 409 only if the previous turn is mid model call.
 `coverage_grid` (v1.1): `days` are the day indexes the day_type covers (weekday = Mon–Fri,
 saturday = 5, sunday = 6, each excluding truck days; truck_day = days with a truck event).
 Slot i covers `[start_minute + i*slot_minutes, start_minute + (i+1)*slot_minutes)`.
+
+`department_staffing` (v1.3) is the default way to collect demand when no corporate forecast CSV is imported.
+The agent asks one department at a time, prefilled with suggestions; the leader confirms or edits.
+```ts
+RoleStaffing = { base: number,                                   // people most of the open day
+                 peaks: {day_group: string, start: number, end: number, headcount: number}[],
+                 open:  {headcount: number, minutes_before_open: number} | null,
+                 close: {headcount: number, minutes_after_close: number} | null }
+```
+The server converts the result into `DemandRequirement`s (`source: leader`; base across open hours per day,
+peaks replace base inside their windows, open/close crews in the pre-open/post-close windows), replacing
+existing non-event demand for those roles, then the client shows a read-only `coverage_grid`-style preview.
+Truck and other event crews come from the `events` card. `coverage_grid` stays as an advanced editor.
 
 ## Environment variables
 
