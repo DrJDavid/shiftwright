@@ -243,20 +243,23 @@ class OutreachManager:
                     break
                 wave = cands[:pol.min_recipients] if pol.mode == "group_offer" else cands[:1]
                 if pol.mode == "group_offer" and len(wave) < pol.min_recipients:
-                    run.state.premium = {**(run.state.premium or {}), "status": "owed",
-                                         "note": f"Only {len(wave)} candidate(s) left: not a mass communication "
-                                                 f"(needs {pol.min_recipients}+), so the premium is owed."}
-                    self._note(run, run.state.premium["note"])
+                    note = (f"Only {len(wave)} candidate left for this offer: not a mass communication "
+                            f"(needs {pol.min_recipients}+), so the premium is owed if they accept.")
+                    run.state.premium = {**(run.state.premium or {}), "status": "owed", "note": note}
+                    self._note(run, note)
                 if self._texts_left(run.store_id) < len(wave):
                     self._note(run, f"Outreach stopped: text limit reached ({self.max_texts_per_hour} per store per hour).")
                     run.state.status, run.state.current_rank = "exhausted", None
                     break
                 run.waiting = {}
+                solo = pol.mode == "group_offer" and len(wave) < pol.min_recipients
                 for c in wave:
-                    extra = list(pol.sentences)
+                    # never call a single text a mass communication
+                    extra = [predictive.VOLUNTARY] if solo else list(pol.sentences)
                     if "voluntary" in (c.why or "").lower() and not any("voluntary" in x for x in extra):
                         extra.append(predictive.VOLUNTARY)  # SEMANTICS #17: plan says exempt as voluntary
                     if await self._send(run, emps[c.employee_id], offer_text(config, c, extra), c.rank):
+                        _drop_queued(run, emps[c.employee_id].phone)  # earlier replies were to an older offer
                         run.waiting[emps[c.employee_id].phone] = (emps[c.employee_id], c)
                         run.texted += 1
                     else:
@@ -328,13 +331,22 @@ class OutreachManager:
                 queue = await self._accept(run, config, cand)
                 accepted_any = True
                 still = {(c.employee_id, _shift_key(c)): c for c in queue}
+                by_emp = {c.employee_id: c for c in queue}
                 for k, (e, c) in list(run.waiting.items()):
                     match = still.get((c.employee_id, _shift_key(c)))
                     if match is not None:  # their shift is still needed: keep waiting on them
                         run.waiting[k] = (e, match)
                         continue
-                    run.waiting.pop(k)  # the shift they were offered is covered now
+                    moved = by_emp.get(c.employee_id)
                     self._stop_auto(run, k)
+                    if moved is not None:  # still needed, but the engine moved their shift: re-offer, ask again
+                        extra = list((run.policy or predictive.Policy()).sentences)
+                        await self._send(run, e, "Update: " + offer_text(config, moved, extra), moved.rank)
+                        _drop_queued(run, k)  # a YES to the old times doesn't count for the new ones
+                        run.waiting[k] = (e, moved)
+                        self._start_auto(run, k, moved)
+                        continue
+                    run.waiting.pop(k)  # the shift they were offered is covered now
                     await self._send(run, e, FILLED_TEXT, c.rank)
                 self._sync_waiting(run)
                 self._persist(run)
@@ -431,6 +443,17 @@ def with_law_pack(config: StoreConfig) -> StoreConfig:
     cfg = config.model_copy(deep=True)
     cfg.law_pack = integrations.resolve_law(cfg.store.jurisdiction)
     return cfg
+
+
+def _drop_queued(run: Run, phone: str) -> None:
+    """Forget replies from `phone` that arrived before its latest offer."""
+    keep = []
+    while not run.replies.empty():
+        m = run.replies.get_nowait()
+        if not _same_phone(m.from_phone, phone):
+            keep.append(m)
+    for m in keep:
+        run.replies.put_nowait(m)
 
 
 def _shift_key(c: OutreachCandidate) -> tuple:

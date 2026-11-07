@@ -65,6 +65,7 @@ def run(base: str | None = None, reply_delay_s: float = 4.0, template: str = "de
         out["solve_s"] = round(time.time() - t, 2)
         assert r.status_code == 200, r.text
         sched = r.json()["schedule"]
+        base_ids = {x["id"] for x in sched["shifts"]}
         print(f"solve: {out['solve_s']}s, {len(sched['shifts'])} shifts, coverage {sched['metrics']['coverage_pct']:.1f}%")
 
         t = time.time()
@@ -106,6 +107,11 @@ def run(base: str | None = None, reply_delay_s: float = 4.0, template: str = "de
             for b in p.get("by_employee", [])[:6]:
                 print(f"     {b['employee_id']}: ${b['premium_pay_dollars']:.2f} {b['note'][:100]}")
         if last.get("schedule"):
+            booked = [x for x in last["schedule"]["shifts"] if x["employee_id"] in last["accepted_employee_ids"]
+                      and x["day"] == callouts[0]["day"] and x["id"] not in base_ids]
+            for x in booked:
+                print(f"   booked {x['employee_id']}: {x['start'] // 60:02d}:{x['start'] % 60:02d}-"
+                      f"{x['end'] // 60:02d}:{x['end'] % 60:02d}")
             print(f"   final coverage {last['schedule']['metrics']['coverage_pct']:.1f}%")
     return out
 

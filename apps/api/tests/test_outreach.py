@@ -469,3 +469,66 @@ def test_group_wave_keeps_both_when_shifts_differ(settings, fake_engine, monkeyp
         assert sorted((s.employee_id, s.start) for s in st.schedule.shifts) == sorted([(rank1, 600), (rank2, 900)])
     finally:
         c.__exit__(None, None, None)
+
+
+def test_group_offer_with_one_candidate_is_not_called_mass(settings, fake_engine, monkeypatch):
+    real = integrations.fix_day
+
+    def one(req, time_limit_s=8):
+        plan = real(req, time_limit_s)
+        return plan.model_copy(update={"outreach_queue": plan.outreach_queue[:1]})
+    monkeypatch.setattr(integrations, "fix_day", one)
+    c, sid, cfg = _client_in(settings, "WA", "seattle")
+    try:
+        _start(c, sid)
+        st = _wait(c, sid, lambda s: any(getattr(m, "to_employee_id", None) for m in s.messages))
+        offer = next(m for m in st.messages if getattr(m, "to_employee_id", None))
+        assert "mass communication" not in offer.body and "voluntary" in offer.body
+        assert st.premium["status"] == "owed"
+    finally:
+        c.__exit__(None, None, None)
+
+
+def test_moved_shift_is_reoffered_and_old_yes_ignored(settings, fake_engine, monkeypatch):
+    def fix_day(req, time_limit_s=8):
+        fake_engine.append(req)
+        cash = _cashiers(req.config)
+        booked = {s.employee_id for s in req.schedule.shifts if s.id.startswith("s_")}
+        start = 960 if booked else 900  # once someone is booked, the engine moves the other shift by 1 h
+        queue = []
+        for i, e in enumerate(x for x in cash if x not in booked and x not in req.declined_employee_ids):
+            a, b = (600, 840) if e == cash[0] else (start, start + 240)
+            sh = Shift(id=f"s_{e}", employee_id=e, day=5, start=a, end=b,
+                       segments=[RoleSegment(role_id="cashier", start=a, end=b)])
+            queue.append(OutreachCandidate(rank=i + 1, employee_id=e, proposed_shift=sh, added_cost_dollars=64.0,
+                                           est_accept_prob=0.5, why="trained"))
+        s = req.schedule
+        return FixPlan(actions=[], outreach_queue=queue, schedule_if_all_accept=s, schedule_if_none_accept=s,
+                       coverage_before_pct=50.0, coverage_after_best_pct=100.0, coverage_after_worst_pct=50.0,
+                       outreach_mode=req.outreach_mode or "one_to_one")
+    monkeypatch.setattr(integrations, "fix_day", fix_day)
+    from shiftwright_api.outreach import OutreachManager
+    slow_commit = OutreachManager._commit_shift
+
+    def commit(self, *a):
+        time.sleep(0.3)  # rank 2's YES (to the old times) arrives while rank 1's accept is being booked
+        return slow_commit(self, *a)
+    monkeypatch.setattr(OutreachManager, "_commit_shift", commit)
+    c, sid, cfg = _client_in(settings, "WA", "seattle")
+    try:
+        rank1, rank2 = _cashiers(cfg)
+        _start(c, sid)
+        st = _wait(c, sid, lambda s: len(s.messages) >= 2)
+        phones = {m.to_employee_id: m.to_phone for m in st.messages}
+        c.post("/api/sms/mock-reply", json={"from_phone": phones[rank1], "body": "YES"})
+        time.sleep(0.05)
+        c.post("/api/sms/mock-reply", json={"from_phone": phones[rank2], "body": "YES"})  # to the 3 pm offer
+        st = _wait(c, sid, lambda s: any(m.body.startswith("Update:") for m in s.messages))
+        assert st.status == "texting" and rank2 not in st.accepted_employee_ids and st.waiting_employee_ids == [rank2], [(getattr(m, "to_employee_id", None) or m.from_phone, m.body[:40]) for m in st.messages]
+        upd = next(m for m in st.messages if m.body.startswith("Update:"))
+        assert upd.to_employee_id == rank2 and "4 pm-8 pm" in upd.body
+        c.post("/api/sms/mock-reply", json={"from_phone": phones[rank2], "body": "yes"})
+        st = _wait(c, sid, lambda s: s.status == "filled")
+        assert sorted((s.employee_id, s.start) for s in st.schedule.shifts) == sorted([(rank1, 600), (rank2, 960)])
+    finally:
+        c.__exit__(None, None, None)
