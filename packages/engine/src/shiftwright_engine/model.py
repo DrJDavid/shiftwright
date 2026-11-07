@@ -43,9 +43,12 @@ class Builder:
     the objective is dropped (used by find_conflicts)."""
 
     def __init__(self, prep: Prep, assume: bool = False,
-                 cand_ok: Optional[Callable[[object], bool]] = None):
+                 cand_ok: Optional[Callable[[object], bool]] = None,
+                 churn: bool = False, force_cands: bool = False):
         self.p = prep
         self.assume = assume
+        self.churn = churn
+        self.force_cands = force_cands  # every allowed candidate MUST be worked (phase 2 / fixer)
         self.m = cp_model.CpModel()
         self.lits: dict[tuple[str, str], cp_model.IntVar] = {}
         self.cand_ok = cand_ok
@@ -79,6 +82,9 @@ class Builder:
                 continue
             y[c.idx] = m.new_bool_var(f"y{c.idx}")
         cands = [c for c in p.cands if c.idx in y]
+        if self.force_cands:
+            for c in cands:
+                m.add(y[c.idx] == 1)
 
         # one shift per employee-day; works[e,d]
         works = {}
@@ -110,7 +116,7 @@ class Builder:
                 x[(eid, r, a)] = v
                 vs.append(v)
             m.add(sum(vs) == sum(ys))
-        if len(x) and CHURN_DOLLARS > 0:
+        if self.churn and CHURN_DOLLARS > 0:
             for (eid, r, a), v in x.items():
                 prev = x.get((eid, r, a - slot))
                 if prev is None:

@@ -188,7 +188,8 @@ def _pick(laws: list[LawRule], key) -> Optional[LawRule]:
     return min(laws, key=key) if laws else None
 
 
-def build_prep(cfg: StoreConfig, with_cands: bool = True) -> Prep:
+def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None = None,
+               length_step: int | None = None) -> Prep:
     slot = cfg.store.slot_minutes
     laws = list(cfg.law_pack.rules) if cfg.law_pack else []
     constraints = [c for c in cfg.constraints if c.status == RuleStatus.confirmed]
@@ -268,10 +269,10 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True) -> Prep:
             unavail = [(a.start, a.end) for a in avail if a.kind == AvailabilityKind.unavailable]
             o, c = store_open[day]
             lst = p.by_emp_day.setdefault((e.id, day), [])
-            for start in range(_round_up(w0, slot), w1, slot):
+            for start in range(_round_up(w0, slot), w1, start_step or slot):
                 if earliest is not None and start < earliest:
                     continue
-                for length in range(lo, hi + 1, slot):
+                for length in range(lo, hi + 1, length_step or slot):
                     end = start + length
                     if end > w1:
                         break

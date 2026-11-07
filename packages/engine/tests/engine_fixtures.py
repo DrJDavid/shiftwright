@@ -143,3 +143,59 @@ def tiny_store(**overrides) -> StoreConfig:
 
 def approved_at() -> datetime:
     return datetime(2026, 11, 6, 12, 0)
+
+
+def demo_like_store(n_staff: int = 60, seed: int = 7) -> StoreConfig:
+    """Synthetic ~demo-size store (7 days, 30-min slots). Used for performance tests until
+    WS4's demo_store.json lands. Numbers are arbitrary test values."""
+    import random
+
+    rng = random.Random(seed)
+    base = tiny_store()
+    store = base.store.model_copy(update={
+        "id": "demo-like",
+        "hours": [DayHours(day=d, open=8 * 60, close=22 * 60) for d in range(7)],
+    })
+    roles = base.roles + [
+        Role(id="fulfillment", department_id="fos", name="Fulfillment", gap_penalty_per_hour=25),
+        Role(id="ap", department_id="fos", name="Asset protection", gap_penalty_per_hour=35),
+    ]
+    role_ids = [r.id for r in roles]
+    emps = []
+    for i in range(n_staff):
+        k = rng.choice([1, 2, 2, 3])
+        tr = rng.sample(role_ids, k)
+        ft = rng.random() < 0.4
+        emps.append(emp(f"e{i:02d}", tr, age=rng.choice([17] + [25] * 9), wage=round(rng.uniform(13, 22), 2),
+                        status=EmploymentStatus.full_time if ft else EmploymentStatus.part_time,
+                        max_h=40 if ft else 28))
+    demand = []
+    for d in range(7):
+        busy = 1 if d in (4, 5, 6) else 0
+        demand += [
+            DemandRequirement(id=f"{d}-c1", role_id="cashier", day=d, start=480, end=1320, headcount=3 + busy,
+                              source=DemandSource.corporate),
+            DemandRequirement(id=f"{d}-c2", role_id="cashier", day=d, start=1020, end=1200, headcount=2,
+                              source=DemandSource.corporate),
+            DemandRequirement(id=f"{d}-s", role_id="stocker", day=d, start=420, end=960, headcount=3,
+                              source=DemandSource.corporate),
+            DemandRequirement(id=f"{d}-l", role_id="lod", day=d, start=480, end=1320, headcount=1,
+                              source=DemandSource.corporate),
+            DemandRequirement(id=f"{d}-f", role_id="fulfillment", day=d, start=540, end=1140, headcount=2,
+                              source=DemandSource.corporate),
+            DemandRequirement(id=f"{d}-a", role_id="ap", day=d, start=600, end=1320, headcount=1,
+                              source=DemandSource.corporate),
+        ]
+        if d in (1, 4):
+            demand.append(DemandRequirement(id=f"{d}-pit", role_id="pit_operator", day=d, start=360 + 60,
+                                            end=720, headcount=2, source=DemandSource.event))
+    return base.model_copy(update={
+        "store": store, "roles": roles, "employees": emps, "demand": demand,
+        "budget": Budget(weekly_hours_cap=1500),
+        "constraints": base.constraints + [
+            Constraint(id="c-rest", kind=ConstraintKind.min_rest_between_shifts, params={"minutes": 600},
+                       strength=Strength.hard, source=Source.leader, status=RuleStatus.confirmed),
+            Constraint(id="c-days", kind=ConstraintKind.max_days_per_week, params={"days": 5},
+                       strength=Strength.hard, source=Source.leader, status=RuleStatus.confirmed),
+        ],
+    })

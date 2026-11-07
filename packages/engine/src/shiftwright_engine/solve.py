@@ -32,7 +32,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
     p = build_prep(config)
     built = Builder(p).build()
     t_build = time.perf_counter() - t0
-    solver, status = solve(built, time_limit_s)
+    solver, status = solve(built, max(1.0, time_limit_s * 0.85 - t_build))
     stats = {
         "solver_status": solver.status_name(status),
         "build_s": round(t_build, 3),
@@ -51,6 +51,15 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         stats["error"] = "No schedule found within the time limit."
         return _base(config, "error", solver_stats=stats)
 
+    # Phase 2: keep the chosen shifts, re-assign roles with a small churn tiebreak so
+    # people don't flicker between roles. Coverage/soft terms stay in the objective.
+    chosen = {c.idx for c in p.cands if c.idx in built.y and solver.boolean_value(built.y[c.idx])}
+    obj1, bound1 = solver.objective_value, solver.best_objective_bound
+    b2 = Builder(p, cand_ok=lambda c: c.idx in chosen, churn=True, force_cands=True).build()
+    s2, st2 = solve(b2, min(5.0, max(1.0, time_limit_s * 0.2)))
+    if st2 in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        built, solver = b2, s2
+        stats["phase2_status"] = s2.status_name(st2)
     shifts = shifts_from_solution(built, solver)
     soft = soft_from_solution(built, solver) + availability_violations(p, shifts)
     gaps = gaps_from_shifts(p, shifts)
@@ -59,10 +68,10 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
         g.reasons = explain_with_prep(p, sched, g)
     sched.gaps = gaps
     sched.metrics = compute_metrics(p, shifts, soft, gaps)
-    obj = solver.objective_value + built.objective_const_units
-    bound = solver.best_objective_bound + built.objective_const_units
+    obj = obj1 + built.objective_const_units
+    bound = bound1 + built.objective_const_units
     stats.update({
-        "objective_dollars_incl_tiebreaks": round(obj / SCALE, 2),
+        "phase1_objective_dollars": round(obj / SCALE, 2),
         "best_bound_dollars": round(bound / SCALE, 2),
         "relative_gap": round((obj - bound) / obj, 6) if obj else 0.0,
         "total_s": round(time.perf_counter() - t0, 3),
