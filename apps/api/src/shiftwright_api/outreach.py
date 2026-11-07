@@ -230,6 +230,9 @@ class OutreachManager:
 
     # ---------------------------------------------------------------- loop
     async def _send(self, run: Run, emp, body: str, rank: Optional[int]) -> bool:
+        if not (emp.phone or "").strip():
+            self._note(run, f"{emp.name} has no phone number on file, so they were skipped.")
+            return False
         try:
             out = await self.messenger.send(emp, body, outreach_rank=rank)
         except RecipientBlocked as e:

@@ -388,6 +388,7 @@ def messy_mid_ca() -> None:
             "train": {"2211": ["beauty"], "2213": ["beauty"], "2215": ["hardlines", "truck"]},
             "role_tags": {"forklift": ["powered_industrial_truck"]},
             "role_min_age": {"forklift": 18},
+            "gap_penalty": {"beauty": 25},
         },
     })
 

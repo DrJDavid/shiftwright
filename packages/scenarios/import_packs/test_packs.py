@@ -238,6 +238,8 @@ def _apply_fixes(s: h.Session, tag_pit: bool) -> None:
         e["age"] = fx["age"].get(e["id"], e["age"])
         e["phone"] = fx["phone"].get(e["id"], e["phone"])
         e["trained_role_ids"] += [r for r in fx["train"].get(e["id"], []) if r not in e["trained_role_ids"]]
+    for r in cfg["roles"]:
+        r["gap_penalty_per_hour"] = fx["gap_penalty"].get(r["id"], r["gap_penalty_per_hour"])
     if tag_pit:
         cfg["role_tags"].update(fx["role_tags"])
         for r in cfg["roles"]:

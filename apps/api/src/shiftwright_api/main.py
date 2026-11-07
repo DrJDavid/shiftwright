@@ -225,7 +225,9 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         except NotFound:
             sched = None
         reasons = integrations.explain_gap(cfg, sched, gap) if sched is not None else list(gap.reasons)
-        return {"text": phrase_gap(cfg, gap, reasons), "reasons": [r.model_dump(mode="json") for r in reasons]}
+        from .priorities import load as load_levels
+        return {"text": phrase_gap(cfg, gap, reasons, load_levels(db(), store_id)),
+                "reasons": [r.model_dump(mode="json") for r in reasons]}
 
     # ---------------------------------------------------------------- CSV import
     @app.post("/api/stores/{store_id}/import/{kind}", response_model=ImportPreview)

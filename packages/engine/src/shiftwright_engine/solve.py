@@ -13,7 +13,7 @@ from .bounds import always_staffed_conflict
 from .explain import explain_with_prep
 from .greedy import greedy
 from .why import annotate
-from .model import Builder, default_workers, solve
+from .model import Builder, day_bounds, default_workers, max_shifts_per_day, solve
 from .output import (
     availability_violations,
     compute_metrics,
@@ -61,6 +61,9 @@ def _always_covered(p, chosen: set[int], roles_at: dict) -> bool:
     return True
 
 
+SPLIT_SEED_HOURLY_ABOVE = 20_000
+
+
 def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
     """Small dedicated model: shifts for the people who may work a hard always_staffed role that
     keep those roles covered, within their hard limits, fewest paid minutes. Used to seed the greedy
@@ -68,6 +71,10 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
     t = time.perf_counter()
     elig = {e for e, rs in p.allowed_roles.items() if roles & set(rs)}
     cands = [c for c in p.cands if c.emp in elig]
+    n_max = max_shifts_per_day(p)
+    if n_max > 1 and len(cands) > SPLIT_SEED_HOURLY_ABOVE:  # split days are much harder: hourly grid
+        lo = {eid: p.shift_bounds(eid)[0] for eid in elig}
+        cands = [c for c in cands if c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0]
     m = cp_model.CpModel()
     y = {c.idx: m.new_bool_var("") for c in cands}
     by_ed: dict = {}
@@ -76,8 +83,36 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
     works = {}
     for k, lst in by_ed.items():
         w = m.new_bool_var("")
-        m.add(sum(y[c.idx] for c in lst) == w)
+        if n_max == 1:
+            m.add(sum(y[c.idx] for c in lst) == w)
+        else:
+            m.add(sum(y[c.idx] for c in lst) <= n_max * w)
+            m.add(sum(y[c.idx] for c in lst) >= w)
         works[k] = w
+    if n_max > 1:  # split days: no overlap (boolean running on-shift sum), one slot between shifts
+        starts: dict = {}
+        ends: dict = {}
+        slots_of: dict = {}
+        for c in cands:
+            starts.setdefault((c.emp, c.abs_start), []).append(y[c.idx])
+            ends.setdefault((c.emp, c.abs_end), []).append(y[c.idx])
+            slots_of.setdefault(c.emp, set()).update(c.on_slots)
+        for eid, sl in slots_of.items():
+            prev = None
+            for a in sorted(sl):
+                v = m.new_bool_var("")
+                before = prev if prev is not None and prev[0] == a - p.slot else None
+                m.add(v == (before[1] if before else 0) + sum(starts.get((eid, a), [])) - sum(ends.get((eid, a), [])))
+                if before:
+                    m.add(sum(starts.get((eid, a), [])) + before[1] <= 1)
+                prev = (a, v)
+        first_start, last_end = day_bounds(m, y, by_ed)
+        no_ot = p.daily_ot is not None and not p.cfg.budget.overtime_allowed
+        for (eid, d), lst in by_ed.items():
+            caps = [p.minor_day_cap(p.emps[eid], d)] + ([int(p.daily_ot.params["threshold_hours"] * 60)] if no_ot else [])
+            caps = [x for x in caps if x is not None]
+            if caps and len(lst) > 1:
+                m.add(sum(y[c.idx] * c.paid_min for c in lst) <= min(caps))
     rest = 0
     for c in p.constraints:
         if c.kind == ConstraintKind.min_rest_between_shifts:
@@ -87,8 +122,11 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
     for (eid, d), w in works.items():
         nxt = works.get((eid, d + 1))
         if nxt is not None:
-            end_d = sum(y[c.idx] * c.abs_end for c in by_ed[(eid, d)])
-            start_n = sum(y[c.idx] * c.abs_start for c in by_ed[(eid, d + 1)])
+            if n_max > 1:
+                end_d, start_n = last_end[(eid, d)], first_start[(eid, d + 1)]
+            else:
+                end_d = sum(y[c.idx] * c.abs_end for c in by_ed[(eid, d)])
+                start_n = sum(y[c.idx] * c.abs_start for c in by_ed[(eid, d + 1)])
             m.add(start_n - end_d >= rest).only_enforce_if([w, nxt])
     for eid in elig:
         ys = [(y[c.idx], c.paid_min) for c in cands if c.emp == eid]

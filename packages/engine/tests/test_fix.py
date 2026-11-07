@@ -161,6 +161,43 @@ def _fix_report(req, plan):
             and not (v.code.value == "shift_length" and v.employee_id in out)]
 
 
+@pytest.fixture(scope="module", params=["WA seattle", "OR -"])
+def fww_demo(request):
+    """The demo store moved into a Fair Workweek jurisdiction (audit_fix.py --all-fww cases)."""
+    from shiftwright_contracts.models import Jurisdiction
+    from shiftwright_scenarios import load_demo_store
+    from shiftwright_scenarios.verify_demo import with_law_pack
+
+    cfg = load_demo_store()
+    state, city = request.param.split(" ", 1)
+    cfg.store.jurisdiction = Jurisdiction(state=state, city=None if city == "-" else city)
+    cfg = with_law_pack(cfg)
+    week = solve_week(cfg, time_limit_s=15)
+    callouts = [CallOut(employee_id=e, day=5, reported_at=364) for e in ("e034", "e052", "e053")]
+    return cfg, week, FixRequest(config=cfg, schedule=week, day=5, now=364, callouts=callouts)
+
+
+@pytest.mark.parametrize("mode", [None, "group_offer"])
+def test_fww_plan_actions_in_both_schedules_and_priced(fww_demo, mode):
+    """G1–G3 / SEMANTICS #24: immediate actions are in both schedules, every changed employee is
+    named by an action or a candidate, and validate_fix agrees with every premium."""
+    cfg, week, req = fww_demo
+    req = req.model_copy(update={"outreach_mode": mode})
+    plan = fix_day(req)
+    none_by = {s.employee_id: s for s in plan.schedule_if_none_accept.shifts if s.day == req.day}
+    all_by = {s.employee_id: s for s in plan.schedule_if_all_accept.shifts if s.day == req.day}
+    for a in plan.actions:
+        if a.lever == Lever.extend:
+            n, al = none_by[a.employee_id], all_by[a.employee_id]
+            assert (n.start, n.end) == (al.start, al.end), a.employee_id
+    posted = {s.employee_id: (s.start, s.end) for s in week.shifts if s.day == req.day}
+    named = {a.employee_id for a in plan.actions} | {c.employee_id for c in plan.outreach_queue}
+    for eid, s in all_by.items():
+        if posted.get(eid) != (s.start, s.end):
+            assert eid in named, eid
+    assert _fix_report(req, plan) == []
+
+
 def test_callout_after_start_keeps_worked_part(tiny_week):
     cfg, week = tiny_week
     day = 5

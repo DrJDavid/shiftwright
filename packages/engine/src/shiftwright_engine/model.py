@@ -48,7 +48,8 @@ class Builder:
                  cand_ok: Optional[Callable[[object], bool]] = None,
                  churn: bool = False, force_cands: bool = False, forced: Optional[set[int]] = None,
                  fixed_roles: Optional[dict[tuple[str, int], str]] = None, elastic_always: float = 0.0,
-                 min_hours_cap_minutes: int = 0, forced_days: Optional[set[tuple[str, int]]] = None):
+                 min_hours_cap_minutes: int = 0, forced_days: Optional[set[tuple[str, int]]] = None,
+                 one_shift_days: Optional[set[tuple[str, int]]] = None):
         self.p = prep
         self.assume = assume
         self.churn = churn
@@ -61,6 +62,7 @@ class Builder:
         self.elastic_always = elastic_always  # >0: hard always_staffed priced at this $/h instead (fixer)
         self.min_hours_cap_minutes = min_hours_cap_minutes  # budget hours cap is at least this (fixer)
         self.forced_days = forced_days or set()  # (emp, day) that must have one of their candidates (fixer)
+        self.one_shift_days = one_shift_days or set()  # (emp, day) limited to one shift (fixer call-ins)
         self._zero = self.m.new_constant(0)
 
     # --- assumption literals -------------------------------------------------
@@ -95,14 +97,21 @@ class Builder:
             if self.force_cands or c.idx in self.forced:
                 m.add(y[c.idx] == 1)
 
-        # one shift per employee-day; works[e,d]
+        # up to max_shifts_per_day shifts per employee-day (SEMANTICS #23); works[e,d] is "works that day"
         works = {}
         by_ed: dict[tuple[str, int], list] = {}
         for c in cands:
             by_ed.setdefault((c.emp, c.day), []).append(c)
+        n_max = max_shifts_per_day(p)
+        split = n_max > 1
         for (eid, d), lst in by_ed.items():
             w = m.new_bool_var(f"w[{eid},{d}]")
-            m.add(sum(y[c.idx] for c in lst) == w)
+            n = sum(y[c.idx] for c in lst)
+            if not split or (eid, d) in self.one_shift_days:
+                m.add(n == w)
+            else:
+                m.add(n <= n_max * w)
+                m.add(n >= w)
             works[(eid, d)] = w
             if (eid, d) in self.forced_days:
                 m.add(w == 1)
@@ -141,6 +150,13 @@ class Builder:
                 onshift[(eid, a)] = v
                 if (eid, a) in working_slots:
                     working[(eid, a)] = v - sum(on_break.get((eid, a), [])) if (eid, a) in on_break else v
+        if split:
+            # on[] is boolean, so an employee's shifts never overlap; also keep at least one slot
+            # between two shifts (back-to-back shifts would be one long shift without its breaks).
+            for (eid, a), ys in starts.items():
+                prev = onshift.get((eid, a - slot))
+                if prev is not None:
+                    m.add(sum(ys) + prev <= 1)
 
         # role assignment
         x = {}
@@ -231,6 +247,10 @@ class Builder:
 
         # --- per-employee hard rules --------------------------------------------
         weekly_ot = {}
+        self.day_ot_terms: list[tuple] = []  # (var, units per minute): daily OT of split days beyond each shift's own
+        day_ot_extra: dict[str, list] = {}
+        if split:
+            self._split_day_sums(m, y, by_ed, day_ot_extra)
         paid_by_emp: dict[str, list] = {}
         for c in cands:
             paid_by_emp.setdefault(c.emp, []).append((y[c.idx], c.paid_min, c.daily_ot_min))
@@ -246,7 +266,7 @@ class Builder:
             if p.weekly_ot is not None and p.cfg.budget.overtime_allowed:
                 thr = int(p.weekly_ot.params["threshold_hours"] * 60)
                 ot = m.new_int_var(0, 7 * DAY, f"ot[{eid}]")
-                m.add(ot >= total - sum(v * d_ for v, _, d_ in terms) - thr)
+                m.add(ot >= total - sum(v * d_ for v, _, d_ in terms) - sum(day_ot_extra.get(eid, [])) - thr)
                 weekly_ot[eid] = ot
 
         # --- rest between shifts (always no overlap; plus rules) ------------------
@@ -257,12 +277,18 @@ class Builder:
         for lr in p.law_of(LawRuleType.min_rest_between_shifts):
             # Engine policy: law rest rules are honored as hard bans (never pay the premium).
             rest_rules.append((int(lr.params["minutes"]), "law", lr.id, Strength.hard, 0.0, None))
+        if split:
+            first_start, last_end = day_bounds(m, y, by_ed)
+            self._same_day_law_rest(m, y, by_ed, n_max)
         for (eid, d), w in works.items():
             nxt = works.get((eid, d + 1))
             if nxt is None:
                 continue
-            end_d = sum(y[c.idx] * c.abs_end for c in by_ed[(eid, d)])
-            start_n = sum(y[c.idx] * c.abs_start for c in by_ed[(eid, d + 1)])
+            if split:  # across days: from the day's last end to the next day's first start (#23)
+                end_d, start_n = last_end[(eid, d)], first_start[(eid, d + 1)]
+            else:
+                end_d = sum(y[c.idx] * c.abs_end for c in by_ed[(eid, d)])
+                start_n = sum(y[c.idx] * c.abs_start for c in by_ed[(eid, d + 1)])
             m.add(start_n - end_d >= 0).only_enforce_if([w, nxt])
             for minutes, bucket, ident, strength, weight, con in rest_rules:
                 if con is not None and not p.applies(con, eid):
@@ -418,10 +444,10 @@ class Builder:
         self.add(all_paid <= max(int(round(cap_h * 60)), self.min_hours_cap_minutes),
                  self.guard("other", "budget.weekly_hours_cap"))
         wage_expr = sum(y[c.idx] * c.wage_units for c in cands) + sum(z * u for z, u in self.tip_terms) + self._zero
-        ot_expr = 0
+        ot_expr = sum(v * u for v, u in self.day_ot_terms) if self.day_ot_terms else 0
         if weekly_ot:
             mult = p.weekly_ot.params["multiplier"]
-            ot_expr = sum(v * money(p.emps[eid].wage_per_hour * (mult - 1) / 60) for eid, v in weekly_ot.items())
+            ot_expr += sum(v * money(p.emps[eid].wage_per_hour * (mult - 1) / 60) for eid, v in weekly_ot.items())
         if b.weekly_dollar_cap is not None:
             cap_d = b.weekly_dollar_cap + sum(a.extra_dollars for a in b.approvals)
             self.add(wage_expr + ot_expr <= money(cap_d), self.guard("other", "budget.weekly_dollar_cap"))
@@ -448,6 +474,86 @@ class Builder:
         if self.assume:
             m.add_assumptions(list(self.lits.values()))
         return built
+
+    # --- split days (SEMANTICS #23) ---------------------------------------------------
+    def _split_day_sums(self, m, y, by_ed, extra_ot: dict[str, list]) -> None:
+        """Per-day quantities over all of a day's shifts: minor daily cap, daily overtime (cap when
+        overtime is not allowed; otherwise the OT beyond what each shift already prices)."""
+        p = self.p
+        dot = p.daily_ot
+        for (eid, d), lst in by_ed.items():
+            if len(lst) < 2:
+                continue
+            e = p.emps[eid]
+            paid = sum(y[c.idx] * c.paid_min for c in lst)
+            cap = p.minor_day_cap(e, d)
+            if cap is not None:
+                m.add(paid <= cap)
+            if dot is None:
+                continue
+            thr = int(dot.params["threshold_hours"] * 60)
+            if not p.cfg.budget.overtime_allowed:
+                self.add(paid <= thr, self.guard("law", dot.id))
+                continue
+            mult = dot.params["multiplier"]
+            xo = m.new_int_var(0, 2 * DAY, "")
+            m.add(xo >= paid - thr - sum(y[c.idx] * c.daily_ot_min for c in lst))
+            extra_ot.setdefault(eid, []).append(xo)
+            self.day_ot_terms.append((xo, money(e.wage_per_hour * (mult - 1) / 60)))
+            dbl = dot.params.get("double_threshold_hours")
+            if dbl is not None:
+                dm = int(dbl * 60)
+                xd = m.new_int_var(0, 2 * DAY, "")
+                m.add(xd >= paid - dm - sum(y[c.idx] * max(0, c.paid_min - dm) for c in lst))
+                self.day_ot_terms.append((xd, money(e.wage_per_hour * (2 - mult) / 60)))
+
+    def _same_day_law_rest(self, m, y, by_ed, n_max: int) -> None:
+        """A law min_rest_between_shifts rule also holds between two shifts of one day, unless its
+        params say `excludes_same_day_split` (SEMANTICS #23)."""
+        rules = [lr for lr in self.p.law_of(LawRuleType.min_rest_between_shifts)
+                 if not lr.params.get("excludes_same_day_split")]
+        if not rules:
+            return
+        for (eid, d), lst in by_ed.items():
+            if len(lst) < 2:
+                continue
+            ends: dict[int, list] = {}
+            starts: dict[int, list] = {}
+            for c in lst:
+                ends.setdefault(c.abs_end, []).append(y[c.idx])
+                starts.setdefault(c.abs_start, []).append(y[c.idx])
+            ended = {}
+            for t, vs in ends.items():  # shifts never overlap, so at most one ends at t
+                b = m.new_bool_var("")
+                m.add(b == sum(vs))
+                ended[t] = b
+            for lr in rules:
+                rest = int(lr.params["minutes"])
+                g = self.guard("law", lr.id)
+                for a, ss in starts.items():
+                    win = [b for t, b in ended.items() if a - rest < t <= a]
+                    if win:
+                        self.add(sum(win) + n_max * sum(ss) <= n_max, g)
+
+
+def max_shifts_per_day(p: Prep) -> int:
+    return max(1, int(getattr(p.cfg.store, "max_shifts_per_day", 1) or 1))
+
+
+def day_bounds(m: cp_model.CpModel, y: dict, by_ed: dict) -> tuple[dict, dict]:
+    """(first start, last end) per (employee, day) over the chosen candidates, as int vars (only
+    meaningful when the employee works that day)."""
+    first, last = {}, {}
+    for k, lst in by_ed.items():
+        starts = [c.abs_start for c in lst]
+        ends = [c.abs_end for c in lst]
+        f = m.new_int_var(min(starts), max(starts), "")
+        la = m.new_int_var(min(ends), max(ends), "")
+        for c in lst:
+            m.add(f <= c.abs_start).only_enforce_if(y[c.idx])
+            m.add(la >= c.abs_end).only_enforce_if(y[c.idx])
+        first[k], last[k] = f, la
+    return first, last
 
 
 def default_workers() -> int:
@@ -479,4 +585,4 @@ def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint
     return solver, status
 
 
-__all__ = ["Builder", "Built", "SoftTerm", "solve", "SCALE"]
+__all__ = ["Builder", "Built", "SoftTerm", "solve", "SCALE", "day_bounds", "max_shifts_per_day"]

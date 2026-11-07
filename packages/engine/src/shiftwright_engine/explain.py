@@ -36,12 +36,14 @@ def explain_gap(config: StoreConfig, schedule: Schedule, gap: Gap) -> list[GapRe
 
 def explain_with_prep(p: Prep, schedule: Schedule, gap: Gap) -> list[GapReason]:
     cfg = p.cfg
-    by_ed = {(s.employee_id, s.day): s for s in schedule.shifts}
+    by_ed: dict[tuple[str, int], list] = {}  # split days (#23) have several shifts
     week_min: dict[str, int] = {}
-    days_worked: dict[str, int] = {}
     for s in schedule.shifts:
+        by_ed.setdefault((s.employee_id, s.day), []).append(s)
         week_min[s.employee_id] = week_min.get(s.employee_id, 0) + paid_minutes(s)
-        days_worked[s.employee_id] = days_worked.get(s.employee_id, 0) + 1
+    days_worked: dict[str, int] = {}
+    for eid, _ in by_ed:
+        days_worked[eid] = days_worked.get(eid, 0) + 1
     total_min = sum(week_min.values())
     cap_min = (cfg.budget.weekly_hours_cap + sum(a.extra_hours for a in cfg.budget.approvals)) * 60
     g0, g1 = gap.day * DAY + gap.start, gap.day * DAY + gap.end
@@ -73,8 +75,8 @@ def explain_with_prep(p: Prep, schedule: Schedule, gap: Gap) -> list[GapReason]:
         # On shift during the gap (this day, or an overnight shift from the day before)?
         on = None
         for d in (gap.day, gap.day - 1):
-            s = by_ed.get((e.id, d))
-            if s is not None and d * DAY + s.start < g1 and g0 < d * DAY + s.end:
+            s = next((s for s in by_ed.get((e.id, d), []) if d * DAY + s.start < g1 and g0 < d * DAY + s.end), None)
+            if s is not None:
                 on = (d, s)
                 break
         if on is not None:
@@ -110,7 +112,8 @@ def explain_with_prep(p: Prep, schedule: Schedule, gap: Gap) -> list[GapReason]:
 
         # Rest between shifts
         rest_hit = None
-        prev, nxt = by_ed.get((e.id, gap.day - 1)), by_ed.get((e.id, gap.day + 1))
+        prev = max(by_ed.get((e.id, gap.day - 1), []), key=lambda s: s.end, default=None)
+        nxt = min(by_ed.get((e.id, gap.day + 1), []), key=lambda s: s.start, default=None)
         for minutes, cid, lid, con in rest_rules:
             if con is not None and not p.applies(con, e.id):
                 continue
