@@ -1,5 +1,22 @@
 # Coordinator handoff
 
+## Update Fri Nov 6, 22:50 CT (OpenCode coordinator)
+
+- **Contracts v1.1 on main (`fafe76a`, tag `contracts-v1.1`, pushed).** David accepted all three requests
+  (including off-grid breaks at 5-minute granularity) plus WS2's two additions (`Store.school_week`,
+  `ViolationCode.below_minimum_wage`). Semantics now live in `contracts/SEMANTICS.md`.
+  Known red on main until WS2 lands: `packages/validator` `test_every_code_has_a_golden`.
+- `.env`: OpenRouter key set; `AGENT_MODEL=anthropic/claude-sonnet-5.5`; `MESSENGER=mock`.
+- Twilio: mock tonight; WS6 adds an allowlist, `X-Demo-Key` header and rate limit; **decide at 10:00 Sat.**
+- Evals: mock baselines now; one real 3-model run at M2 (needs coordinator OK).
+- Push policy: coordinator pushes `main` after each green merge.
+- Claude Code engine session was stopped by David; WS1 continues in OpenCode.
+- OpenCode subagents dispatched 22:50 (one per worktree, background): WS1 engine (benchmark the
+  two-stage solve, rebase, school_week), WS6 api (outreach test fix, v1.1, hardening, live agent),
+  WS2 validator (v1.1), WS7 web (live API default, v1.1, M2 UI), WS5 evals (new, `ws/evals`),
+  WS4 scenarios (v1.1, engine verification prep), WS3 laws (state minor limits, primary sources).
+- Merge order: WS2 (turns main green) → WS6 (outreach test fix) → WS1 engine → others.
+
 *Written Fri Nov 6, 22:06 CT, by the Claude Code coordinator session, handing off to OpenCode.
 Read this, then `SPEC.md`, then `briefs/KICKOFF.md`. Each workstream's `STATUS.md` is the
 detailed truth for that workstream; this file is the cross-workstream picture.*
