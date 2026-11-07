@@ -73,11 +73,16 @@ class Session:
 
     def store_basics(self, setup: dict) -> dict:
         cfg = self.config()
-        h = setup["hours"]
-        o, c = imports.parse_time(h["open"]), imports.parse_time(h["close"])
+        if "hours_by_day" in setup:  # {"Mon": ["08:00", "22:00"], ...}; a missing day = closed
+            hours = [{"day": imports.DAY_NAMES[k.lower()], "open": imports.parse_time(v[0]),
+                      "close": imports.parse_time(v[1])} for k, v in setup["hours_by_day"].items()]
+        else:
+            h = setup["hours"]
+            o, c = imports.parse_time(h["open"]), imports.parse_time(h["close"])
+            hours = [{"day": d, "open": o, "close": c} for d in range(7)]
         cfg["store"].update({
-            "week_start": WEEK_START, "timezone": setup["timezone"], "slot_minutes": setup["slot_minutes"],
-            "hours": [{"day": d, "open": o, "close": c} for d in range(7)],
+            "week_start": setup.get("week_start", WEEK_START), "timezone": setup["timezone"],
+            "slot_minutes": setup["slot_minutes"], "hours": sorted(hours, key=lambda x: x["day"]),
             "pre_open_minutes": setup.get("pre_open_minutes", 60),
             "post_close_minutes": setup.get("post_close_minutes", 60),
         })

@@ -9,6 +9,7 @@ same flow against the real API. All people are synthetic; every phone is 555-01x
 | [corporate_mid_tx/](corporate_mid_tx/README.md) | 40 staff, Workday/Kronos-style headers, 7 departments, 30-min interval forecast, truck Tue/Thu/Sat 4 am |
 | [messy_mid_ca/](messy_mid_ca/README.md) | 27 planted problems (junk columns, blank rows, mixed formats, duplicates, a 16-year-old on forklift, a sub-minimum wage, unknown codes, report header above the column header) |
 | [edge_cases/](edge_cases/README.md) | 15 tiny files, one importer edge each, plus the formats that are *not* supported |
+| [demand/](demand/README.md) | Corporate **demand** exports in five styles (per-slot headcount, staffing plan, department hours, sales + labor standards, truck cases) × four weeks (normal, Thanksgiving/Black Friday, promo, light January), all on corporate_mid_tx's roles, plus the conversion spec for WS6 |
 
 Each pack folder has `roster.csv`, `training.csv`, `availability.csv`, `forecast.csv`, `history.csv`, a
 README (what to do in the UI and what should happen) and `leader_setup.json`: what the leader has to

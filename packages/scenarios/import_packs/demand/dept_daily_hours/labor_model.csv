@@ -1,0 +1,9 @@
+Dept,Role,Share %,Window Start,Window End
+LEADERSHIP,Leader on Duty,100,,
+FRONT END,Cashier,100,,
+GUEST SERVICE,Guest Service,100,,
+SOFTLINES,Softlines,100,09:00,18:00
+HARDLINES,Hardlines,100,09:00,18:00
+FULFILLMENT,Drive Up,50,,
+FULFILLMENT,Order Pick,50,,
+FLOW,Truck Unload,100,04:00,10:00
