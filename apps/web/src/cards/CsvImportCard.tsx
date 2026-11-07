@@ -88,7 +88,7 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
       <form id={formId} onSubmit={(e) => void commit(e)} className="space-y-2.5">
         <div className="flex gap-2">
           <select
-            className={`${inputCls} w-44`}
+            className={`${inputCls} w-36 shrink-0`}
             aria-label="What's in the file"
             value={kind}
             onChange={(e) => {
@@ -103,7 +103,7 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
               </option>
             ))}
           </select>
-          <button type="button" onClick={() => inputRef.current?.click()} className="flex-1 rounded-md border border-dashed border-ink/40 px-3 text-sm font-medium hover:border-ink">
+          <button type="button" onClick={() => inputRef.current?.click()} className="min-w-0 flex-1 truncate rounded-md border border-dashed border-ink/40 px-3 text-sm font-medium hover:border-ink">
             {file ? file.name : 'Choose a CSV file'}
           </button>
           <input

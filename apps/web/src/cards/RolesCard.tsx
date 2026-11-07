@@ -45,7 +45,7 @@ export function RolesCard({ props, status, result, onSubmit, onCancel }: CardPro
     <CardFrame title="Departments and roles" status={status} summary={summary} onCancel={onCancel} submitLabel="Save roles" canSubmit={valid} formId={formId}>
       <form id={formId} onSubmit={submit} className="space-y-3">
         <p className="text-sm text-ink-2">
-          Gap cost is what an uncovered hour of the role is worth to you. The solver leaves the cheapest gaps first.
+          Gap cost is what an uncovered hour of the role is worth to you. The solver weighs it against wages when it has to leave a gap.
         </p>
         <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
           {depts.map((d) => (
@@ -54,7 +54,7 @@ export function RolesCard({ props, status, result, onSubmit, onCancel }: CardPro
               <div className="space-y-1">
                 {roles.map((r, i) =>
                   r.department_id !== d.id ? null : (
-                    <div key={i} className="grid grid-cols-[1fr_5.5rem_4.5rem_1.5rem] items-center gap-1.5 text-sm">
+                    <div key={i} className="grid grid-cols-[1fr_5.5rem_4rem_1rem] items-center gap-1.5 text-sm">
                       <input className={inputCls} value={r.name} placeholder="Role name" aria-label="Role name" onChange={(e) => setRole(i, { name: e.target.value })} />
                       <label className="relative">
                         <span className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-xs text-muted">$</span>
@@ -69,7 +69,7 @@ export function RolesCard({ props, status, result, onSubmit, onCancel }: CardPro
                         <span className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-xs text-muted">/h</span>
                       </label>
                       <select className={inputCls} aria-label={`${r.name} minimum age`} value={r.min_age ?? 0} onChange={(e) => setRole(i, { min_age: Number(e.target.value) })}>
-                        <option value={0}>Any age</option>
+                        <option value={0}>Any</option>
                         <option value={16}>16+</option>
                         <option value={18}>18+</option>
                         <option value={21}>21+</option>
