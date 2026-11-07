@@ -67,6 +67,8 @@ def test_repair_picked_up_with_fix_day_and_worked_example_side_by_side(tmp_path)
     assert rep["outcome"] == "ok" and rep["callouts_still_working"] == 0 and rep["changes_before_now"] == 0
     # Worked example pairs a baseline with Shiftwright on the same scenario.
     key = report["worked_example"]
-    ex = next(r for r in report["rows"] if r["key"] == key)
+    assert key is not None
+    ex = next((r for r in report["rows"] if r["key"] == key), None)
+    assert ex is not None
     assert ex["scenario"] == "weekly-S-legal_trap-CA-s1"
     assert "Shiftwright: what the validator found" in html and "Same store, same inputs" in html

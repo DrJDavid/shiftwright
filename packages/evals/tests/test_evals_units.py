@@ -78,7 +78,7 @@ def test_extract_json():
 def _mock_out(kind, case):
     cfg = case.config.model_dump(mode="json")
     orig = mock._pick
-    mock._pick = lambda model, text, kinds: kind
+    mock._pick = lambda model, store_id, kinds, suite="weekly": kind
     try:
         return mock.weekly("mock-a", cfg, "")
     finally:
@@ -123,3 +123,13 @@ def test_budget_guard_stops_on_projection():
     # After 3 calls at $5 the projection is $50 > $42: no further paid calls.
     assert Paid.calls == 3 and guard.stopped and guard.spent == 15.0
     assert results[-1].error and "budget guard" in results[-1].error
+
+
+def test_mock_assignment_is_keyed_on_store_and_covers_every_kind():
+    stores = [f"gen-{k.split('-', 1)[0]}-{k.split('-', 1)[1]}-1" for k in mock.QUICK_ORDER]
+    for model in mock.MOCK_MODELS:
+        kinds = mock.WEEKLY_KINDS[model]
+        picked = [mock._pick(model, sid, kinds) for sid in stores]
+        assert picked == [mock._pick(model, sid, kinds) for sid in stores]  # deterministic
+    assert set(mock._pick("mock-a", sid, mock.WEEKLY_KINDS["mock-a"]) for sid in stores) == set(mock.WEEKLY_KINDS["mock-a"])
+    assert mock._pick("mock-a", "gen-s-infeasible-1", mock.WEEKLY_KINDS["mock-a"]) == "sloppy"

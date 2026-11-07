@@ -37,10 +37,24 @@ def _tag(text: str, name: str):
     return json.loads(m.group(1)) if m else None
 
 
-def _pick(model: str, text: str, kinds: list[str]) -> str:
-    # Ignore contract_version so a contract bump doesn't reshuffle which canned failure each scenario gets.
-    key = re.sub(r'"contract_version":\s*"[^"]*"', '"contract_version":"1.3.0"', text)
-    h = int(hashlib.sha256((model + "|" + key).encode()).hexdigest(), 16)
+# Quick weekly stores in suite order. Mock assignment is keyed on the store's identity (never the prompt
+# text, which changes with every contract/fixture tweak): on these six stores each mock walks its list
+# once, so every failure kind appears at least once in --quick.
+QUICK_ORDER = ["s-easy", "s-tight", "s-legal_trap", "m-easy", "m-tight", "m-legal_trap"]
+MODEL_OFFSET = {"mock-a": 0, "mock-b": 1}
+
+
+def _pick(model: str, store_id: str, kinds: list[str], suite: str = "weekly") -> str:
+    m = re.fullmatch(r"gen-([sml])-(.+)-(\d+)", store_id or "")
+    if suite == "weekly" and m:
+        if m.group(2) == "infeasible":
+            # Mocks never detect infeasibility; mock-a always returns a confident "feasible" schedule.
+            return "sloppy" if model == "mock-a" else kinds[int(m.group(3)) % len(kinds)]
+        key = f"{m.group(1)}-{m.group(2)}"
+        if key in QUICK_ORDER:
+            i = QUICK_ORDER.index(key) + int(m.group(3)) - 1 + MODEL_OFFSET.get(model, 0)
+            return kinds[i % len(kinds)]
+    h = int(hashlib.sha256(f"{model}|{suite}|{store_id}".encode()).hexdigest(), 16)
     return kinds[h % len(kinds)]
 
 
@@ -93,7 +107,7 @@ def _restricted_role(cfg: dict) -> str | None:
 
 
 def weekly(model: str, cfg: dict, text: str) -> tuple[str, str]:
-    kind = _pick(model, text, WEEKLY_KINDS.get(model, WEEKLY_KINDS["mock-a"]))
+    kind = _pick(model, cfg["store"]["id"], WEEKLY_KINDS.get(model, WEEKLY_KINDS["mock-a"]))
     shifts = greedy(cfg)
     if kind == "unparseable":
         lines = [f"- {s['employee_id']}: day {s['day']} {s['start'] // 60}:00-{s['end'] // 60}:00" for s in shifts[:30]]
@@ -134,7 +148,7 @@ def weekly(model: str, cfg: dict, text: str) -> tuple[str, str]:
 
 
 def repair(model: str, cfg: dict, current: dict, callouts: list[dict], text: str) -> tuple[str, str]:
-    kind = _pick(model, text, REPAIR_KINDS)
+    kind = _pick(model, cfg["store"]["id"], REPAIR_KINDS, suite="repair")
     out = [dict(s) for s in current["shifts"]]
     gone = {(c["employee_id"], c["day"]) for c in callouts}
     day, now = callouts[0]["day"], callouts[0]["reported_at"]
