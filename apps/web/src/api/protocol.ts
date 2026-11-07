@@ -42,7 +42,7 @@ export type RolesProps = { departments: Department[]; roles: Role[] }
 export type RolesResult = RolesProps
 export type TrainingMatrixProps = { employees: { id: string; name: string; trained_role_ids?: string[] }[]; roles: Role[] }
 export type TrainingMatrixResult = Record<string, string[]>
-export type DayType = 'weekday' | 'saturday' | 'sunday' | 'truck_day'
+export type DayType = 'weekday' | 'saturday' | 'sunday' | 'truck_day' | 'custom'
 export type CoverageGridProps = {
   day_type: DayType
   roles: Role[]
@@ -71,6 +71,8 @@ export type DepartmentStaffingProps = {
   pre_open_minutes: number
   post_close_minutes: number
   suggested: Record<string, RoleStaffing>
+  /** v1.5: one plain sentence per role on what the suggestion is based on. */
+  rationale?: Record<string, string>
 }
 export type DepartmentStaffingResult = { staffing: Record<string, RoleStaffing> }
 export type EventsProps = { events: Event[] }

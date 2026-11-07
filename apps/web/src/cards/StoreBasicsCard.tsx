@@ -4,6 +4,8 @@ import type { StoreBasicsProps, StoreBasicsResult } from '../api/protocol'
 import { fmtDayDate, WEEKDAY_NAMES } from '../lib/format'
 import { CardFrame, Field, inputCls, type CardProps } from './CardFrame'
 import { fromHHMM, toHHMM } from './time'
+import { SECTOR_LABEL } from '../lib/vocab'
+import type { Sector } from '../contracts'
 
 
 type Row = { open: number; close: number; closed: boolean }
@@ -11,6 +13,9 @@ type Row = { open: number; close: number; closed: boolean }
 export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: CardProps<StoreBasicsProps, StoreBasicsResult>) {
   const formId = useId()
   const p = props ?? {}
+  const [sector, setSector] = useState<Sector | ''>(p.sector ?? '')
+  const [description, setDescription] = useState(p.business_description ?? '')
+  const [splits, setSplits] = useState((p.max_shifts_per_day ?? 1) > 1)
   const [name, setName] = useState(p.name ?? '')
   const [state, setState] = useState(p.jurisdiction?.state ?? '')
   const [city, setCity] = useState(p.jurisdiction?.city ?? '')
@@ -34,6 +39,7 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
   const shown = status === 'submitted' ? (result ?? {}) : {}
   const summary = (
     <>
+      {shown.sector ? `${SECTOR_LABEL[shown.sector]} · ` : ''}
       {shown.name ?? name}, {shown.jurisdiction?.city ? `${titleCase(shown.jurisdiction.city)}, ` : ''}
       {shown.jurisdiction?.state ?? state}. Week of {weekLabel(shown.week_start ?? weekStart)}.
     </>
@@ -51,6 +57,9 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
       week_start: weekStart,
       hours,
       school_week: school === 'unknown' ? null : school === 'yes',
+      sector: sector || null,
+      business_description: description.trim(),
+      max_shifts_per_day: splits ? 2 : 1,
     })
   }
 
@@ -59,6 +68,24 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
   return (
     <CardFrame title="Store basics" status={status} summary={summary} onCancel={onCancel} submitLabel="Confirm store" canSubmit={valid} formId={formId}>
       <form id={formId} onSubmit={submit} className="space-y-3">
+        <Field label="What kind of business is this?" hint="Only used to decide which labor laws apply.">
+          <select className={inputCls} value={sector} onChange={(e) => setSector(e.target.value as Sector | '')}>
+            <option value="">Not sure yet</option>
+            {(Object.keys(SECTOR_LABEL) as Sector[]).map((k) => (
+              <option key={k} value={k}>
+                {SECTOR_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="In a few words">
+          <input
+            className={inputCls}
+            placeholder="e.g. family taqueria, 30 seats"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Field>
         <Field label="Store name">
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
@@ -94,6 +121,10 @@ export function StoreBasicsCard({ props, status, result, onSubmit, onCancel }: C
             </select>
           </Field>
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={splits} onChange={(e) => setSplits(e.target.checked)} />
+          Split shifts allowed (someone can work lunch and dinner on the same day)
+        </label>
         {weekStart && !isMonday && <p className="text-sm text-gap">Pick a Monday. Weeks run Monday to Sunday.</p>}
         <div>
           <span className="mb-1 block text-sm text-ink-2">Open hours</span>

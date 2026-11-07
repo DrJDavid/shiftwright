@@ -3,7 +3,7 @@ import type { CoverageGridProps, CoverageGridResult, DayType } from '../api/prot
 import { fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { CardFrame, type CardProps } from './CardFrame'
 
-const DAY_TYPE: Record<DayType, string> = { weekday: 'Weekdays', saturday: 'Saturday', sunday: 'Sunday', truck_day: 'Truck days' }
+const DAY_TYPE: Record<DayType, string> = { weekday: 'Weekdays', saturday: 'Saturday', sunday: 'Sunday', truck_day: 'Truck days', custom: 'Selected days' }
 const BRUSHES = [0, 1, 2, 3, 4, 5]
 
 /** Headcount per role per slot. Slot i covers [start_minute + i*slot, +slot) (API.md v1.1). Paint with a brush value. */
@@ -19,7 +19,8 @@ export function CoverageGridCard({ props, status, onSubmit, onCancel }: CardProp
   const readonly = p?.readonly === true
   const n = Math.max(0, ...Object.values(grid).map((v) => v.length))
   const days = (p?.days ?? []).map((d) => WEEKDAY_NAMES[d]).join(', ')
-  const label = DAY_TYPE[p?.day_type ?? 'weekday'] ?? p?.day_type
+  // v1.5 custom: `days` is authoritative, so name the days themselves.
+  const label = p?.day_type === 'custom' ? days || 'Selected days' : (DAY_TYPE[p?.day_type ?? 'weekday'] ?? p?.day_type)
 
   const paint = (rid: string, i: number) =>
     !readonly &&

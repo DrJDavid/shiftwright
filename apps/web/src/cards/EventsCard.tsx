@@ -5,17 +5,14 @@ import { WEEKDAY_NAMES } from '../lib/format'
 import { CardFrame, inputCls, type CardProps } from './CardFrame'
 import { fromHHMM, toHHMM } from './time'
 import { uniqueId } from './ids'
+import { EVENT_LABEL, eventKindsFor, eventName } from '../lib/vocab'
+import { useOptionalCardEnv } from './context'
 
-const KINDS: { id: EventKind; label: string }[] = [
-  { id: 'truck', label: 'Truck' },
-  { id: 'floor_set', label: 'Floor set' },
-  { id: 'promo', label: 'Promo' },
-  { id: 'online_surge', label: 'Online surge' },
-  { id: 'other', label: 'Other' },
-]
 
 export function EventsCard({ props, status, result, onSubmit, onCancel }: CardProps<EventsProps, EventsResult>) {
   const formId = useId()
+  const env = useOptionalCardEnv()
+  const kinds = eventKindsFor(env?.sector)
   const [events, setEvents] = useState<Event[]>(props?.events ?? [])
   const set = (i: number, patch: Partial<Event>) => setEvents((es) => es.map((e, j) => (j === i ? { ...e, ...patch } : e)))
   const valid = events.every((e) => e.end > e.start)
@@ -23,7 +20,7 @@ export function EventsCard({ props, status, result, onSubmit, onCancel }: CardPr
   const summary = shown
     ? shown.events.length === 0
       ? 'No events this week.'
-      : shown.events.map((e) => `${KINDS.find((k) => k.id === e.kind)?.label ?? e.kind} ${WEEKDAY_NAMES[e.day]}`).join(', ')
+      : shown.events.map((e) => `${eventName(e)} ${WEEKDAY_NAMES[e.day]}`).join(', ')
     : null
 
   return (
@@ -42,9 +39,9 @@ export function EventsCard({ props, status, result, onSubmit, onCancel }: CardPr
           <div key={ev.id} className="space-y-1 rounded-md border border-rule p-2">
             <div className="grid grid-cols-[1fr_5rem_1.5rem] gap-1.5">
               <select className={inputCls} aria-label="Event type" value={ev.kind} onChange={(e) => set(i, { kind: e.target.value as EventKind })}>
-                {KINDS.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.label}
+                {kinds.map((k) => (
+                  <option key={k} value={k}>
+                    {EVENT_LABEL[k]}
                   </option>
                 ))}
               </select>
@@ -65,6 +62,13 @@ export function EventsCard({ props, status, result, onSubmit, onCancel }: CardPr
               <input type="time" aria-label="End" className="rounded border border-rule px-1 py-0.5" value={toHHMM(ev.end)} onChange={(e) => set(i, { end: fromHHMM(e.target.value) })} />
               {ev.end <= ev.start && <span className="text-xs text-gap">Ends before it starts</span>}
             </div>
+            <input
+              className={inputCls}
+              placeholder={`Name, e.g. ${ev.kind === 'delivery' ? 'Sysco delivery' : ev.kind === 'private_event' ? 'Rehearsal dinner' : 'Tuesday truck'}`}
+              aria-label="Event name"
+              value={ev.label ?? ''}
+              onChange={(e) => set(i, { label: e.target.value })}
+            />
             <input className={inputCls} placeholder="Note (optional)" value={ev.note ?? ''} onChange={(e) => set(i, { note: e.target.value })} />
           </div>
         ))}
@@ -72,7 +76,7 @@ export function EventsCard({ props, status, result, onSubmit, onCancel }: CardPr
           type="button"
           className="text-sm font-semibold text-pine hover:underline"
           onClick={() =>
-            setEvents((es) => [...es, { id: uniqueId(es.map((e) => e.id), `ev_${es.length + 1}`), kind: 'truck', day: 1, start: 240, end: 600, note: '' }])
+            setEvents((es) => [...es, { id: uniqueId(es.map((e) => e.id), `ev_${es.length + 1}`), kind: kinds[0], day: 1, start: 240, end: 600, note: '' }])
           }
         >
           + Add event

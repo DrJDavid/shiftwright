@@ -249,6 +249,7 @@ export default function App() {
         <div className={chatOpen ? 'contents' : 'hidden'}>
           <ChatPane
             key={config.store.id}
+            sector={config.store.sector}
             api={api}
             storeId={config.store.id}
             mode="onboard"

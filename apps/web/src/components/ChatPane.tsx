@@ -3,6 +3,7 @@ import type { Api } from '../api/client'
 import type { CardType, ChatEvent, ChatMode } from '../api/protocol'
 import { ChatCard } from '../cards'
 import type { CardStatus } from '../cards/CardFrame'
+import type { Sector } from '../contracts'
 import { CardEnvContext } from '../cards/context'
 import { guessKind } from '../cards/csvKind'
 
@@ -33,17 +34,19 @@ type Props = {
   onScheduleChanged: () => void
   /** Collapse the chat column (e.g. to give the Store tab room). */
   onHide?: () => void
+  /** v1.5 Store.sector, so cards can order choices (event kinds). */
+  sector?: Sector | null
 }
 
 const STARTERS = ['Set up my store', 'Build the schedule']
 
-export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide }: Props) {
+export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChanged, onHide, sector }: Props) {
   const [items, setItems] = useState<Item[]>([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [activity, setActivity] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  const env = useMemo(() => ({ api, storeId, onConfigChanged }), [api, storeId, onConfigChanged])
+  const env = useMemo(() => ({ api, storeId, onConfigChanged, sector }), [api, storeId, onConfigChanged, sector])
   const seq = useRef(0)
   const scroller = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
