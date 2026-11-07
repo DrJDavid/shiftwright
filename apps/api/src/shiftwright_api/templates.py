@@ -52,6 +52,19 @@ def new_store_id() -> str:
     return "st_" + uuid.uuid4().hex[:10]
 
 
+FIXTURE_TEMPLATES = {"demo": "load_demo_store", "tiny": "load_tiny_store"}
+
+
+def from_fixture(template: str, store_id: str | None = None) -> StoreConfig:
+    """WS4 fixture store (demo_store.json / tiny_store.json) as-is, under a new store id."""
+    import shiftwright_scenarios
+
+    cfg = getattr(shiftwright_scenarios, FIXTURE_TEMPLATES[template])()
+    cfg.store.id = store_id or new_store_id()
+    cfg.config_version = 1
+    return cfg
+
+
 def build(template: str, name: str, jurisdiction: Jurisdiction, store_id: str | None = None) -> StoreConfig:
     spec = {"empty": [], "bigbox_small": _SMALL, "bigbox_mid": _SMALL + _MID_EXTRA}[template]
     departments = [Department(id=d, name=n) for d, n, _ in spec]

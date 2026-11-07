@@ -114,7 +114,12 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     # ---------------------------------------------------------------- stores
     @app.post("/api/stores", response_model=StoreConfig)
     def create_store(req: CreateStoreRequest) -> StoreConfig:
-        cfg = templates.build(req.template, req.name, req.jurisdiction)
+        if req.template in templates.FIXTURE_TEMPLATES:
+            cfg = templates.from_fixture(req.template)
+        elif not req.name or req.jurisdiction is None:
+            raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
+        else:
+            cfg = templates.build(req.template, req.name, req.jurisdiction)
         return db().create_store(cfg, actor="leader")
 
     @app.get("/api/stores/{store_id}/config", response_model=StoreConfig)
@@ -137,11 +142,16 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     @app.post("/api/stores/{store_id}/solve")
     def solve(store_id: str, req: SolveRequest = Body(default_factory=SolveRequest)) -> dict:
         cfg = with_law(load(store_id))
-        sched = integrations.solve_week(cfg, time_limit_s=req.time_limit_s or 20)
+        try:
+            sched = integrations.solve_week(cfg, time_limit_s=req.time_limit_s or 20)
+        except Exception as e:  # noqa: BLE001 - engine crash / MemoryError: say so plainly, keep serving
+            raise HTTPException(500, f"Schedule engine failed ({type(e).__name__}: {e}). Nothing was saved.")
         try:
             val = integrations.validate(cfg, sched)
         except integrations.StubUnavailable as e:
             raise HTTPException(503, str(e))
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(500, f"Validator failed ({type(e).__name__}: {e}). Nothing was saved.")
         db().save_schedule(store_id, sched, val)
         return {"schedule": sched.model_dump(mode="json"), "validation": val.model_dump(mode="json")}
 

@@ -7,14 +7,14 @@ from pydantic import BaseModel, Field
 
 from shiftwright_contracts.models import InboundMessage, Jurisdiction, OutboundMessage, Schedule
 
-Template = Literal["bigbox_small", "bigbox_mid", "empty"]
+Template = Literal["bigbox_small", "bigbox_mid", "empty", "demo", "tiny"]
 ImportKind = Literal["roster", "training", "availability", "forecast", "history"]
 
 
 class CreateStoreRequest(BaseModel):
     template: Template = "bigbox_small"
-    name: str
-    jurisdiction: Jurisdiction
+    name: Optional[str] = None  # required except for fixture templates (demo, tiny), which keep their own
+    jurisdiction: Optional[Jurisdiction] = None
 
 
 class ImportPreview(BaseModel):

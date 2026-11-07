@@ -104,3 +104,27 @@ def test_laws_resolve(client):
     r = client.get("/api/laws/resolve", params={"state": "TX", "city": "austin"})
     assert r.status_code == 200
     LawPack.model_validate(r.json())
+
+
+def test_fixture_templates(client):
+    from shiftwright_scenarios import load_demo_store, load_tiny_store
+    for template, loader in (("demo", load_demo_store), ("tiny", load_tiny_store)):
+        r = client.post("/api/stores", json={"template": template})
+        assert r.status_code == 200, r.text
+        cfg = StoreConfig.model_validate(r.json())
+        want = loader()
+        assert cfg.store.id != want.store.id and cfg.store.id.startswith("st_")
+        assert cfg.store.name == want.store.name and len(cfg.employees) == len(want.employees)
+        assert cfg.demand == want.demand and cfg.constraints == want.constraints
+    assert client.post("/api/stores", json={"template": "bigbox_mid"}).status_code == 422
+
+
+def test_solve_reports_engine_crash(client, monkeypatch):
+    from shiftwright_api import integrations
+
+    def boom(*a, **k):
+        raise MemoryError("out of memory")
+    monkeypatch.setattr(integrations, "solve_week", boom)
+    sid = _put_tiny(client)
+    r = client.post(f"/api/stores/{sid}/solve", json={})
+    assert r.status_code == 500 and "Schedule engine failed (MemoryError" in r.json()["detail"]
