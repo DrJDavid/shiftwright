@@ -14,7 +14,7 @@
     "Minors: NY 16-17 school-week 4 h cap applies to days preceding a school day (Sun-Thu, but Sunday is excepted, 8 h); the validator treats Mon-Fri as school days, so Friday is enforced at 4 h (stricter than law).",
     "Minors: 16-17 may work to midnight before a school day only with written parental consent + school academic-standing certificate (and before a non-school day with parental consent); encoded latest_end = 10 p.m.",
     "Minors: extra param key max_days_week (6) for NY; NY 16-17 non-school-week alternative schedule (10 h one day, 9 h four days, max 48 h) not encoded.",
-    "minimum_wage.effective = 2026-11-05 (date first seen); NYS DOL confirms $16.00 in force but the page gives no start date (Lab. Law \u00a7 652 not fetchable: 403)."
+    "Minimum wage from 2027 is CPI-indexed (Lab. Law \u00a7 652(1-b)); NYS DOL says the 2027 rate stays $16.00 / $17.00 (off-ramp met): https://dol.ny.gov/minimum-wage-0."
   ],
   "rules": [
     {
@@ -192,13 +192,13 @@
       "type": "minimum_wage",
       "params": {
         "dollars_per_hour": 16.0,
-        "effective": "2026-11-05"
+        "effective": "2026-01-01"
       },
-      "summary": "New York's minimum wage is $16.00 an hour outside NYC, Long Island and Westchester (unchanged on Jan. 1, 2027).",
+      "summary": "New York's minimum wage is $16.00 an hour outside NYC, Nassau, Suffolk and Westchester from January 1, 2026 (unchanged on Jan. 1, 2027 per NYS DOL).",
       "citation": {
-        "url": "https://dol.ny.gov/minimum-wage-0",
-        "title": "NYS DOL \u2014 Your New York State Minimum Wage",
-        "excerpt": "On January 1, 2027, New York\u2019s minimum wage will stay the same. The minimum wage rates will be: ... $16.00 per hour in the rest of New York State",
+        "url": "https://www.nysenate.gov/legislation/laws/LAB/652",
+        "title": "N.Y. Lab. Law \u00a7 652(1-a)(c) \u2014 Minimum wage, remainder of state",
+        "excerpt": "every employer shall pay ... for each hour worked outside the city of New York and the counties of Nassau, Suffolk, and Westchester ... $16.00 on and after January 1, 2026",
         "last_verified": "2026-11-06"
       },
       "confidence": "high",
