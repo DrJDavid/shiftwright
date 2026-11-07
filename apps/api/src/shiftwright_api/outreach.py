@@ -7,7 +7,9 @@ text the next. Stops when fix_day's queue is empty after an accept (filled) or n
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
@@ -25,7 +27,7 @@ from shiftwright_contracts.models import (
 from . import integrations
 from .db import Database
 from .explain import DAYS, hhmm
-from .messenger import Messenger, interpret
+from .messenger import Messenger, RecipientBlocked, interpret
 from .models import OutreachState
 
 
@@ -55,10 +57,32 @@ class Run:
     task: Optional[asyncio.Task] = None
 
 
+class OutreachBusy(RuntimeError):
+    """An outreach is already texting for this store (limit: one active outreach per store)."""
+
+
+TEXT_WINDOW_S = 3600.0
+
+
 class OutreachManager:
-    def __init__(self, db: Database, messenger: Messenger, llm, timeout_s: float):
+    def __init__(self, db: Database, messenger: Messenger, llm, timeout_s: float, max_texts_per_hour: int = 20):
         self.db, self.messenger, self.llm, self.timeout_s = db, messenger, llm, timeout_s
+        self.max_texts_per_hour = max_texts_per_hour
         self.runs: dict[str, Run] = {}
+        self.sent_at: dict[str, deque[float]] = {}  # store_id -> monotonic send times (last hour)
+
+    def _texts_left(self, store_id: str) -> int:
+        q = self.sent_at.setdefault(store_id, deque())
+        now = time.monotonic()
+        while q and now - q[0] > TEXT_WINDOW_S:
+            q.popleft()
+        return self.max_texts_per_hour - len(q)
+
+    @staticmethod
+    def _note(run: Run, text: str) -> None:
+        run.state.messages.append(InboundMessage(
+            id="sys_" + uuid.uuid4().hex[:8], from_phone="system", body=text,
+            received_at=datetime.now(timezone.utc), interpreted_as="unknown"))
 
     # ---------------------------------------------------------------- plans
     def save_plan(self, store_id: str, plan: FixPlan, callouts: list[CallOut], day: int, now: int,
@@ -87,7 +111,7 @@ class OutreachManager:
             raise KeyError(plan_id)
         old = self.runs.get(store_id)
         if old and old.task and not old.task.done():
-            old.task.cancel()
+            raise OutreachBusy("An outreach is already running for this store; cancel it first.")
         plan = FixPlan.model_validate(saved["plan"])
         schedule = Schedule.model_validate(saved["schedule"])
         run = Run(store_id=store_id, plan_id=plan_id, plan=plan,
@@ -98,6 +122,20 @@ class OutreachManager:
         run.task = asyncio.create_task(self._run(run))
         await asyncio.sleep(0)  # let the first text go out
         return run.state
+
+    async def cancel(self, store_id: str) -> OutreachState:
+        run = self.runs.get(store_id)
+        if run and run.task and not run.task.done():
+            run.task.cancel()
+            try:
+                await run.task
+            except asyncio.CancelledError:
+                pass
+            run.current_phone = None
+            run.state.status, run.state.current_rank = "exhausted", None
+            self._note(run, "Outreach cancelled by the leader.")
+            self._persist(run)
+        return self.state(store_id)
 
     # ---------------------------------------------------------------- inbound
     async def inbound(self, from_phone: str, body: str) -> Optional[InboundMessage]:
@@ -131,7 +169,19 @@ class OutreachManager:
                 if emp is None:  # engine proposed someone not in the config: skip, never text a guess
                     run.declined.append(cand.employee_id)
                     continue
-                out = await self.messenger.send(emp, offer_text(config, cand), outreach_rank=cand.rank)
+                if self._texts_left(run.store_id) <= 0:
+                    self._note(run, f"Outreach stopped: text limit reached ({self.max_texts_per_hour} per store per hour).")
+                    run.state.status, run.state.current_rank = "exhausted", None
+                    break
+                try:
+                    out = await self.messenger.send(emp, offer_text(config, cand), outreach_rank=cand.rank)
+                except RecipientBlocked as e:
+                    self._note(run, str(e))
+                    run.declined.append(cand.employee_id)
+                    queue = await self._refix(run, config)
+                    self._persist(run)
+                    continue
+                self.sent_at.setdefault(run.store_id, deque()).append(time.monotonic())
                 self.db.log_message(out.id, run.store_id, "out", out.model_dump(mode="json"))
                 run.current_phone = emp.phone
                 run.state.current_rank = cand.rank
@@ -158,9 +208,7 @@ class OutreachManager:
             raise
         except Exception as e:  # noqa: BLE001 - surface in state rather than dying silently
             run.state.status = "exhausted"
-            run.state.messages.append(InboundMessage(
-                id="sys_" + uuid.uuid4().hex[:8], from_phone="system", body=f"Outreach stopped: {e}",
-                received_at=datetime.now(timezone.utc), interpreted_as="unknown"))
+            self._note(run, f"Outreach stopped: {e}")
         finally:
             self._persist(run)
 
