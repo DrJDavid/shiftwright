@@ -93,7 +93,7 @@ def policy(config: StoreConfig, pack: Optional[LawPack], mode: Optional[str] = N
         why = ("one-to-one texts are not exempt" if mode == "one_to_one"
                else "the dataset's required statements can't be worded")
         return Policy(mode=mode, min_recipients=n if mode == "group_offer" else 1, premium_status="owed",
-                      law_rule_ids=ids, note=f"{group.id}: {why}; the plan's cost includes the premium.")
+                      law_rule_ids=ids, note=f"{group.id}: {why}; the plan's cost should include the premium.")
     p = rules[0].params
     written_ok = not p.get("consent_must_be_written") or p.get("text_message_counts_as_written")
     n = 2 if mode == "group_offer" else 1
@@ -102,4 +102,4 @@ def policy(config: StoreConfig, pack: Optional[LawPack], mode: Optional[str] = N
                       note=f"Voluntary call-in accepted by text: exempt under {', '.join(ids)}. "
                            + (p.get("exemption_note") or ""))
     return Policy(mode=mode, min_recipients=n, premium_status="owed", law_rule_ids=ids,
-                  note=f"No exemption for call-ins in {', '.join(ids)}; the plan's cost includes the premium.")
+                  note=f"No exemption for call-ins in {', '.join(ids)}; the plan's cost should include the premium.")

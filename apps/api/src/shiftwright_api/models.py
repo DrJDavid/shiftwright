@@ -27,6 +27,9 @@ class ImportPreview(BaseModel):
     warnings: list[str] = []
     target_fields: list[str] = []    # fields a column can map to for this kind (dropdown options), in order
     required_fields: list[str] = []  # subset of target_fields that must be mapped
+    # v1.4 proposal: [{need, any_of: [[field, ...], ...]}]; a need is met when all fields of any alternative
+    # are mapped. unmapped_required == the needs not met (e.g. roster "name" is met by first_name + last_name).
+    required_any_of: list[dict[str, Any]] = []
 
 
 class ReadinessCheck(BaseModel):

@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~05:30 CT (rebased on main eaed15e)_
+_Last updated: 2026-11-07 ~06:30 CT (rebased on main 0145de2, contracts v1.4)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -203,7 +203,33 @@ _Last updated: 2026-11-07 ~05:30 CT (rebased on main eaed15e)_
     Seattle texts with the 1-hour premium.
 - Mock auto-replies work per recipient in group waves (1st texted declines, 2nd asks then accepts).
 
-**Next:** run `scripts/demo_outreach.py` once WS1 exports `fix_day`, and tune delays/timeouts for the demo.
+**Done (v1.4: outreach modes, templates list, e2e with the real fix_day):**
+- Modes use the contract literals `one_to_one` | `group_offer` (OutreachState.mode = FixPlan.outreach_mode).
+  `/fix` fills `FixRequest.outreach_mode` (body `outreach_mode` overrides) from the law pack via
+  `predictive.preferred_mode`: `group_offer` when an applicable rule needs a group message for the exemption and
+  we can word its statements, else `one_to_one`. Re-fixes during outreach pass the run's mode. Outreach is sent
+  in **the plan's** mode; premium status follows that mode (Seattle one_to_one ⇒ owed).
+- `OutreachState.premium.by_employee` (proposal for API.md): `[{employee_id, premium_pay_dollars, law_rule_ids,
+  note}]` copied from the plan's `OutreachCandidate`s (the receipt's line items). If the status is owed and every
+  amount is $0, the note says the engine didn't compute a premium.
+- `GET /api/templates` → `{templates: [{id, label, jurisdiction}]}`: empty / bigbox_small / bigbox_mid
+  (jurisdiction null: request supplies it) + every fixture store that loads here (demo, tiny, demo_<locality>
+  when WS4's variants exist, any `fixtures/demo_store_<x>.json`).
+- `ImportPreview.required_any_of` (proposal for API.md): `[{need: string, any_of: string[][]}]`; a need is met when
+  all fields of any alternative are mapped; `unmapped_required` is exactly the unmet needs (roster `name` ←
+  `name` | `first_name`+`last_name`; `age` ← `age` | `birth_date`; availability ← any `avail_*`).
+- **E2E with the real engine** (`scripts/demo_outreach.py`, scripted mock, in-process): Austin demo store, Saturday
+  06:04 call-outs e034/e052/e053: solve 26.4 s (203 shifts, 94.8%), fix 0.7 s (24 actions, 6 in queue, 93.0% →
+  best 94.3%), outreach **filled in 22.7 s** with 4 s reply delay (first text 0.01 s): e026 declines → e038 asks
+  "What time?", gets the auto-answer, accepts → e022 accepts → e012 accepts; final coverage 95.1%. The e2e test
+  (`tests/test_demo_outreach.py`) now runs (fix_day exists) with 0.05 s delays.
+  What-ifs (`--city=WA/seattle`, `--city=IL/chicago`; demo store under that city's law, wages floored at its
+  minimum): Chicago one_to_one, every text says "Accepting is voluntary and you may decline.", premium exempt,
+  filled in 11.7 s (1 s delay). Seattle: the API asked for `group_offer` but **the engine returned
+  `outreach_mode: one_to_one`** and $0 premiums (WS1's fix_day doesn't read `FixRequest.outreach_mode` or price
+  Seattle yet), so outreach went one-to-one with premium status owed ($0 priced); filled in 65 s (fix 6.9 s).
+
+**Next:** re-run the Seattle what-if once WS1 honours `FixRequest.outreach_mode` (expect a group_offer thread).
 
 **Coordinator follow-ups (outside my folder):** WS4 fixture mismatch: `demo_scenario.json` narrative says
 "Payroll is 1,394 hours" but `config.budget.weekly_hours_cap` is 1393.5 (the agent rightly asks which wins).
@@ -222,7 +248,7 @@ API.md lines for: templates `demo`/`tiny` (+ optional name/jurisdiction), `Impor
 - Labor law: stub removed; `shiftwright_laws.resolve` is called directly for `/api/laws/resolve`, `lookup_law`, readiness and solve.
 - `insights.mine_patterns` → `[]`.
 
-**Blocked on:** nothing. Real outreach needs WS1 to export `fix_day` (still 503 via stub).
+**Blocked on:** nothing.
 
 **Shortcuts / decisions to review:**
 - Card results with config payloads are applied by the server (actor `leader`) and returned to the LLM as the tool

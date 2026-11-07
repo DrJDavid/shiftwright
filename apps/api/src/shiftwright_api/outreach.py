@@ -167,7 +167,10 @@ class OutreachManager:
             run.policy = predictive.Policy(mode=mode, min_recipients=2 if mode == "group_offer" else 1,
                                            premium_status="owed", note=f"Law pack unavailable ({e}); premium may be owed.")
         run.state.mode = run.policy.mode
-        run.state.premium = {**run.policy.premium(), "by_employee": premium_breakdown(plan)}
+        by_emp = premium_breakdown(plan)
+        run.state.premium = {**run.policy.premium(), "by_employee": by_emp}
+        if run.policy.premium_status == "owed" and by_emp and not any(b["premium_pay_dollars"] for b in by_emp):
+            run.state.premium["note"] += " The plan prices it at $0.00 (the engine did not compute a premium)."
         self.runs[store_id] = run
         run.task = asyncio.create_task(self._run(run))
         await asyncio.sleep(0)  # let the first text go out
