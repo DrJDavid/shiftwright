@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field
 from shiftwright_contracts.models import InboundMessage, Jurisdiction, OutboundMessage, Schedule
 
 Template = Literal["bigbox_small", "bigbox_mid", "empty", "demo", "tiny"]
-ImportKind = Literal["roster", "training", "availability", "forecast", "history"]
+ImportKind = Literal["roster", "training", "availability", "forecast", "history",
+                     # demand/README.md proposal: corporate labor-model inputs and the demand they produce
+                     "labor_model", "labor_standards", "labor_hours", "sales_forecast", "workload"]
 
 
 class CreateStoreRequest(BaseModel):
