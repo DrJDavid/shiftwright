@@ -28,7 +28,8 @@ REPO = Path(__file__).resolve().parents[3]
 SCENARIO = REPO / "packages/scenarios/fixtures/demo_scenario.json"
 FOLLOW_UPS = [
     "Yes. I have our roster export as a CSV if that helps. No corporate forecast though.",
-    "Go ahead, keep going with whatever is still missing.",
+    "No forecast. A normal week: weekdays are steady with an after-work rush 4-8pm, Saturday is the busiest day, "
+    "Sunday is like a weekday. Use the cards, I'll fix the numbers there. Keep going with whatever is missing.",
     "Sounds right. What's next?",
     "Keep going.",
 ]
@@ -124,6 +125,8 @@ def leader_cards(db: Database, store_id: str, target: StoreConfig, log: list):
                                 for r in props["roles"]}}
         elif card_type == "events":
             ans = {"events": t["events"]}
+        elif card_type == "confirm_tags":
+            ans = {"decisions": {r["role_id"]: "keep" for r in props["roles"]}}
         elif card_type == "propose_rule":
             kind = props["constraint"]["kind"]
             match = (rules_by_kind.get(kind) or [None])[0]
@@ -178,7 +181,7 @@ async def main(turns: int, out: str | None) -> int:
         rd = readiness.compute(db.get_config(sid), equipment.state(db, sid))
         failing = [c.id for c in rd.checks if not c.ok]
         print("  readiness:", "READY" if rd.ready else f"failing {failing}")
-        if rd.ready:
+        if rd.ready and n >= 3:
             ready = True
             break
     final = db.get_config(sid)

@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~09:40 CT (rebased on main 5287a2f, WS3 tipped + hazard law)_
+_Last updated: 2026-11-07 ~10:15 CT_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -44,7 +44,7 @@ _Last updated: 2026-11-07 ~09:40 CT (rebased on main 5287a2f, WS3 tipped + hazar
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 75 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 77 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -318,6 +318,26 @@ _Last updated: 2026-11-07 ~09:40 CT (rebased on main 5287a2f, WS3 tipped + hazar
   a tagged role**; validator hard codes only `metrics_mismatch`: engine total_wage_cost $6,248.15 vs validator
   $5,750.15 (tipped pay, SEMANTICS #20, not applied by the engine yet; without tipped wages the validator passes).
   Remaining slip: the agent confirmed line cook's tags one turn before the owner's explicit "keep both".
+
+**Done (owner-only decisions + demo robustness pass):**
+- **`confirm_tags` card** (new; for API.md): props `{roles: [{role_id, name, tags, minors_trained: string[]}], note}`,
+  result `{decisions: {role_id: "keep"|"remove"}}`. Tool `ask_confirm_tags` lists every pending auto-tagged role in
+  one card; only the submitted card confirms/removes (via equipment.decide); unanswered roles stay pending. The agent
+  no longer has `review_equipment_role` (the REST `POST /equipment_roles` stays for the UI).
+- Agent can't record leader decisions: `add_constraint` always saves `provisional`; `set_constraint_status` refuses
+  `confirmed` ("Only the leader confirms a rule: show it with propose_rule") and refuses to reject a rule the
+  leader already decided. Budget increases were already card-only. Prompt core v3.2 rule 12 says so.
+- Readiness warn `roles_without_demand` (people trained, no staffing set). Order: … business_type,
+  roles_without_demand, staffing_draft, budget, …
+- Prompts: rules that fit a ConstraintKind wait for the roster (no log_unmodeled clutter); don't reopen submitted
+  staffing cards; off-hours crews on some days = peaks with day_group like "tue,thu,sat".
+- Live runs: **Austin retail** (narrative + roster CSV via the simulator): ready after 1 turn (9 calls) — only
+  leadership had demand, which is why `roles_without_demand` now exists; second run: 4 turns, 24 calls, ≈1.5M chars,
+  every stated rule confirmed on cards, confirm_tags used once; the agent correctly flagged contradictions between
+  the narrative (4–10 am freight crew) and the simulator's crude staffing answers, then fixed them via the grid.
+  **Taqueria**: ready in 4 owner turns, 20 calls, ≈0.95M chars, 100 s; one confirm_tags card covered line cook +
+  bartender; the agent cited US.minor_prohibited_roles.7 (after lookup_law) and suggested training Tommy (15) on
+  prep/dishwasher; solve put no minor on a tagged role. Engine/validator tipped-pay `metrics_mismatch` persists (WS1).
 
 **Next:** re-run the Seattle what-if once WS1 honours `FixRequest.outreach_mode` (expect a group_offer thread).
 

@@ -86,7 +86,7 @@ class ToolContext:
             content.update(changed=summary, equipment_tagged={rid: tags for rid, _, tags in tagged},
                            note="These roles look like hazard/equipment work (tags from a fixed list), so minor-labor "
                                 "rules in the law pack now apply to them. Tell the leader in one sentence and ask "
-                                "them to confirm or reject each (review_equipment_role).")
+                                "them to keep or remove the tags on the confirm_tags card (ask_confirm_tags).")
         return ToolResult(content, patch_summary=summary, config_version=cfg.config_version)
 
 
@@ -699,7 +699,8 @@ def _check_constraint(c: dict) -> None:
 def add_constraint(ctx: ToolContext, args: dict) -> ToolResult:
     c = dict(args.get("constraint") or {})
     c.setdefault("id", _uid("c"))
-    c.setdefault("status", "provisional")
+    if ctx.actor != "leader":  # strength/confirmation are the leader's call: only via a propose_rule card
+        c["status"] = "provisional"
 
     def fn(d):
         _check_constraint(c)
@@ -713,8 +714,10 @@ def set_constraint_status(ctx: ToolContext, args: dict) -> ToolResult:
     def fn(d):
         for c in d["constraints"]:
             if c["id"] == cid:
-                if c.get("source") == "inferred" and status == "confirmed" and ctx.actor != "leader":
-                    raise ToolError("Confirm inferred rules with a propose_rule card, not directly.")
+                if status == "confirmed" and ctx.actor != "leader":
+                    raise ToolError("Only the leader confirms a rule: show it with propose_rule and let them decide.")
+                if status == "rejected" and ctx.actor != "leader" and c.get("status") != "provisional":
+                    raise ToolError("This rule was decided by the leader; ask them before changing it.")
                 c["status"] = status
                 return
         raise ToolError(f"No constraint with id {cid!r}")
@@ -778,17 +781,36 @@ def readiness_check(ctx: ToolContext, args: dict) -> dict:
     return readiness.compute(ctx.config(), equipment.state(ctx.db, ctx.store_id)).model_dump(mode="json")
 
 
-def review_equipment_role(ctx: ToolContext, args: dict) -> ToolResult:
-    """Only after the leader said so: confirm keeps the powered_industrial_truck tag, reject removes it."""
-    try:
-        cfg = equipment.decide(ctx.db, ctx.store_id, args.get("role_id", ""), args.get("decision", ""))
-    except KeyError:
-        return ToolResult({"error": f"Unknown role_id {args.get('role_id')!r}"})
-    except ValueError as e:
-        return ToolResult({"error": str(e)})
-    summary = [f"equipment role {args['role_id']} {args['decision']}ed"]
-    return ToolResult({"ok": True, "config_version": cfg.config_version, "changed": summary},
-                      patch_summary=summary, config_version=cfg.config_version)
+def ask_confirm_tags(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]:
+    """`confirm_tags` card: every role with automatic hazard/equipment tags, Keep/Remove per role. The owner's
+    submission is the only way these get confirmed or removed (the agent can't record it)."""
+    cfg = ctx.config()
+    review = equipment.state(ctx.db, ctx.store_id)
+    names = {r.id: r.name for r in cfg.roles}
+    pending = [rid for rid, v in review.items() if v.get("status") == "auto" and rid in names]
+    if not pending:
+        return ToolResult({"ok": True, "note": "No tags waiting for the owner."})
+    props = {"roles": [{"role_id": rid, "name": names[rid], "tags": review[rid].get("tags") or [],
+                        "minors_trained": [f"{e.name} ({e.age})" for e in cfg.employees
+                                           if e.age < 18 and rid in e.trained_role_ids]} for rid in pending],
+             "note": "Tags let the law dataset's minor-labor rules apply to these roles. Keep or remove each."}
+
+    def apply(result: dict) -> ToolResult:
+        if _cancelled(result):
+            return CANCELLED
+        decisions = result.get("decisions") or {}
+        done, version = {}, cfg.config_version
+        for rid in pending:
+            d = decisions.get(rid)
+            if d not in ("keep", "remove"):
+                continue
+            version = equipment.decide(ctx.db, ctx.store_id, rid, "confirm" if d == "keep" else "reject").config_version
+            done[rid] = d
+        left = [rid for rid in pending if rid not in done]
+        summary = [f"tags {d}: {names[r]}" for r, d in done.items()]
+        return ToolResult({"ok": True, "decisions": done, "still_pending": left, "config_version": version},
+                          patch_summary=summary or None, config_version=version if done else None)
+    return CardRequest("confirm_tags", props, apply)
 
 
 def with_law(cfg: StoreConfig) -> StoreConfig:
@@ -955,9 +977,11 @@ TOOLS: list[Tool] = [
                               "start": {"type": "integer"}, "end": {"type": "integer"}, "note": {"type": "string"}},
                              ["kind", "day", "start", "end"]),
                "demand": {"type": "array", "items": {"type": "object"}}}, ["event"]), add_event, "mutation"),
-    Tool("add_constraint", "Add a Constraint. Prefer propose_rule so the leader decides hard/soft and weight.",
+    Tool("add_constraint", "Add a Constraint as provisional (not used until the leader confirms it on a propose_rule "
+         "card). Prefer propose_rule.",
          _obj({"constraint": {"type": "object"}}, ["constraint"]), add_constraint, "mutation"),
-    Tool("set_constraint_status", "Set a constraint's status (provisional|confirmed|rejected).",
+    Tool("set_constraint_status", "Withdraw (rejected) or reopen (provisional) a rule you proposed. Confirming is the "
+         "leader's call and only happens on a propose_rule card.",
          _obj({"constraint_id": {"type": "string"},
                "status": {"type": "string", "enum": [s.value for s in RuleStatus]}}, ["constraint_id", "status"]),
          set_constraint_status, "mutation"),
@@ -968,10 +992,9 @@ TOOLS: list[Tool] = [
                "reason": {"type": "string"}}, ["option_id"]), approve_budget_increase, "mutation"),
     # reads / computes
     Tool("get_config_summary", "Read the current store config.", _obj({}), get_config_summary),
-    Tool("review_equipment_role", "After the LEADER decides: confirm (keep) or reject (remove) a role's automatic "
-         "hazard/equipment tags (e.g. fryer, meat_slicer, powered_industrial_truck). Never decide this yourself.",
-         _obj({"role_id": {"type": "string"}, "decision": {"type": "string", "enum": ["confirm", "reject"]}},
-              ["role_id", "decision"]), review_equipment_role, "mutation"),
+    Tool("ask_confirm_tags", "Show the confirm_tags card: every role with automatic hazard/equipment tags, Keep or "
+         "Remove each in one click. Only the owner's submission confirms or removes tags; you cannot.",
+         _obj({}), ask_confirm_tags, "card"),
     Tool("readiness_check", "Check whether the store is ready to schedule; lists what's missing.", _obj({}),
          readiness_check),
     Tool("dry_run_solve", "Run the engine and validator on the current config. Returns metrics, gaps, infeasibility. "

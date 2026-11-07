@@ -91,6 +91,12 @@ def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readin
         else "Business type not set; every sector's labor rules are applied to be safe.",
         severity="ok" if s.sector else "warn")
 
+    no_demand = [r.name for r in config.roles if r.id not in demand_roles
+                 and any(r.id in e.trained_role_ids for e in config.employees)]
+    add("roles_without_demand", "Every staffed role has demand", True,
+        "Roles with people trained but no staffing set (the schedule won't use them): " + ", ".join(no_demand) + "."
+        if no_demand else "Every role with people has staffing.", severity="warn" if no_demand else "ok")
+
     est = sorted({d.role_id for d in config.demand if d.source.value == "estimate"})
     add("staffing_draft", "Staffing levels confirmed", True,
         "Staffing levels are a draft (estimated, not confirmed) for: " + ", ".join(names.get(r, r) for r in est)

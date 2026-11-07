@@ -174,3 +174,37 @@ def test_closed_days_dropped_and_chat_employee_defaults(client, fake_llm):
     assert cfg["store"]["hours"] == [{"day": 1, "open": 660, "close": 1260}] and cfg["store"]["sector"] == "food"
     kev = cfg["employees"][0]
     assert kev["phone"] == "+13125550109" and kev["status"] == "part_time" and kev["home_department_id"]
+
+
+def test_confirm_tags_card_is_the_only_way(client, fake_llm):
+    from shiftwright_api.agent.llm import call, say
+    sid = make_store(client, template="bigbox_small")["store"]["id"]
+    fake_llm.script([call("upsert_role", role={"id": "fry_cook", "department_id": "grocery", "name": "Fry Cook",
+                                               "gap_penalty_per_hour": 20}),
+                     call("upsert_role", role={"id": "bartender", "department_id": "grocery", "name": "Bartender",
+                                               "gap_penalty_per_hour": 20}),
+                     call("ask_confirm_tags"), say("ok")])
+    script = {"confirm_tags": [{"decisions": {"fry_cook": "keep", "bartender": "remove"}}]}
+    events = parse_sse(client.post(f"/api/stores/{sid}/chat?auto_cards=scripted", json={
+        "mode": "onboard", "messages": [{"role": "user", "content": "keep both"}], "card_script": script}).text)
+    card = next(d for e, d in events if e == "card")
+    assert card["card_type"] == "confirm_tags"
+    assert {r["role_id"] for r in card["props"]["roles"]} == {"fry_cook", "bartender"}  # one card, every pending tag
+    cfg = client.get(f"/api/stores/{sid}/config").json()
+    assert set(cfg["role_tags"]["fry_cook"]) == {"fryer", "cooking"} and "bartender" not in cfg["role_tags"]
+    check = next(c for c in client.get(f"/api/stores/{sid}/readiness").json()["checks"] if c["id"] == "equipment_roles")
+    assert check["severity"] == "ok"  # nothing left pending
+    assert "review_equipment_role" not in fake_llm.tools_seen
+
+
+def test_agent_cannot_confirm_rules(client, fake_llm):
+    from shiftwright_api.agent.llm import call, say
+    sid = make_store(client)["store"]["id"]
+    fake_llm.script([call("add_constraint", constraint={"id": "c1", "kind": "min_shift_length", "params": {"minutes": 240},
+                                                        "strength": "hard", "status": "confirmed", "source": "leader"}),
+                     call("set_constraint_status", constraint_id="c1", status="confirmed"), say("ok")])
+    client.post(f"/api/stores/{sid}/chat", json={"mode": "onboard", "messages": [{"role": "user", "content": "x"}]})
+    c = client.get(f"/api/stores/{sid}/config").json()["constraints"][0]
+    assert c["status"] == "provisional"
+    tool_msgs = [m["content"] for m in fake_llm.calls[-1] if m["role"] == "tool"]
+    assert "Only the leader confirms" in tool_msgs[-1]
