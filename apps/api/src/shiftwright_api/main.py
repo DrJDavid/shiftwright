@@ -25,7 +25,7 @@ from shiftwright_contracts.models import (
     ValidationReport,
 )
 
-from . import equipment, imports, integrations, readiness, templates
+from . import equipment, imports, integrations, predictive, readiness, templates
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
@@ -127,6 +127,10 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         else:
             cfg = templates.build(req.template, req.name, req.jurisdiction)
         return db().create_store(cfg, actor="leader")
+
+    @app.get("/api/templates")
+    def list_templates() -> dict:
+        return {"templates": templates.available()}
 
     @app.get("/api/stores/{store_id}/config", response_model=StoreConfig)
     def get_config(store_id: str) -> StoreConfig:
@@ -264,7 +268,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             raise HTTPException(409, "No schedule yet; POST /solve first.")
         try:
             callouts = [CallOut.model_validate(c) for c in body.get("callouts", [])]
-            req = FixRequest(config=cfg, schedule=sched, callouts=callouts, day=int(body["day"]), now=int(body["now"]))
+            req = FixRequest(config=cfg, schedule=sched, callouts=callouts, day=int(body["day"]), now=int(body["now"]),
+                             outreach_mode=body.get("outreach_mode") or predictive.preferred_mode(cfg, cfg.law_pack))
         except (ValidationError, KeyError, TypeError, ValueError) as e:
             raise HTTPException(422, str(e))
         try:

@@ -46,7 +46,8 @@ def fake_engine(monkeypatch):
             [e for e in _cashiers(req.config) if e not in req.declined_employee_ids])]
         s = req.schedule
         return FixPlan(actions=[], outreach_queue=queue, schedule_if_all_accept=s, schedule_if_none_accept=s,
-                       coverage_before_pct=50.0, coverage_after_best_pct=100.0, coverage_after_worst_pct=50.0)
+                       coverage_before_pct=50.0, coverage_after_best_pct=100.0, coverage_after_worst_pct=50.0,
+                       outreach_mode=req.outreach_mode or "one_to_one")
 
     def validate(config, schedule):
         hours = sum((s.end - s.start) / 60 for s in schedule.shifts)
@@ -371,8 +372,9 @@ def test_seattle_group_offer(settings, fake_engine):
     try:
         rank1, rank2 = _cashiers(cfg)
         _start(c, sid)
+        assert fake_engine[-1].outreach_mode == "group_offer"  # API asked the engine to price a group offer
         st = _wait(c, sid, lambda s: len(s.messages) >= 2)
-        assert st.mode == "group" and st.premium["status"] == "exempt" and st.premium["law_rule_ids"]
+        assert st.mode == "group_offer" and st.premium["status"] == "exempt" and st.premium["law_rule_ids"]
         assert {m.to_employee_id for m in st.messages} == {rank1, rank2}
         assert all("mass communication" in m.body and "voluntary" in m.body and "compensation" in m.body
                    and m.body.endswith("Reply YES or NO") for m in st.messages)
@@ -392,7 +394,7 @@ def test_chicago_text_says_voluntary(settings, fake_engine):
     try:
         _start(c, sid)
         st = _wait(c, sid, lambda s: s.current_rank == 1)
-        assert st.mode == "sequential" and st.premium["status"] == "exempt"
+        assert st.mode == "one_to_one" and st.premium["status"] == "exempt"
         assert len(st.messages) == 1 and "voluntary" in st.messages[0].body
     finally:
         c.__exit__(None, None, None)
@@ -408,5 +410,20 @@ def test_policy_owed_when_no_exemption():
                                                                 "last_verified": "2026-11-06"},
                                    "confidence": "high"})
     pol = policy(cfg, LawPack(jurisdiction={"state": "XX"}, rules=[rule], coverage="full"))
-    assert pol.mode == "sequential" and pol.premium_status == "owed" and pol.sentences == []
+    assert pol.mode == "one_to_one" and pol.premium_status == "owed" and pol.sentences == []
     assert policy(cfg, None).premium_status == "not_applicable"
+
+
+def test_seattle_one_to_one_plan_is_sent_one_to_one_and_owed(settings, fake_engine):
+    c, sid, cfg = _client_in(settings, "WA", "seattle")
+    try:
+        r = c.post(f"/api/stores/{sid}/fix", json={"callouts": [], "day": 5, "now": 364, "outreach_mode": "one_to_one"})
+        plan = r.json()
+        assert plan["outreach_mode"] == "one_to_one"
+        c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]})
+        st = _wait(c, sid, lambda s: s.current_rank == 1)
+        assert st.mode == "one_to_one" and st.premium["status"] == "owed" and len(st.messages) == 1
+        assert "mass communication" not in st.messages[0].body
+        assert [b["employee_id"] for b in st.premium["by_employee"]] == _cashiers(cfg)
+    finally:
+        c.__exit__(None, None, None)

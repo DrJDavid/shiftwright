@@ -116,3 +116,29 @@ def build(template: str, name: str, jurisdiction: Jurisdiction, store_id: str | 
         demand=[],
         budget=Budget(weekly_hours_cap=0),
     )
+
+
+KNOWN_LOCALITIES = ["chicago", "seattle", "sf"]
+_LABELS = {"empty": "Empty store (start from scratch)", "bigbox_small": "Big-box store, small (roles only)",
+           "bigbox_mid": "Big-box store, mid-size (roles only)"}
+
+
+def available() -> list[dict]:
+    """GET /api/templates: structure templates + every fixture store that loads on this server."""
+    out = [{"id": t, "label": label, "jurisdiction": None} for t, label in _LABELS.items()]
+    ids = ["demo", "tiny"] + [f"demo_{loc}" for loc in KNOWN_LOCALITIES]
+    try:
+        import shiftwright_scenarios
+        fx = getattr(shiftwright_scenarios, "FIXTURES_DIR", None)
+        if fx:
+            ids += sorted(f"demo_{p.stem[len('demo_store_'):]}" for p in fx.glob("demo_store_*.json"))
+    except ImportError:
+        return out
+    for t in dict.fromkeys(ids):
+        try:
+            cfg = from_fixture(t)
+        except Exception:  # noqa: BLE001 - not available on this server
+            continue
+        out.append({"id": t, "label": f"{cfg.store.name} ({len(cfg.employees)} staff)",
+                    "jurisdiction": cfg.store.jurisdiction.model_dump(mode="json")})
+    return out

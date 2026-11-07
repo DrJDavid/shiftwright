@@ -113,17 +113,23 @@ def heuristic_mapping(kind: str, columns: list[str]) -> dict[str, Optional[str]]
     return mapping
 
 
+def requirements(kind: str) -> list[dict]:
+    """What a mapping must cover: each need is met when ALL fields of ANY one alternative are mapped.
+    Sent to the client as ImportPreview.required_any_of so it can check a mapping without copying rules."""
+    reqs = [{"need": f, "any_of": [[f]]} for f, (req, _) in TARGETS[kind].items() if req]
+    if kind == "roster":
+        for r in reqs:
+            if r["need"] == "name":
+                r["any_of"].append(["first_name", "last_name"])
+        reqs.append({"need": "age", "any_of": [["age"], ["birth_date"]]})
+    if kind == "availability":
+        reqs.append({"need": "avail_mon..avail_sun", "any_of": [[f] for f in TARGETS[kind] if f.startswith("avail_")]})
+    return reqs
+
+
 def unmapped_required(kind: str, mapping: dict[str, Optional[str]]) -> list[str]:
     mapped = {v for v in mapping.values() if v}
-    missing = [f for f, (req, _) in TARGETS[kind].items() if req and f not in mapped]
-    if kind == "roster":
-        if "name" in missing and {"first_name", "last_name"} <= mapped:
-            missing.remove("name")
-        if not ({"age", "birth_date"} & mapped):
-            missing.append("age")
-    if kind == "availability" and not any(v and v.startswith("avail_") for v in mapped):
-        missing.append("avail_mon..avail_sun")
-    return missing
+    return [r["need"] for r in requirements(kind) if not any(set(alt) <= mapped for alt in r["any_of"])]
 
 
 async def llm_mapping(llm: LLMClient, kind: str, columns: list[str], sample: list[dict]) -> dict[str, Optional[str]]:
@@ -170,7 +176,8 @@ async def preview(kind: str, data: bytes, llm: Optional[LLMClient]) -> tuple[Imp
                        unmapped_required=unmapped_required(kind, mapping),
                        rows_preview=rows[:20], row_count=len(rows), warnings=warnings,
                        target_fields=list(TARGETS[kind]),
-                       required_fields=[f for f, (req, _) in TARGETS[kind].items() if req])
+                       required_fields=[f for f, (req, _) in TARGETS[kind].items() if req],
+                       required_any_of=requirements(kind))
     return pv, rows
 
 

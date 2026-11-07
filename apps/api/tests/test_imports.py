@@ -48,6 +48,10 @@ def test_roster_preview_then_commit(client):
     assert pv.unmapped_required == []
     assert "wage_per_hour" in pv.target_fields and set(pv.proposed_mapping.values()) - {None} <= set(pv.target_fields)
     assert set(pv.required_fields) == {"employee_id", "name", "home_department", "wage_per_hour"}
+    rules = {r["need"]: r["any_of"] for r in pv.required_any_of}
+    assert ["first_name", "last_name"] in rules["name"] and rules["age"] == [["age"], ["birth_date"]]
+    mapped = {v for v in pv.proposed_mapping.values() if v}
+    assert [n for n, alts in rules.items() if not any(set(a) <= mapped for a in alts)] == pv.unmapped_required
     # nothing saved yet
     assert client.get(f"/api/stores/{sid}/config").json()["employees"] == []
 
