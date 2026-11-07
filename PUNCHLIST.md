@@ -72,11 +72,26 @@ independent of the template.
 saves them, so the chat starts from "I know you're a taqueria in Chicago" instead of re-asking.
 **Done when:** the onboarding agent's first readiness check shows business basics done (test with the fake LLM).
 
-### A3. Test-company download route (S, after A1 and E4)
-`GET /api/sample-data?sector=&size=&difficulty=&state=&city=&seed=` → `application/zip`
-(`Content-Disposition: attachment; filename="<company>.zip"`), built by `shiftwright_scenarios.make_dataset_zip`.
-Requires a session; 400 on values E4 rejects; 10 downloads per user per 10 min. Document it in `contracts/API.md`.
-**Done when:** tests for auth required, a valid zip, 400 on a bad value, the rate limit.
+### A3. "Try it with a sample business": one call creates a workplace and its kickoff (M, after A1 and E4)
+The user should **watch** Shiftwright set up a business, not do chores. One endpoint does the setup work:
+
+`POST /api/workplaces/generated` `{sector, size?, difficulty?, state?, city?, seed?}` →
+`{store_id, company_name, kickoff: {message, attachments: [{kind, filename, row_count}]}}`
+- Builds a company with `shiftwright_scenarios.make_dataset`, creates a store owned by the caller
+  (template `empty`, `name`/`sector`/`jurisdiction` from the dataset; nothing else prefilled, so the agent
+  really does the setup), and runs the existing import **preview** for each CSV (roster → training →
+  availability → forecast → history), caching the previews server-side exactly like `/import/{kind}` does.
+  Nothing is committed yet.
+- `kickoff.message` is the generated manager's own words (`narrative`), ending "My exports are attached."
+- Chat: `POST /chat` accepts an optional `attachments: [{kind}]` on a user message. The loop tells the agent
+  which previews are attached; `onboard.md` gets one line: "If the leader attached files, start by showing
+  `ask_csv_import` for each, in import order, then continue setup from what they imported and said."
+- `GET /api/workplaces/{id}/sample-data.zip` keeps the download (E4's zip) for anyone who wants the files.
+- Requires a session; 5 generated workplaces per user per 10 min. Document both routes and the
+  `attachments` field in `contracts/API.md`.
+**Done when:** tests: auth required; a generated workplace is owned, has 0 employees before the cards are
+submitted, and reaches `readiness.ready` after scripted `accept_prefill` answers for an `easy` restaurant;
+bad values 400; rate limit.
 
 ---
 
@@ -95,7 +110,8 @@ Requires a session; 400 on values E4 rejects; 10 downloads per user per 10 min. 
 ### B2. Create a workplace (S)
 `/workplaces/new`: three fields: **Name**, **What kind of business?** (Restaurant/café · Retail store · Hotel ·
 Other, mapped to `sector`), **City, State**. Optional one-line description. Submit → `POST /api/stores` →
-`/w/:id`. Secondary link: "Or explore a sample workplace" → picks a demo template → `/api/workplaces/sample`.
+`/w/:id`. The other big choice on this screen is B7's **"Try it with a sample business"**. The
+hand-tuned demo stores (`/api/workplaces/sample`) stay reachable from the workplace switcher for rehearsed demos.
 
 ### B3. Workplace switcher (S)
 Replace the "Store ▾ / Load a demo store" menu with **My workplaces** (list from `/api/workplaces`, current one
@@ -122,13 +138,25 @@ Grep the UI copy and replace engineer words: "validator" → "compliance check",
 labels ("Forklift / powered industrial truck"), "infeasible" → "can't be fully covered under your rules"
 (with the reason). The conflict menu shows rule names, not ids.
 
-### B7. "Generate a test company" on the new-workplace screen (S, after B2; wire to A3)
-Below the create form: a small panel, **"No data handy? Generate a test company."** Pickers: business type
-(Restaurant · Retail), size (Small ~25 · Medium ~60), difficulty (Clean · Tight budget · Legal traps ·
-Messy exports), city/state (prefilled from the form), and an optional seed field. **Download** gets the zip
-from A3; then a one-line hint: "Create the workplace, then drag these CSVs into the chat. The README has the
-manager's description to paste." Don't auto-import: the point is to show the real import flow.
-Until A3 lands, build against the route's shape and show a disabled state with that note.
+### B7. "Try it with a sample business": watch it set itself up (M, after B2 and B4; wire to A3)
+On `/workplaces/new`, next to the create form, one big secondary choice: **"Try it with a sample business"**
+with two cards, **Restaurant** and **Retail store**, and a small "More options" (city/state, size, difficulty:
+Clean · Tight budget · Legal traps · Messy exports, seed). One click →
+1. `POST /api/workplaces/generated` → go straight to `/w/:id` in setup mode (B4).
+2. The chat opens with the manager's message already sent, showing file chips for the attached CSVs, and the
+   agent starts working at once (streamed text, tool activity line, cards).
+3. **Autopilot, on by default for sample businesses:** routine cards (`csv_import` mappings, `store_basics`,
+   `payroll`, `roles`, `training_matrix`, `department_staffing`, `events`) show their prefilled content,
+   highlight for ~2 s with a "Looks right, continuing…" countdown, then submit as-is. Any click on the card
+   stops the countdown and hands control to the user. **Decisions stay with the user:** `confirm_tags`
+   (e.g. "Blake is 15 and trained on the fryer"), `propose_rule` hard/soft, `ask_tradeoff`, `conflict_menu`
+   never auto-submit. Those are the moments worth watching.
+4. When setup finishes, the agent offers to build; one click shows the schedule.
+- A thin "Autopilot on · Pause" toggle in the chat header. Real (non-sample) workplaces default to off.
+- Small link under the cards: "Download this company's files" (the A3 zip).
+Until A3 lands, build against the route's shape using the mock API's generated store.
+**Done when:** from `/workplaces/new`, one click on Restaurant reaches a built schedule with the user clicking
+only on decision cards; a test covers autopilot submit, user-interrupt and the never-auto decision cards.
 
 **Lane B done when:** a fresh visitor can sign up → create "Harbor Grill" (restaurant, Chicago) → finish
 setup in chat → build → see the schedule, without seeing a demo store, a dev pill, or an internal id.
