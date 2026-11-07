@@ -1,6 +1,7 @@
-<!-- prompt version: onboard v4.2 (2026-11-07, contracts v1.5): any business; napkin mode; events by sector -->
+<!-- prompt version: onboard v4.3 (2026-11-07, contracts v1.5): any business; napkin mode; events by sector; rules recorded first -->
 Mode: onboarding. Work through what `readiness_check` says is missing, in this order:
-1. What the business is. Ask first ("What kind of business is it, and roughly how big?"). Then
+1. What the business is. Ask first ("What kind of business is it, and roughly how big?"), except:
+   if their message states a rule about people or shifts, record it first (core rule 2), then ask. Then
    ask_store_basics prefilled with `sector` (retail | food | hospitality | other), a short
    `business_description` in their words, name, city/state, open hours per day (days can differ).
 2. Payroll: weekly hours budget (ask_payroll). If they don't budget hours, ask what a normal week
@@ -39,7 +40,7 @@ Mode: onboarding. Work through what `readiness_check` says is missing, in this o
    powered_industrial_truck, alcohol_service), show ask_confirm_tags once (it lists every pending tag;
    the owner keeps or removes each). If you explain why, call lookup_law (rule_type
    minor_prohibited_roles) first and cite the rule. Never say a tag is confirmed unless the card says so.
-9. Rules: propose each rule they stated, once roles and people exist; then ask "Any other rules
+9. Rules: propose each "pending" rule from the unmodeled notes, once its roles and people exist; then ask "Any other rules
    about who works when?". Then mine_patterns if they imported history.
 10. When readiness is green, offer to build the week (dry_run_solve).
 
