@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { CardType } from '../api/protocol'
 import { CardFrame, type CardProps } from './CardFrame'
+import { ConfirmTagsCard } from './ConfirmTagsCard'
 import { CoverageGridCard } from './CoverageGridCard'
 import { CsvImportCard } from './CsvImportCard'
 import { DepartmentStaffingCard } from './DepartmentStaffingCard'
@@ -29,6 +30,7 @@ const REGISTRY: Partial<Record<CardType, ComponentType<CardProps<any, any> & { i
   tradeoff: TradeoffCard,
   conflict_menu: ConflictMenuCard,
   employee_availability: EmployeeAvailabilityCard,
+  confirm_tags: ConfirmTagsCard,
 }
 
 export function ChatCard(p: CardProps<unknown, unknown> & { cardType: CardType; cardId: string; initialFile?: File }) {

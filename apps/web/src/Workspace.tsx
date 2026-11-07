@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiMode } from './api'
 import { ApiError } from './api/client'
 import { useApi } from './api/context'
-import type { Readiness, SolveResponse } from './api/protocol'
+import type { Kickoff, Readiness, SolveResponse } from './api/protocol'
 import type { Gap, LawPack, StoreConfig } from './contracts'
 import { ChatPane } from './components/ChatPane'
 import { CoverageTab } from './components/CoverageTab'
@@ -54,6 +54,30 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const lawCity = config?.store.jurisdiction.city ?? null
   const embeddedLaw = config?.law_pack ?? null
   const ruleNames = useMemo(() => (config ? makeRuleNames(config, lawPack?.rules) : undefined), [config, lawPack])
+
+  // B7: a generated business arrives with its kickoff in the navigation state. Take it once and clear it, so a
+  // reload doesn't send it again.
+  const loc = useLocation()
+  const navigate = useNavigate()
+  const [kickoff] = useState<Kickoff | undefined>(() => (loc.state as { kickoff?: Kickoff } | null)?.kickoff)
+  useEffect(() => {
+    if (kickoff) navigate(loc.pathname, { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once
+  }, [])
+  const [generated, setGenerated] = useState(!!kickoff)
+  useEffect(() => {
+    if (kickoff) return
+    let live = true
+    api
+      .workplaces()
+      .then(({ workplaces }) => {
+        if (live) setGenerated(workplaces.some((w) => w.id === id && w.sample_of === 'generated'))
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [api, id, kickoff])
 
   useEffect(() => {
     if (embeddedLaw) {
@@ -404,6 +428,10 @@ export function Workspace({ storeId: id }: { storeId: string }) {
               onConfigChanged={() => void onConfigChanged()}
               onScheduleChanged={() => void refreshSchedule(config.store.id)}
               ruleNames={ruleNames}
+              kickoff={kickoff}
+              autopilotDefault={generated}
+              downloadUrl={generated && apiMode !== 'mock' ? api.sampleDataUrl(config.store.id) : undefined}
+              onBuild={setup && readiness?.ready && solve.status !== 'running' ? () => void runSolve() : undefined}
             />
           </div>
         </div>

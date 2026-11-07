@@ -20,7 +20,8 @@ import { WEEKDAY_NAMES } from '../lib/format'
 import { mockScore, mockSolve } from './solver'
 import { MockOutreach, mockFix } from './fix'
 import { applyStaffing, mockStaffingProps } from './staffing'
-import type { DepartmentStaffingResult } from '../api/protocol'
+import type { ConfirmTagsResult, CsvImportKind, CsvImportResult, DepartmentStaffingResult, GeneratedRequest } from '../api/protocol'
+import { badGeneratedRequest, mockGenerated, type CachedImport } from './generated'
 
 type StoreState = {
   config: StoreConfig
@@ -34,6 +35,9 @@ type StoreState = {
   ownerId: string | null
   sampleOf: string | null
   updatedAt: string
+  /** A3 generated business: its CSV previews, cached until committed. */
+  cached: Map<CsvImportKind, CachedImport>
+  tagsReviewed: boolean
 }
 
 export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
@@ -69,6 +73,8 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       ownerId: session?.id ?? null,
       sampleOf: null,
       updatedAt: new Date().toISOString(),
+      cached: new Map(),
+      tagsReviewed: false,
     }
     stores.set(config.store.id, st)
     return st
@@ -114,6 +120,17 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
         }))
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
       return ok({ workplaces: mine })
+    }
+    if (path === '/workplaces/generated' && method === 'POST') {
+      if (!session) return unauthorized()
+      const req = (body ?? {}) as GeneratedRequest
+      const bad = badGeneratedRequest(req)
+      if (bad) return ok({ detail: bad }, 400)
+      const g = mockGenerated(`mock-${stores.size + 1}`, req)
+      const st = newStore(g.config)
+      st.sampleOf = 'generated'
+      st.cached = g.cache
+      return ok({ store_id: g.config.store.id, company_name: g.config.store.name, seed: g.seed, kickoff: g.kickoff })
     }
     if (path === '/workplaces/sample' && method === 'POST') {
       if (!session) return unauthorized()
@@ -175,7 +192,7 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
             await sleep(latency ? 18 : 0)
           }
         }
-        const card = <T,>(card_type: 'store_basics' | 'payroll' | 'department_staffing', props: unknown) =>
+        const card = <T,>(card_type: 'store_basics' | 'payroll' | 'department_staffing' | 'csv_import' | 'confirm_tags', props: unknown) =>
           new Promise<T | { cancelled: true }>((resolve) => {
             const card_id = `card_${++cardSeq}`
             pendingCards.set(card_id, (r) => resolve(r as T | { cancelled: true }))
@@ -185,7 +202,38 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
           !!r && typeof r === 'object' && (r as { cancelled?: unknown }).cancelled === true
 
         try {
-          const last = req.messages.at(-1)?.content ?? ''
+          const lastMsg = req.messages.at(-1)
+          const last = lastMsg?.content ?? ''
+          // A3: attached exports are imported first, in order, from the cached previews.
+          for (const { kind } of lastMsg?.attachments ?? []) {
+            const cached = st.cached.get(kind)
+            if (!cached) continue
+            await say(`Let's bring in your ${kind} export. I matched the columns; check them.`)
+            const r = await card<CsvImportResult>('csv_import', { kind, preview: cached.preview })
+            if (isCancelled(r) || !('mapping' in r)) {
+              await say(`Skipped the ${kind} file.`)
+              continue
+            }
+            st.config = cached.apply(st.config)
+            st.cached.delete(kind)
+            bump(st)
+            emit({ event: 'config', data: { config_version: st.config.config_version ?? 1, patch_summary: [`Imported ${kind}`] } })
+          }
+          const tagged = Object.entries(st.config.role_tags ?? {}).filter(([, tags]) => tags.length > 0)
+          const minorsOn = (rid: string) => st.config.employees.filter((e) => e.age < 18 && e.trained_role_ids.includes(rid))
+          if (st.sampleOf === 'generated' && !st.tagsReviewed && tagged.some(([rid]) => minorsOn(rid).length > 0)) {
+            await say('Some roles carry equipment tags that limit what minors may do. Keep or remove each.')
+            const r = await card<ConfirmTagsResult>('confirm_tags', {
+              roles: tagged.map(([rid, tags]) => ({
+                role_id: rid,
+                name: st.config.roles.find((x) => x.id === rid)?.name ?? rid,
+                tags,
+                minors_trained: minorsOn(rid).map((e) => `${e.name} (${e.age})`),
+              })),
+              note: 'Tags let the minor-labor rules apply to these roles.',
+            })
+            if (!isCancelled(r)) st.tagsReviewed = true
+          }
           if (!st.basicsDone) {
             await say("Let's start with the store itself. Check these details and correct anything that's off.")
             const r = await card<Partial<Store>>('store_basics', st.config.store)
@@ -232,7 +280,11 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
               emit({ event: 'tool', data: { name: 'solve', status: 'done', summary: 'Built the week' } })
               await say('Done. The schedule is in the Schedule tab.')
             } else {
-              await say('Store basics and payroll are set. Use Build schedule to create the week. (The mock API only scripts these two steps.)')
+              await say(
+                readiness(st).ready
+                  ? 'Setup is done. Want me to build the schedule?'
+                  : 'Store basics and payroll are set. Use Build schedule to create the week. (The mock API only scripts these two steps.)',
+              )
             }
           }
           emit({ event: 'done', data: {} })
