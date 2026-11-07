@@ -19,6 +19,7 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | GET | `/api/stores/{id}/schedule` | → latest `{schedule, validation}` | |
 | POST | `/api/stores/{id}/gaps/explain` | `{gap: Gap}` → `{text, reasons: GapReason[]}` | LLM phrases engine `reasons`; it may not add facts. |
 | POST | `/api/stores/{id}/fix` | `{callouts: CallOut[], day, now}` → `FixPlan` | The API fills `FixPlan.plan_id` (v1.1); pass it to `/outreach/start`. |
+| POST | `/api/stores/{id}/fix/apply` | `{plan_id}` → `{schedule, validation}` | v1.5. Saves the plan's `schedule_if_none_accept` (call-outs removed, immediate actions applied) without texting anyone. `/outreach/start` does the same before texting. |
 | POST | `/api/stores/{id}/outreach/start` | `{plan_id}` → `OutreachState` | Texts candidate rank 1; waits; on decline/timeout moves to the next. |
 | POST | `/api/stores/{id}/outreach/cancel` | → `OutreachState` | v1.1. Stops the active outreach (one active outreach per store; a second `/outreach/start` gets 409). |
 | GET | `/api/stores/{id}/outreach` | → `OutreachState` | Web polls every 2s (or SSE `/outreach/stream`). |
@@ -38,7 +39,8 @@ ImportPreview = { kind, columns: string[], proposed_mapping: Record<string,strin
                   unmapped_required: string[], rows_preview: object[], row_count: number, warnings: string[],
                   target_fields: string[], required_fields: string[],    // v1.2: fields a column may map to / must map
                   required_any_of: {need: string, any_of: string[][]}[] }  // v1.4: a need is met when all fields of one alternative are mapped
-Readiness     = { ready: boolean, checks: {id: string, label: string, ok: boolean, detail: string}[] }
+Readiness     = { ready: boolean, checks: {id: string, label: string, ok: boolean, detail: string,
+                                         severity: "ok"|"warn"|"block"}[] }   // v1.5: warnings keep ok: true
 OutreachState = { plan_id, status: "idle"|"texting"|"filled"|"exhausted",
                   current_rank: number|null, messages: (OutboundMessage|InboundMessage)[],
                   accepted_employee_ids: string[], schedule: Schedule,
@@ -130,6 +132,9 @@ v1.5 (any business):
 - `events` card: kinds relevant to `Store.sector` first (e.g. delivery/private_event/catering for food,
   truck/floor_set for retail); every kind stays valid everywhere. `Event.label` is the display name.
 - `store_basics` collects `sector` and `business_description` (ask what the business is first).
+- Readiness check order (v1.5): store_basics, jurisdiction, roles, employees, training, demand, priorities,
+  equipment_roles, minors_on_tagged_roles, business_type, staffing_draft, budget, minimum_wage, provisional_rules.
+- `events` card props gain `kinds: EventKind[]` (ordered by sector). Template `restaurant_small` (sector food).
 - Readiness (warnings, non-blocking): "business type not set" when `sector` is None; "staffing levels are a draft"
   while `estimate` demand exists; tagged roles (any `ROLE_TAGS` tag) that have minors trained in them. `coverage_grid` stays as an advanced editor; with `readonly: true` (v1.4) it is a preview that doesn't pause the turn.
 Forecast CSVs may carry an optional `duration` column (minutes) for start-only rows (v1.4).
