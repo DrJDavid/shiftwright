@@ -15,3 +15,5 @@ cost +$60/h, drop to the bottom of the outreach queue, and may lose to `drop_cov
 Ranking should then follow the brief: coverage gained per dollar × `est_accept_prob`
 (`(accepted+1)/(offered+2)`). The demo phones have 9/10 and 8/9 (0.83, 0.82); nobody else in the
 store is above 0.7.
+
+**Decision (David, Sat Nov 7 00:30 CT): ACCEPTED as SEMANTICS.md #16.**

@@ -1,4 +1,4 @@
-.PHONY: install test types eval eval-quick dev dev-api dev-web
+.PHONY: install test types eval eval-quick eval-mock dev dev-api dev-web
 
 install:
 	uv sync
@@ -17,6 +17,10 @@ eval:
 
 eval-quick:
 	uv run python -m shiftwright_evals --quick
+
+# no API key needed: canned bad baseline outputs
+eval-mock:
+	uv run python -m shiftwright_evals --quick --mock-baselines
 
 dev-api:
 	uv run uvicorn shiftwright_api.main:app --reload --port 8000

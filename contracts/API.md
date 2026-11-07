@@ -22,6 +22,7 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | POST | `/api/stores/{id}/outreach/start` | `{plan_id}` → `OutreachState` | Texts candidate rank 1; waits; on decline/timeout moves to the next. |
 | POST | `/api/stores/{id}/outreach/cancel` | → `OutreachState` | v1.1. Stops the active outreach (one active outreach per store; a second `/outreach/start` gets 409). |
 | GET | `/api/stores/{id}/outreach` | → `OutreachState` | Web polls every 2s (or SSE `/outreach/stream`). |
+| GET | `/api/stores/{id}/outreach/stream` | → SSE `event: state`, data = `OutreachState` | v1.1. One snapshot immediately, then on every change; keep-alive ping every 15 s; the stream closes after a snapshot whose status isn't `texting`. |
 | POST | `/api/sms/inbound` | Twilio webhook (form-encoded) → TwiML 200 | Validates Twilio signature. |
 | POST | `/api/sms/mock-reply` | `{from_phone, body}` → 200 | Only when `MESSENGER=mock`. Same code path as inbound. |
 | GET | `/api/laws/resolve?state=TX&city=austin` | → `LawPack` | |
@@ -50,7 +51,7 @@ Response is an SSE stream of events:
 
 | event | data | meaning |
 |---|---|---|
-| `text` | `{delta: string}` | assistant prose, streamed |
+| `text` | `{delta: string}` | assistant prose, token-streamed. When one turn has several agent steps, the first delta of a later step starts with a blank line, so clients can simply concatenate. |
 | `card` | `{card_id, card_type, props}` | render this card inline; the turn PAUSES until the card is submitted |
 | `config` | `{config_version, patch_summary: string[]}` | the config changed (web refetches config + readiness) |
 | `tool` | `{name, status: "start"\|"done", summary}` | optional activity line ("Ran dry-run solve") |

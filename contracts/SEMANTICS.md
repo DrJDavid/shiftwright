@@ -69,6 +69,13 @@ with the v1.1 changes below folded in.
 14. **Not checked by the validator** (it isn't given the data): `week_stability`,
     predictive-scheduling change premiums, reporting-time pay.
 
+## Call-out repair (*v1.1, accepted Sat Nov 7 00:30 from `requests/ws4-callin-preferred-off.md`*)
+
+16. **A `call_in` is not charged the employee's `preferred_off` / `preferred_on` weights.** A call-in
+    needs the employee's consent by text, so the preference is respected when they answer.
+    Outreach ranking = coverage gained per added dollar × `est_accept_prob`, where
+    `est_accept_prob = (callins_accepted_90d + 1) / (callins_offered_90d + 2)`.
+
 ## Minimum wage (*v1.1*)
 
 15. **`below_minimum_wage`** (hard): for every employee with at least one shift, if
