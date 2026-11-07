@@ -13,6 +13,8 @@ from pathlib import Path
 from shiftwright_contracts.models import CallOut, Schedule, StoreConfig
 from shiftwright_validator import recompute_metrics
 
+from .suites import SUSPECT_EXPECTED
+
 SCORED = ("ok", "unparseable", "truncated")  # outcomes that count toward rates (errors/unavailable don't)
 BUDGET_CODES = {"budget_hours", "budget_dollars"}
 
@@ -98,7 +100,7 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
         "latency_s": meta["latency_s"], "note": meta.get("note", ""),
         "path": folder.relative_to(run_dir).as_posix(),
         "expected_infeasible": meta["expected_infeasible"],
-        "expected_suspect": meta.get("expected_suspect"),
+        "expected_suspect": SUSPECT_EXPECTED.get(sid),  # the current decision, not the one at run time
         "reused_from": meta.get("reused_from"),
         "cost_usd": round(sum(float((a.get("usage") or {}).get("cost") or 0) for a in meta.get("attempts", [])), 4),
     }
@@ -144,6 +146,20 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
         rm["coverage_after"] = row["coverage_pct"] if schedule else None
         rm["base_source"] = info["base_source"]
         row.update(rm)
+    if meta["suite"] == "realistic":
+        recall = _load(folder / "intake_recall.json")
+        if recall:
+            row["intake_recall"] = recall.get("recall")
+            row["intake_facts"] = f'{recall.get("present")}/{recall.get("checked")}'
+        mapping = _load(folder / "mapping.json")
+        if mapping:
+            row["assumptions"] = mapping.get("assumptions")
+            row["csv_rows"] = mapping.get("rows")
+            row["csv_bad_rows"] = len(mapping.get("bad_rows") or [])
+        log = _load(folder / "intake_log.json")
+        if log:
+            row["imports_failed"] = [i["kind"] for i in log.get("imports", []) if i.get("commit_status") != 200]
+            row["cards_answered"] = len(log.get("cards", []))
     return row
 
 
@@ -151,7 +167,7 @@ def collect(run_dir: Path) -> list[dict]:
     cache: dict = {}
     rows = [score_run(run_dir, f.parent, cache) for f in sorted(run_dir.glob("*/*/run.json"))]
     # Cost vs Shiftwright's objective: only against an engine schedule that passed the validator.
-    sw = {r["scenario"]: r for r in rows if r["system"] == "shiftwright" and r.get("passed")}
+    sw = {r["scenario"]: r for r in rows if r["system"] in ("shiftwright", "shiftwright:intake") and r.get("passed")}
     for r in rows:
         ref = sw.get(r["scenario"])
         r["cost_vs_sw"] = (round(r["objective"] / ref["objective"], 3)
@@ -169,7 +185,7 @@ def aggregate(rows: list[dict], systems: list[str]) -> dict:
     for name in systems:
         mine = [r for r in rows if r["system"] == name]
         per_suite = {}
-        for suite in ("weekly", "honesty", "repair"):
+        for suite in ("weekly", "honesty", "repair", "realistic"):
             rs = [r for r in mine if r["suite"] == suite]
             scored = [r for r in rs if r["outcome"] in SCORED]
             parsed = [r for r in scored if r.get("parsed")]
@@ -203,19 +219,20 @@ def aggregate(rows: list[dict], systems: list[str]) -> dict:
     return agg
 
 
-def worked_example(rows: list[dict]) -> tuple[dict | None, dict | None]:
+def worked_example(rows: list[dict], suite: str = "weekly", ref: str = "shiftwright",
+                   prefix: str = "baseline:") -> tuple[dict | None, dict | None]:
     """(baseline run, Shiftwright run on the same scenario). Prefers scenarios where Shiftwright passed,
     then a baseline that put a minor on a prohibited role (the demo's law catch), then the most distinct
-    violation codes. Deterministic."""
-    sw = {r["scenario"]: r for r in rows if r["system"] == "shiftwright" and r["suite"] == "weekly"}
-    cands = [r for r in rows if r["system"].startswith("baseline:") and r["suite"] == "weekly"
+    violation codes. Deterministic; never raises."""
+    sw = {r["scenario"]: r for r in rows if r["system"] == ref and r["suite"] == suite}
+    cands = [r for r in rows if r["system"].startswith(prefix) and r["suite"] == suite
              and r.get("parsed") and r.get("hard_count")]
     if not cands:
         return None, None
 
     def rank(r):
-        ref = sw.get(r["scenario"])
-        return (bool(ref and ref.get("passed")), "minor_prohibited_role" in r["by_code"],
+        ref_row = sw.get(r["scenario"])
+        return (bool(ref_row and ref_row.get("passed")), "minor_prohibited_role" in r["by_code"],
                 len(r["by_code"]), r["hard_count"], r["key"])
 
     best = max(cands, key=rank)

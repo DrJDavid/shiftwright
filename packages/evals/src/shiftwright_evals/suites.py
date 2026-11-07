@@ -7,16 +7,14 @@ from shiftwright_contracts.models import StoreConfig
 from shiftwright_laws import resolve
 from shiftwright_scenarios import Scenario, generate
 
-SUITES = ["weekly", "honesty", "repair", "intake"]
+SUITES = ["weekly", "honesty", "repair", "realistic"]
 REPAIR_NOW = 6 * 60 + 4  # 06:04, as in the demo script
 
 # Scenarios whose `expected` flag is known to be wrong (decided by David, Sat Nov 7). A system that says
 # "infeasible" on one of these is not scored as a false "infeasible"; the report lists them.
-SUSPECT_EXPECTED = {
-    "weekly-S-legal_trap-CA-s1": (
-        "expected says feasible, but the engine proved it infeasible: leader_on_duty always_staffed + CA "
-        "meal/rest breaks (breaks don't count as leader coverage) + no overtime needs 21 leader shifts, "
-        "only 20 are possible. WS4 is adding a leader."),
+SUSPECT_EXPECTED: dict[str, str] = {
+    # weekly-S-legal_trap-CA-s1 was listed here until WS4 set max_shifts_per_day=2 for CA legal_trap
+    # (David, Sat Nov 7): it is feasible (a baseline found a clean schedule), so "infeasible" there is an FP.
 }
 
 
@@ -43,11 +41,12 @@ class Case:
         return bool(self.scenario.expected.get("infeasible"))
 
 
-def make_case(suite: str, size: str, difficulty: str, seed: int, jurisdiction: str = "TX") -> Case:
-    sc = generate(seed, size, difficulty, jurisdiction)
+def make_case(suite: str, size: str, difficulty: str, seed: int, jurisdiction: str = "TX",
+              sector: str = "retail") -> Case:
+    sc = generate(seed, size, difficulty, jurisdiction, **({"sector": sector} if sector != "retail" else {}))
     sc.config.law_pack = resolve(sc.config.store.jurisdiction)
     jur = jurisdiction.replace("/", "-")
-    sid = f"{suite}-{size}-{difficulty}-{jur}-s{seed}"
+    sid = f"{suite}-{'food-' if sector == 'food' else ''}{size}-{difficulty}-{jur}-s{seed}"
     return Case(suite, sid, size, difficulty, seed, jurisdiction, sc)
 
 
@@ -66,6 +65,9 @@ def build_cases(suites: list[str], quick: bool) -> list[Case]:
         for size in sizes:
             for seed in h_seeds:
                 cases.append(make_case("honesty", size, "infeasible", seed))
+    if "realistic" in suites:
+        from .realistic import realistic_cases
+        cases.extend(realistic_cases(quick))
     if "repair" in suites:
         for size in ["S", "M"]:
             for seed in seeds:

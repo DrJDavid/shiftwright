@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import os
 import json
 import re
 import time
@@ -108,7 +109,8 @@ class ShiftwrightSystem:
         return self.available and hasattr(self.mod, "fix_day")
 
     async def _cached(self, kind: str, payload: str, fn) -> tuple[str, float]:
-        key = hashlib.sha256(f"{self.src_hash}|{kind}|{payload}".encode()).hexdigest()
+        workers = os.environ.get("ENGINE_WORKERS", "")  # results depend on the CP-SAT worker count
+        key = hashlib.sha256(f"{self.src_hash}|{kind}|w{workers}|{payload}".encode()).hexdigest()
         path = self.cache_dir / "engine" / f"{key}.json" if self.cache_dir else None
         if path and path.exists():
             self.hits += 1

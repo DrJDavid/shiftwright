@@ -34,10 +34,61 @@
 - Mocks (`mock.py`, `baseline:mock-a`, `baseline:mock-b`): read the config from the prompt, sloppy greedy schedule +
   one of hallucinated_employee / minor_on_forklift / over_budget / truncated / unparseable / sloppy /
   claims_infeasible; never detect infeasibility (false "feasible"). Repair: ignored_callout / changed_past / careful.
-- Tests (16, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
+- Tests (21, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
   cached re-run identical; 2 sampled runs recounted from validation.json against report.json and the HTML row)
   plus OpenRouter request shape/retry/cache/truncation/HTTP error via `httpx.MockTransport`, prompt completeness,
   mock kinds → intended validator codes.
+
+**Production engine configuration: `rescore-30s-8w` and `rescore-120s-8w`, Sat Nov 7 ~02:40 CT, main 1125c6e (no spend).**
+Defaults are now `--engine-workers 1` (one solve at a time) and `--cpsat-workers 8` (sets `ENGINE_WORKERS`, = the
+deployed 8-vCPU service), `--engine-time-limit S=30,M=30,L=60`; the engine cache key includes the worker count.
+The report's Method box states time limit, CP-SAT workers, concurrent solves and machine (Apple M4 Pro, 14 cores).
+`SUSPECT_EXPECTED` is now empty (WS4 set max_shifts_per_day=2 for CA legal_trap; David: expected feasible), and is
+read at scoring time, so `--report-only` applies the current decision.
+
+| Weekly build (6) | 0 hard | Hard | Legal coverage | Cost vs SW, 30 s | Cost vs SW, 120 s | Time / schedule |
+|---|---|---|---|---|---|---|
+| Shiftwright (8 workers) | 5/6 | 7 (all: "infeasible" on S legal_trap CA) | 90.0% | 1.00× | 1.00× | 17 s (30 s) / 104 s (120 s) |
+| grok-4.7 | 5/6 | 4 | 90.0% | 1.04× | 1.05× | 1,299 s |
+| claude-opus-5.5 | 5/6 | 3 | 90.2% | 1.02× | 1.02× | 425 s |
+| gpt-6.1-terra-pro | 2/6 | 14 | 91.1% | 1.07× | 1.07× | 216 s |
+
+Every legal baseline schedule now costs at least as much as Shiftwright's (per scenario 1.003–1.13× at 30 s).
+Shiftwright still answers "infeasible" on S legal_trap CA (no split shifts in the engine yet; Grok and Opus found
+clean schedules), counted as a false "infeasible" (1/6). Honesty 2/2 for all; repair Shiftwright 2/2 in < 1 s.
+
+**Realistic suite (briefs/WS5-realistic-eval.md), slice 7, Sat Nov 7 ~02:00 CT. Mock mode done; no real calls yet.**
+- `shiftwright_evals/realistic.py`; in the default suites (`weekly,honesty,repair,realistic`), so `make eval-quick`
+  and `make eval-mock` include it.
+- Inputs per scenario: `sc.narrative` + `write_exports` CSVs (roster, training, availability, forecast, history) +
+  location. Quick set: M normal TX/austin, S legal_trap CA, M tight TX, food M normal IL/chicago (**skipped today:
+  `write_exports` raises KeyError 'management' for the food store → WS4**; the run notes it and continues).
+- `chat:<model>`: one user message, no system prompt, the brief's wording, CSVs pasted as fenced `name.csv:` blocks;
+  one retry if no loadable CSV; same cache / budget guard / usage.cost as the solver suite. The CSV reply is mapped to
+  true ids (TM_ID → employee via `exports.tm_id`, job code → role via `JOB_CODES`, MM/DD/YYYY or ISO date → day,
+  12-h or 24-h times; end ≤ start = overnight). Consecutive lines of one person on one day with a gap ≤ 60 min form
+  one shift with a break (< 30 min paid rest, ≥ 30 min unpaid meal). Unmappable ids stay as given → `unknown_entity`.
+  `mapping.json` per run: rows, bad rows, stated-assumption count (heuristic; contradiction check not scored).
+- `shiftwright:intake`: the real API in-process (`create_app` + TestClient, temp SQLite per store): `POST /api/stores`
+  template `empty`, `/import/{kind}` + `/commit` with `proposed_mapping` as is, `/chat?auto_cards=scripted` onboard
+  with the narrative (up to 4 turns with a neutral "please keep going" when the real agent leaves readiness red),
+  `/solve` at the engine time limit. Card answers = `accept_prefill(card_type, props)`; the API has no such mode yet,
+  so WS5 patches `main.scripted_waiter` in-process when `card_script` has `__accept_prefill__`
+  (**request filed: `contracts/requests/ws5-accept-prefill.md`**). Output ids mapped back like the baselines;
+  `built_config.json`, `intake_log.json` (imports, cards, readiness), `intake_recall.json` (narrative facts present /
+  checked; peaks unchecked). Without a key the agent is the API's `FakeLLM` scripted to open store_basics + payroll
+  and accept them; it never reads the narrative (report banner says so). Real agent only when real baselines run.
+- Findings already: with heuristic mapping (no helper LLM) `forecast.csv` is rejected (`Req HC` not mapped to
+  `headcount`) → Shiftwright gets no demand from the forecast (→ WS6, in the request file).
+- Report: "From the same raw inputs" is now the first section (pass rate, violations by rule, legal coverage, minutes
+  per schedule with cost, table with intake recall / assumptions, worked example, limitations box); the old suites
+  follow under "Solver vs. LLM-as-solver (both given Shiftwright's config, law pack and rules)".
+- Estimate (`uv run python -m shiftwright_evals.estimate --quick --suite realistic`, live prices): prompts ≈ 19k
+  tokens (S) / 45k (M). Chat at the tool's default (answer CSV + 2× reasoning): grok $0.45, opus $1.22, gpt $0.30.
+  Calibrated with real-quick-1's measured completion tokens (grok ≈ 89k, opus ≈ 46k, gpt ≈ 30k per reply):
+  ≈ $1.8 + $3.2 + $0.6 = **≈ $5.6 for chat**. Intake agent (sonnet-5.5, assumed 30 calls × 25k prompt + 800 out per
+  store, not measured): **≈ $5.2**. **Total ≈ $7–11; ceiling ≈ $20** (chat capped at 128k output tokens; the agent's
+  spend goes through the API's own client, so the harness budget guard does not see it; MAX_TURNS = 4 bounds it).
 
 **Engine at 120 s + re-scored baselines: `rescore-120`, Sat Nov 7 ~01:10 CT, main 41111c1 (no new spend).**
 `uv run python -m shiftwright_evals --quick --rescore-from real-quick-1 --run-id rescore-120` (engine defaults now

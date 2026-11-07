@@ -9,6 +9,7 @@ dependencies = [
   "shiftwright-validator",
   "shiftwright-laws",
   "httpx",
+  "shiftwright-api",
 ]
 
 [tool.uv.sources]
@@ -16,6 +17,7 @@ shiftwright-contracts = { workspace = true }
 shiftwright-scenarios = { workspace = true }
 shiftwright-validator = { workspace = true }
 shiftwright-laws = { workspace = true }
+shiftwright-api = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
