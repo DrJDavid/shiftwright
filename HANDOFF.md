@@ -97,6 +97,18 @@ Swap the WS number, folder, and worktree for the others.
 - `main` has not been pushed since the scaffold. Push when ready (`git push origin main`); a linked
   Railway service may auto-deploy on push.
 
+## Before deploying with Twilio live (security)
+
+An automated security review flagged that every `/api/stores/*` route is unauthenticated. On a public
+Railway URL, anyone could `PUT` a config with arbitrary phone numbers and call `/outreach/start`,
+sending texts billed to the Twilio account. A trial account can only text verified numbers, which limits
+the damage but doesn't remove it. Have WS6 add, before Twilio goes live on the deployed URL:
+1. An allowlist in `TwilioMessenger`: send only to `DEMO_PHONE_1/2` (or an `SMS_ALLOWLIST` env var);
+   anything else is logged and dropped (mock keeps working for everyone).
+2. A shared-secret header (e.g. `X-Demo-Key` from env) required on mutating `/api/stores/*` routes;
+   `/api/health` and the signature-checked `/api/sms/inbound` stay open.
+3. A per-store outreach rate limit.
+
 ## Next coordinator actions, in order
 
 1. Merge WS1 once its `fix_day` export fix is in and the full suite passes merged.
