@@ -7,13 +7,16 @@ from __future__ import annotations
 import math
 import os
 import random
+from datetime import timedelta
 from typing import Mapping
 
 from shiftwright_contracts.models import (
+    AvailabilityEntry,
     AvailabilityKind,
     CallOut,
     ConstraintKind,
     Jurisdiction,
+    Source,
     StoreConfig,
 )
 
@@ -31,6 +34,13 @@ SATURDAY = 5
 PLACEHOLDER_PHONES = ("+15125550198", "+15125550199")
 CASHIER_HABIT = ("cashier", 17, 22, 2)  # leader always ran >=2 cashiers 17:00-22:00
 EXTRA_CASHIERS = 6
+# Nudges so a real engine schedule matches the demo script (checked by verify_demo):
+# the call-outs like Saturday truck mornings; the demo phones have Saturdays off, so they are
+# free to be called in. Weights are $/hour of overlap; $60/h + wage is above every gap penalty
+# of the roles they're trained for (max $70/h), so the weekly solve never schedules them Saturday.
+CALLOUT_PREFERRED_ON = (4 * 60, 14 * 60, 15.0)
+PHONE_PREFERRED_OFF = 60.0
+PHONE_TIME_OFF_DAYS = (0, 1, 2, 6)  # Mon, Tue, Wed, Sun of the demo week
 
 
 def _no_unavailable(e) -> bool:
@@ -99,6 +109,16 @@ def build_demo_scenario() -> Scenario:
         for r in ("truck_unload", "cashier"):
             if r not in e.trained_role_ids:
                 e.trained_role_ids.append(r)
+        e.availability.append(AvailabilityEntry(weekday=SATURDAY, start=0, end=1440,
+                                                kind=AvailabilityKind.preferred_off,
+                                                weight_dollars=PHONE_PREFERRED_OFF,
+                                                note="Saturdays off; happy to pick up a shift if asked."))
+        # Time off this week (one-off dates, so history is unaffected): their weekly hours stay
+        # well under max_hours_week and a Saturday call-in fits.
+        for wd in PHONE_TIME_OFF_DAYS:
+            e.availability.append(AvailabilityEntry(on_date=cfg.store.week_start + timedelta(days=wd), start=0,
+                                                    end=1440, kind=AvailabilityKind.unavailable,
+                                                    source=Source.leader, note="Approved time off."))
     taken += [e.id for e in demo_people]
 
     # Saturday 06:04: three call-outs on truck day (one unload, one PIT, one register).
@@ -108,6 +128,10 @@ def build_demo_scenario() -> Scenario:
                  and e.home_department_id != "leadership"]
         pick = rng.choice(cands)
         taken.append(pick)
+        start, end, w = CALLOUT_PREFERRED_ON
+        next(e for e in emps if e.id == pick).availability.append(
+            AvailabilityEntry(weekday=SATURDAY, start=start, end=end, kind=AvailabilityKind.preferred_on,
+                              weight_dollars=w, note="Likes the Saturday truck morning."))
         callouts.append(CallOut(employee_id=pick, day=SATURDAY, reported_at=DEFAULT_REPORTED_AT))
 
     trucks = base.expected["truck_days"]
@@ -132,8 +156,9 @@ def build_demo_scenario() -> Scenario:
         },
         notes=[
             "Built by shiftwright_scenarios.demo.build_demo_scenario (seed 417, M, normal) and hand-tuned.",
-            "Call-outs were chosen before any engine schedule existed; confirm they are scheduled Saturday "
-            "morning once solve_week lands, or re-pick with pick_callouts().",
+            "Call-outs carry a Saturday-morning preferred_on and the demo phones a Saturday preferred_off, so "
+            "the engine schedules the former and leaves the latter free to call in. Check with "
+            "`uv run python -m shiftwright_scenarios.verify_demo`.",
         ],
     )
     return Scenario(config=cfg, history=history, narrative=narrative, callout_events=callouts, expected=expected)

@@ -51,7 +51,7 @@
       ],
       "pre_open_minutes": 240,
       "post_close_minutes": 60,
-      "school_week": null
+      "school_week": true
     },
     "departments": [
       {
@@ -994,7 +994,58 @@
         "wage_per_hour": 15.75,
         "min_hours_week": 12.0,
         "max_hours_week": 29.0,
-        "availability": [],
+        "availability": [
+          {
+            "weekday": 5,
+            "on_date": null,
+            "start": 0,
+            "end": 1440,
+            "kind": "preferred_off",
+            "weight_dollars": 60.0,
+            "source": "employee",
+            "note": "Saturdays off; happy to pick up a shift if asked."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-09",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-10",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-11",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-15",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          }
+        ],
         "hire_date": "2025-01-24",
         "attendance": {
           "shifts_90d": 37,
@@ -1099,7 +1150,58 @@
         "wage_per_hour": 16.25,
         "min_hours_week": 12.0,
         "max_hours_week": 29.0,
-        "availability": [],
+        "availability": [
+          {
+            "weekday": 5,
+            "on_date": null,
+            "start": 0,
+            "end": 1440,
+            "kind": "preferred_off",
+            "weight_dollars": 60.0,
+            "source": "employee",
+            "note": "Saturdays off; happy to pick up a shift if asked."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-09",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-10",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-11",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          },
+          {
+            "weekday": null,
+            "on_date": "2026-11-15",
+            "start": 0,
+            "end": 1440,
+            "kind": "unavailable",
+            "weight_dollars": 0.0,
+            "source": "leader",
+            "note": "Approved time off."
+          }
+        ],
         "hire_date": "2017-12-22",
         "attendance": {
           "shifts_90d": 32,
@@ -1269,7 +1371,18 @@
         "wage_per_hour": 19.0,
         "min_hours_week": 32.0,
         "max_hours_week": 40.0,
-        "availability": [],
+        "availability": [
+          {
+            "weekday": 5,
+            "on_date": null,
+            "start": 240,
+            "end": 840,
+            "kind": "preferred_on",
+            "weight_dollars": 15.0,
+            "source": "employee",
+            "note": "Likes the Saturday truck morning."
+          }
+        ],
         "hire_date": "2018-09-11",
         "attendance": {
           "shifts_90d": 55,
@@ -1795,7 +1908,18 @@
         "wage_per_hour": 20.25,
         "min_hours_week": 32.0,
         "max_hours_week": 40.0,
-        "availability": [],
+        "availability": [
+          {
+            "weekday": 5,
+            "on_date": null,
+            "start": 240,
+            "end": 840,
+            "kind": "preferred_on",
+            "weight_dollars": 15.0,
+            "source": "employee",
+            "note": "Likes the Saturday truck morning."
+          }
+        ],
         "hire_date": "2024-10-27",
         "attendance": {
           "shifts_90d": 62,
@@ -1819,7 +1943,18 @@
         "wage_per_hour": 15.75,
         "min_hours_week": 0.0,
         "max_hours_week": 24.0,
-        "availability": [],
+        "availability": [
+          {
+            "weekday": 5,
+            "on_date": null,
+            "start": 240,
+            "end": 840,
+            "kind": "preferred_on",
+            "weight_dollars": 15.0,
+            "source": "employee",
+            "note": "Likes the Saturday truck morning."
+          }
+        ],
         "hire_date": "2026-10-04",
         "attendance": {
           "shifts_90d": 22,
@@ -38189,8 +38324,11 @@
     },
     "notes": [
       "Built by shiftwright_scenarios.demo.build_demo_scenario (seed 417, M, normal) and hand-tuned.",
-      "Call-outs were chosen before any engine schedule existed; confirm they are scheduled Saturday morning once solve_week lands, or re-pick with pick_callouts()."
+      "Call-outs carry a Saturday-morning preferred_on and the demo phones a Saturday preferred_off, so the engine schedules the former and leaves the latter free to call in. Check with `uv run python -m shiftwright_scenarios.verify_demo`."
     ],
+    "school_week": true,
+    "minimum_wage": 7.25,
+    "wage_lift": 0.0,
     "required_hours": 1463.0,
     "budget_ratio": 0.9524,
     "truck_days": [

@@ -10,7 +10,19 @@
   `shiftwright_scenarios.models` and exported from the package root
   (`from shiftwright_scenarios import Scenario`). Fields: `config`, `history`, `narrative`,
   `callout_events`, `expected`. WS5 imports it from here.
-- Generator: `generate(seed, size="S"|"M"|"L", difficulty, jurisdiction="TX" | "WA/seattle" | Jurisdiction)`.
+- **Contracts v1.1 (done):**
+  - `Store.school_week`: `generate(..., school_week=True)` by default (Nov 9–15 2026 is a normal
+    school week in Austin); `None`/`False` accepted. Not part of the seed key, so only the flag and
+    `expected.school_week` change. `tiny_store.json`, demo store and demo scenario: `true`.
+  - Wages: the generator now depends on `shiftwright-laws` and resolves the law pack on
+    `WEEK_START`. If the minimum wage is above the base draw floor ($15), every wage is shifted up by
+    the same amount (ceil-to-quarter(min) − 15); `expected.minimum_wage`, `expected.wage_lift`.
+    TX output is unchanged (min $7.25). Tested for TX, TX/austin, CA, CA/san_francisco, WA/seattle,
+    IL/chicago, NY/new_york × S/M/L × all difficulties × seeds 1–2: nobody below minimum except the trap.
+  - `legal_trap` adds a `below_minimum_wage` trap: one adult full-timer with open availability (so
+    they get scheduled), wage = floor(min − $1) to the quarter. `expected.traps.below_minimum_wage`
+    = [id], `expected.traps.minimum_wage` = {dollars_per_hour, law_rule_id}.
+- Generator: `generate(seed, size="S"|"M"|"L", difficulty, jurisdiction="TX" | "WA/seattle" | Jurisdiction, school_week=True)`.
   Deterministic: identical output for the same arguments, across processes. Tests in `tests/test_generator.py`.
   - Sizes: S = 27 staff, 9 roles, trucks Wed+Sat. M = 60 staff, 14 roles, trucks Tue/Thu/Sat. L = 120 staff, 14 roles, 4 trucks.
     Store open 08:00–22:00 daily (98 h), trucks 04:00–10:00.
@@ -37,22 +49,46 @@
   - e008, age 17, PIT-trained (the only minor with PIT).
   - Cashier habit: history has ≥2 cashiers every hour 17:00–22:00, all 8 weeks, while the weekday
     forecast asks for 1 after 19:00, so the mined rule adds information.
-  - Saturday 06:04 call-outs: e034 (truck), e052 (PIT), e053 (cashier).
+  - Saturday 06:04 call-outs: e034 (truck), e052 (PIT), e053 (cashier). Each has a Saturday
+    04:00–14:00 `preferred_on` ($15/h) so the engine schedules them that morning.
   - Demo phones: e023 and e027 carry placeholder phones `+15125550198/99` and the best call-in record
     in the store (9/10, 8/9; nobody else ≥ 0.8). `apply_demo_phones(cfg)` swaps in `DEMO_PHONE_1/2`
-    from the environment at runtime. Real numbers never go in the repo.
+    from the environment at runtime. Real numbers never go in the repo. To keep them free to call in
+    Saturday: `preferred_off` Saturday at $60/h (wage + 60 > every gap penalty of their roles), and
+    one-off approved time off Mon/Tue/Wed/Sun of the demo week (`on_date`, so history and the
+    availability CSV are unaffected) so their hours stay under `max_hours_week`.
+    Request filed: `contracts/requests/ws4-callin-preferred-off.md` (fix_day shouldn't charge
+    preferred_off on a call-in).
 - CSV exports: `fixtures/exports/{roster,training,availability,forecast,history}.csv`, corporate style
   (`TM_ID`, `Dept`, `Wage Rate`, `Avail Mon`, DOB instead of age, job codes, 12-hour times). The mapping
   tables and format notes are in the `shiftwright_scenarios.exports` docstring.
 
 **In progress:** nothing. Open follow-up below.
 
-**Needs the engine (unverified until WS1 lands):**
-- Whether the 3 Saturday call-outs are actually scheduled Saturday morning in the engine's schedule,
-  whether repair is "possible but not trivial", and whether the demo phones rank 1–2 in the outreach
-  queue. Once `solve_week` / `fix_day` exist: solve the demo store, check, and re-pick with
-  `pick_callouts()` if needed.
-- Brief test "easy → ≥98% coverage" (written, currently skipped).
+**Engine verification (`shiftwright_scenarios.verify_demo`, `tests/test_demo_engine.py`):**
+- `uv run python -m shiftwright_scenarios.verify_demo [time_limit_s]` solves the demo store (law pack
+  resolved), checks the 3 call-outs have a Saturday shift running at 06:04 and starting before 12:00,
+  that the demo phones aren't scheduled Saturday, and that they rank 1–2 for outreach: by the engine's
+  `outreach_queue` if `fix_day` exists, else a proxy (callable = adult non-leader, trained in a
+  called-out role, no Saturday shift, under max days/hours; sorted by (accepted+1)/(offered+2), then
+  wage). On a miss it prints a `repick` from `pick_callouts()` (demo people excluded).
+  The test skips while `shiftwright_engine.solve_week` is missing (it is on main right now).
+- **Trial against `claude/ws-engine-97a072` (6cb51b9, scratch worktree, removed), Fri ~23:30:**
+  - Before the nudges (120 s): e034, e052 on Saturday truck; e053 (seasonal) not scheduled; both
+    demo phones scheduled Saturday → not callable. With `time_limit_s=30`: coverage 35.7%, so the
+    engine hadn't converged (its STATUS: demo-scale perf in progress).
+  - After the nudges, 120 s (~103 s wall), two runs: all 3 call-outs scheduled Saturday morning
+    (e034 04:00–13:00 truck/backroom, e052 04:00–14:00 truck/softlines, e053 06:00/06:30– grocery/cashier);
+    coverage 90–93%. Demo phones: one run e023 scheduled Saturday 11:00–19:00 ($40/h weight, since
+    raised to $60), the other e027 scheduled Saturday 04:30–09:00 despite $60/h (a dominated choice,
+    so the solve wasn't optimal). Proxy rank-1 was the free demo phone each time (0.82–0.83 vs ≤0.67).
+  - 30 s run after the nudges: coverage 58.7%, none of the call-outs scheduled, both phones scheduled
+    Saturday. Results depend on the engine reaching a near-optimal solve.
+  - **Conclusion:** the fixtures are right once the weekly solve is near-optimal; re-run
+    `verify_demo 120` when WS1's performance work lands. If the phones still land on Saturday, options:
+    (a) raise `PHONE_PREFERRED_OFF` in `demo.py`, (b) the demo uses a pinned, checked schedule,
+    (c) make Saturday 04:00–10:00 unavailable for them (then they can only be called for 10:00+).
+- Brief test "easy → ≥98% coverage" (written, skips without the engine; not run in the trial).
 
 **Blocked on:** nothing.
 
