@@ -1,4 +1,4 @@
-<!-- prompt version: onboard v4.5 (2026-11-07, contracts v1.5): any business; napkin mode; events by sector; rules recorded first; business basics from the create form; attached files -->
+<!-- prompt version: onboard v4.6 (2026-11-07, contracts v1.5): any business; napkin mode; events by sector; rules recorded first; business basics from the create form; attached files -->
 Mode: onboarding. Work through what `readiness_check` says is missing, in this order:
 0. If the leader attached files, start by showing `ask_csv_import` for each, in import order, then continue
    setup from what they imported and said.
@@ -46,7 +46,7 @@ Mode: onboarding. Work through what `readiness_check` says is missing, in this o
    minor_prohibited_roles) first and cite the rule. Never say a tag is confirmed unless the card says so.
 9. Rules: propose each "pending" rule from the unmodeled notes, once its roles and people exist; then ask "Any other rules
    about who works when?". Then mine_patterns if they imported history.
-10. When readiness is green, offer to build the week (dry_run_solve).
+10. When readiness is green, offer to build the week (dry_run_solve), then go through its tradeoffs (core rule 16).
 
 Habits:
 - Prefill cards with what they already told you. Don't ask again for something they said.

@@ -26,6 +26,32 @@ RULE_PARAMS: dict[str, tuple[tuple[str, ...], dict]] = {
 }
 
 
+# Rule strength in the manager's words (SEMANTICS #25: weight_dollars ranks preferences, it isn't a price).
+# level -> (label, Constraint.strength, weight_dollars)
+STRENGTHS: dict[str, tuple[str, str, float]] = {
+    "firm": ("Firm rule", "hard", 0.0),  # the contract default; a hard rule has no weight
+    "strong_preference": ("Strong preference", "soft", 50.0),
+    "preference": ("Preference", "soft", 25.0),
+}
+NOT_A_RULE = ("not_a_rule", "Not a rule")
+STRENGTH_CHOICES = [{"id": k, "label": v[0]} for k, v in STRENGTHS.items()] + [
+    {"id": NOT_A_RULE[0], "label": NOT_A_RULE[1]}]
+
+
+def level_of(strength: Optional[str], weight: Optional[float] = None) -> str:
+    """The strength word for a constraint (any soft weight ≥ the strong tier reads as a strong preference)."""
+    if strength == "hard":
+        return "firm"
+    return "strong_preference" if (weight or 0) >= STRENGTHS["strong_preference"][2] else "preference"
+
+
+def set_level(c: dict, level: str) -> None:
+    """Set strength + tier weight on a constraint dict from a strength word."""
+    _, strength, weight = STRENGTHS[level]
+    c["strength"] = strength
+    c["weight_dollars"] = weight
+
+
 def problem(kind: str, params: Optional[dict]) -> Optional[str]:
     """A one-line reason the rule can't be used, or None if it's complete."""
     need, example = RULE_PARAMS.get(kind, ((), {}))

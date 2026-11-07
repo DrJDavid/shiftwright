@@ -25,7 +25,7 @@ from shiftwright_contracts.models import (
     ValidationReport,
 )
 
-from . import auth, equipment, generated, import_flow, integrations, predictive, readiness, templates
+from . import auth, equipment, generated, import_flow, integrations, predictive, readiness, templates, tradeoffs
 from .agent.cards import CardBroker
 from .agent.llm import LLMClient, OpenRouterClient
 from .agent.loop import broker_waiter, run_turn, scripted_waiter, sse
@@ -246,6 +246,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         except Exception as e:  # noqa: BLE001
             raise HTTPException(500, f"Validator failed ({type(e).__name__}: {e}). Nothing was saved.")
         db().save_schedule(store_id, sched, val)
+        tradeoffs.save(db(), store_id, sched)  # the chat agent asks about these (get_tradeoffs / ask_build_tradeoff)
         return {"schedule": sched.model_dump(mode="json"), "validation": val.model_dump(mode="json")}
 
     @app.post("/api/stores/{store_id}/validate", response_model=ValidationReport)

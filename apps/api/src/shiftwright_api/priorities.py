@@ -1,25 +1,22 @@
-"""Role priorities in plain words, priced for the solver.
+"""Role priorities in plain words, as solver tiers.
 
-Managers pick a level per role (Must cover · Important · Nice to have). The engine still needs a dollar
-"gap penalty" per uncovered hour (contracts: `Role.gap_penalty_per_hour`), so each level maps to a multiple
-of the highest wage among the people trained for that role. Every multiple is above 1, so with enough
-budget and people every level gets covered; when hours or people run out, lower levels go uncovered first.
+Managers pick a level per role (Must cover · Important · Nice to have). The engine ranks roles by
+`Role.gap_penalty_per_hour` (SEMANTICS #25: a rank, not a price; equal values share a tier), so each level
+maps to one fixed tier value. A higher tier is always covered before a lower one; pay doesn't enter into it.
 
 Levels live in the API's kv store (kind `role_priority`), not in the contract. Roles without a level
-(hand-tuned demo stores, imported roles) keep whatever penalty they already have.
+(hand-tuned demo stores) keep whatever value they already have.
 """
 from __future__ import annotations
 
-import math
 from typing import Any, Optional
 
 LEVELS: dict[str, tuple[str, float]] = {
-    "must_cover": ("Must cover", 3.0),
-    "important": ("Important", 1.5),
-    "nice_to_have": ("Nice to have", 1.1),
+    "must_cover": ("Must cover", 300.0),
+    "important": ("Important", 200.0),
+    "nice_to_have": ("Nice to have", 100.0),
 }
 DEFAULT_LEVEL = "important"
-FALLBACK_WAGE = 20.0  # before anyone is on the team
 _KV = ("role_priority", "levels")
 
 
@@ -35,21 +32,14 @@ def label(level: Optional[str]) -> Optional[str]:
     return LEVELS[level][0] if level in LEVELS else None
 
 
-def base_wage(d: dict, role_id: str) -> float:
-    """Highest wage among people trained for the role; else the store's highest wage; else a fallback."""
-    emps = d.get("employees") or []
-    trained = [float(e.get("wage_per_hour") or 0) for e in emps if role_id in (e.get("trained_role_ids") or [])]
-    anyone = [float(e.get("wage_per_hour") or 0) for e in emps]
-    return max(trained or anyone or [FALLBACK_WAGE]) or FALLBACK_WAGE
-
-
-def penalty(level: str, wage: float) -> float:
-    return float(math.ceil(LEVELS[level][1] * wage))
+def penalty(level: str) -> float:
+    """The tier value (`gap_penalty_per_hour`) for a level."""
+    return LEVELS[level][1]
 
 
 def apply(d: dict, levels: dict[str, str]) -> None:
-    """Reprice every role that has a level, from current wages and training. Mutates the config dict."""
+    """Set every leveled role to its tier value. Mutates the config dict."""
     for r in d.get("roles") or []:
         lvl = levels.get(r.get("id"))
         if lvl in LEVELS:
-            r["gap_penalty_per_hour"] = penalty(lvl, base_wage(d, r["id"]))
+            r["gap_penalty_per_hour"] = penalty(lvl)

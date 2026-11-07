@@ -12,6 +12,7 @@ the server directly (actor "leader"), so the config never depends on the LLM re-
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -31,7 +32,7 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import equipment, import_flow, integrations, priorities, readiness, rules
+from .. import equipment, import_flow, integrations, priorities, readiness, tradeoffs, rules
 from ..imports import AUTO_PRIORITY
 from ..db import ConfigInvalid, Database
 
@@ -199,7 +200,6 @@ def _proposed_level(item: dict) -> Optional[str]:
 def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
     cfg = ctx.config()
     levels = priorities.load(ctx.db, ctx.store_id)
-    raw = cfg.model_dump(mode="json")
     props = {"departments": [d.model_dump(mode="json") for d in cfg.departments],
              "roles": [{**r.model_dump(mode="json"),
                         "priority": levels.get(r.id) or ("important" if AUTO_PRIORITY in r.description else None)}
@@ -211,7 +211,7 @@ def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
                 lvl = _proposed_level(item) if existing is None or item.get("priority") else existing["priority"]
                 item = {**item, "priority": lvl}
                 if lvl:
-                    item["gap_penalty_per_hour"] = priorities.penalty(lvl, priorities.base_wage(raw, item.get("id", "")))
+                    item["gap_penalty_per_hour"] = priorities.penalty(lvl)
             _upsert(props[key], item)
 
     def apply(result: dict) -> ToolResult:
@@ -548,7 +548,7 @@ def ask_csv_import(ctx: ToolContext, args: dict) -> CardRequest:
     return CardRequest("csv_import", props, apply)
 
 
-DEFAULT_SOFT_WEIGHT = 25.0  # a "preference": the leader can raise or lower it; never ask them for dollars
+DEFAULT_SOFT_WEIGHT = rules.STRENGTHS["preference"][2]  # tier value; never ask the leader for dollars
 
 
 def _person_id(cfg: StoreConfig, ref: str) -> str:
@@ -590,6 +590,9 @@ def propose_rule(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]
     raw.setdefault("status", "provisional")
     raw.setdefault("strength", "soft")
     raw.setdefault("source", "leader")
+    level = args.get("level") if args.get("level") in rules.STRENGTHS else rules.level_of(
+        raw.get("strength"), raw.get("weight_dollars"))
+    rules.set_level(raw, level)
     why = rules.problem(raw.get("kind", ""), raw.get("params"))
     if why:
         return ToolResult({"error": f"Rule not shown: {why}. Fill in the params from what the leader said "
@@ -599,21 +602,21 @@ def propose_rule(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]
     except ValidationError as e:
         return ToolResult({"error": "Invalid constraint", "details": _short_errors(e.errors(include_url=False))})
     props = {"constraint": constraint.model_dump(mode="json"), "evidence": args.get("evidence") or constraint.evidence or "",
-             "plain_text": args.get("plain_text") or constraint.note}
+             "plain_text": args.get("plain_text") or constraint.note,
+             "level": level, "levels": rules.STRENGTH_CHOICES}
 
     def apply(result: dict) -> ToolResult:
         if _cancelled(result):
             return CANCELLED
         decision = result.get("decision")
+        if decision in ("hard", "soft"):  # older clients: firm rule / preference (+ optional weight → its tier)
+            decision = rules.level_of(decision, result.get("weight_dollars"))
         c = constraint.model_dump(mode="json")
-        if decision == "not_a_rule":
+        if decision == rules.NOT_A_RULE[0]:
             c["status"] = "rejected"
-        elif decision in ("hard", "soft"):
+        elif decision in rules.STRENGTHS:
             c["status"] = "confirmed"
-            c["strength"] = decision
-            if decision == "soft":
-                w = result.get("weight_dollars") or c.get("weight_dollars")
-                c["weight_dollars"] = float(w) if w and float(w) > 0 else DEFAULT_SOFT_WEIGHT
+            rules.set_level(c, decision)
         else:
             return ToolResult({"error": f"Unknown decision {decision!r}"})
 
@@ -636,6 +639,63 @@ def ask_tradeoff(ctx: ToolContext, args: dict) -> CardRequest:
             return ToolResult({"error": f"option_id {result.get('option_id')!r} is not one of the offered options"})
         ctx.db.put(ctx.store_id, "tradeoff", chosen["id"], {"question": props["question"], "option": chosen})
         return ToolResult({"option_id": chosen["id"], "option": chosen})
+    return CardRequest("tradeoff", props, apply)
+
+
+def get_tradeoffs(ctx: ToolContext, args: dict) -> dict:
+    """The latest build's tradeoffs (biggest first), each with the plain question its card will ask."""
+    items = tradeoffs.latest(ctx.db, ctx.store_id)
+    done = tradeoffs.answered(ctx.db, ctx.store_id)
+    out = tradeoffs.summaries(ctx.config(), items, done)
+    return {"tradeoffs": out, "next": "Call ask_build_tradeoff for each unanswered one, in this order, one at a time."
+            if any(not t["answered"] for t in out) else "Nothing left to decide from the last build."}
+
+
+def ask_build_tradeoff(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]:
+    """`tradeoff` card for one of the latest build's tradeoffs, worded from the solve's real numbers. The
+    leader's answer applies it: approve → budget approval (+hours); drop → the rule is rejected."""
+    tid = args.get("tradeoff_id")
+    t = next((x for x in tradeoffs.latest(ctx.db, ctx.store_id) if x["id"] == tid), None)
+    if t is None:
+        return ToolResult({"error": f"No tradeoff {tid!r} in the latest build; call get_tradeoffs."})
+    if tid in tradeoffs.answered(ctx.db, ctx.store_id):
+        return ToolResult({"error": f"The leader already answered {tid!r}; move on to the next one."})
+    cfg = ctx.config()
+    props = tradeoffs.card(cfg, t)
+
+    def apply(result: dict) -> ToolResult:
+        if _cancelled(result):
+            return CANCELLED
+        chosen = next((o for o in props["options"] if o["id"] == result.get("option_id")), None)
+        if chosen is None:
+            return ToolResult({"error": f"option_id {result.get('option_id')!r} is not one of the offered options"})
+        ctx.db.put(ctx.store_id, "tradeoff", chosen["id"], {"question": props["question"], "option": chosen})
+        choice = chosen["id"].rsplit(":", 1)[1]
+        tradeoffs.mark_answered(ctx.db, ctx.store_id, tid, choice)
+        leader = ToolContext(db=ctx.db, store_id=ctx.store_id, actor="leader")
+        out: Optional[ToolResult] = None
+        if choice == "approve":
+            extra = float(t.get("extra_hours") or 0)
+            dollars = math.ceil(chosen["cost_dollars"]) if cfg.budget.weekly_dollar_cap else 0
+            out = approve_budget_increase(leader, {"option_id": chosen["id"], "extra_hours": extra,
+                                                   "extra_dollars": dollars, "reason": props["question"]})
+        elif choice == "drop":
+            rid = t.get("rule_id")
+
+            def fn(d):
+                for c in d["constraints"]:
+                    if c["id"] == rid:
+                        c["status"] = "rejected"
+            out = leader.mutate("card:tradeoff", {"tradeoff_id": tid, "rule_id": rid, "status": "rejected"}, fn,
+                                [f"rule {rid} dropped"])
+        content = {"tradeoff_id": tid, "option_id": chosen["id"], "decision": choice, "option": chosen}
+        if out is None:
+            return ToolResult(content)
+        if "error" in out.content:
+            return ToolResult({**content, **out.content})
+        content["next"] = "Applies from the next build (dry_run_solve, or the leader's Build button)."
+        return ToolResult({**out.content, **content}, patch_summary=out.patch_summary,
+                          config_version=out.config_version)
     return CardRequest("tradeoff", props, apply)
 
 
@@ -714,7 +774,7 @@ def upsert_role(ctx: ToolContext, args: dict) -> ToolResult:
         _proposed_level(role) if is_new else levels.get(role.get("id")))
     if lvl:
         levels[role["id"]] = lvl
-        role.setdefault("gap_penalty_per_hour", 0.0)  # repriced from wages by the mutate hook
+        role.setdefault("gap_penalty_per_hour", 0.0)  # set to the level's tier value by the mutate hook
         priorities.save(ctx.db, ctx.store_id, levels)
 
     def fn(d):
@@ -800,8 +860,8 @@ def _check_constraint(c: dict) -> None:
     why = rules.problem(c.get("kind", ""), c.get("params"))
     if why:
         raise ToolError(f"Rule not saved: {why}. Fill in the params from what the leader said and try again.")
-    if c.get("strength") == "soft" and not (c.get("weight_dollars") or 0) > 0:
-        c["weight_dollars"] = DEFAULT_SOFT_WEIGHT  # a preference: never ask the leader for dollars
+    if c.get("strength") != "hard":  # a preference: its weight is a tier from the strength word, never dollars
+        rules.set_level(c, rules.level_of(c.get("strength") or "soft", c.get("weight_dollars")))
 
 
 def add_constraint(ctx: ToolContext, args: dict) -> ToolResult:
@@ -939,7 +999,11 @@ async def dry_run_solve(ctx: ToolContext, args: dict) -> dict:
     except integrations.StubUnavailable as e:
         validation = {"unavailable": str(e)}
     gaps = sorted(sched.gaps, key=lambda g: -g.penalty_dollars)
+    found = tradeoffs.save(ctx.db, ctx.store_id, sched)
     return {
+        "tradeoffs": tradeoffs.summaries(cfg, found),
+        "next": ("Ask the leader about each tradeoff with ask_build_tradeoff, biggest first, one card at a time."
+                 if found else None),
         "produced_by": sched.produced_by,
         "status": sched.status,
         "metrics": sched.metrics.model_dump(mode="json") if sched.metrics else None,
@@ -1043,15 +1107,23 @@ TOOLS: list[Tool] = [
                                                     "labor_model", "labor_hours", "labor_standards",
                                                     "sales_forecast", "workload"]}},
               ["kind"]), ask_csv_import, "card"),
-    Tool("propose_rule", "Show a rule card so the leader confirms it as a firm rule (strength hard), a preference "
-         "(strength soft) or not a rule. Use for every unwritten rule and every mined pattern. Set `strength` "
-         "yourself from their words: absolutes (never, nobody, always, can't, no more than, at least) are hard; "
-         "'prefer', 'try to', 'when you can' are soft. Leave weight_dollars out unless they gave one (preferences "
-         "get a default). People may be named as the leader names them (id, full name, 'Jules C.'); the tool "
+    Tool("propose_rule", "Show a rule card so the leader picks Firm rule, Strong preference, Preference or Not a "
+         "rule. Use for every unwritten rule and every mined pattern. Set `level` yourself from their words: "
+         "absolutes (never, nobody, always, can't, no more than, at least) are firm; 'really try to', 'whenever "
+         "possible' are strong_preference; 'prefer', 'try to', 'when you can' are preference. Never put dollars "
+         "on a rule. People may be named as the leader names them (id, full name, 'Jules C.'); the tool "
          "matches them to the roster.",
-         _obj({"constraint": {"type": "object", "description": "A Constraint (kind must be a ConstraintKind)."},
+         _obj({"constraint": {"type": "object", "description": "A Constraint (kind must be a ConstraintKind); "
+                                                                  "strength and weight come from `level`."},
+               "level": {"type": "string", "enum": list(rules.STRENGTHS)},
                "evidence": {"type": "string"}, "plain_text": {"type": "string"}}, ["constraint", "plain_text"]),
          propose_rule, "card"),
+    Tool("get_tradeoffs", "The latest build's tradeoffs (budget gaps and costly preferences), biggest first, each with "
+         "the question its card asks. Call after the leader builds the week outside chat.", _obj({}), get_tradeoffs),
+    Tool("ask_build_tradeoff", "Show the tradeoff card for one tradeoff from the latest build (from dry_run_solve or "
+         "get_tradeoffs). The server writes the question and options from the solve's numbers and applies the "
+         "leader's answer (approve hours / leave open; keep / drop the rule). One at a time, biggest first.",
+         _obj({"tradeoff_id": {"type": "string"}}, ["tradeoff_id"]), ask_build_tradeoff, "card"),
     Tool("ask_tradeoff", "Show priced options and let the leader choose. Required before approve_budget_increase. "
          "Every cost must come from a tool result.",
          _obj({"question": {"type": "string"},
