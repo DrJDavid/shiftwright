@@ -7,7 +7,11 @@
 - Resolver `shiftwright_laws.resolve(jurisdiction | state, city=None) -> LawPack` + acceptance tests (`uv run pytest data/laws`).
 - `python -m shiftwright_laws.coverage` prints the coverage table below.
 
-**In progress:** predictive-scheduling cities, then the other states alphabetically.
+- Cities (`cities/_index.json`): Austin (no rules — Tex. Lab. Code § 1.005 preemption), Seattle, Chicago, Evanston, New York City, Philadelphia, San Francisco, Los Angeles, Berkeley, Emeryville. All predictive-scheduling ordinances from official city sources (high), except Evanston's predictability-pay hours (low, excluded by default).
+- Oregon statewide predictive scheduling + rest between shifts (BOLI, high).
+- All 48 remaining states + DC drafted from US DOL WHD tables (`medium`): minimum wage (table updated 2026-11-05), weekly/daily overtime, meal and rest periods (tables revised 2023-01-01). States with no such law say so in `notes`.
+
+**In progress:** upgrading DOL-drafted states to primary sources (`high`), state minor-hour limits, more city minimum wages.
 
 **Blocked on:** nothing.
 
@@ -21,9 +25,16 @@
 - `minor_limits.max_hours_non_school_day` — cap on a non-school day inside a school week (federal, CA). Without it, `max_hours_day` in a school-week rule is the school-day cap.
 - `minor_limits.latest_end_before_non_school_day` — CA 16–17 may work to 12:30 a.m. (1470) before a non-school day.
 - `rest_break.not_required_under_minutes` (CA: 210), `reporting_time_pay.max_paid_hours` (CA: 4).
+- `predictive_scheduling`: `reduced_hours_fraction` (pay for cut hours, e.g. 0.5), `change_premium_hours_max`, `change_premium_hours_under_24h`, `change_premium_window_days`, `changes_restricted_within_notice` + `on_call_prohibited` (NYC: prohibitions, no premium), `min_locations`.
+- `min_rest_between_shifts`: `premium_applies_to: "shift"` = whole next shift at the premium (Chicago, LA); absent = only hours inside the rest window. `premium_flat_dollars` (Philadelphia $40, `premium_multiplier: null`).
+- `meal_break.earliest_start_minute_of_shift`, `meal_break.employee_optional` (ND), `rest_break.max_minutes_without_rest` (WA: 180), `daily_overtime.applies_if_rate_below_min_wage_multiple` (NV: 1.5).
 - Minutes are minutes-from-midnight for times of day (420 = 7 a.m., 1140 = 7 p.m.).
 
 **Shortcuts taken:**
+- DOL-drafted states: `minimum_wage.effective` = DOL table date (2026-11-05), not the statutory date. Minor-hour limits for these states are NOT yet researched (federal floor applies).
+- Maryland retail shift breaks: DOL table does not say paid/unpaid; encoded rest=paid, meal=unpaid, flagged in notes.
+- NYC minimum wage `effective` = 2026-11-06 (NY DOL page confirms the rate in effect but gives no start date).
+- City aliases ("nyc", "new york city") are not mapped; the city key is `new york`.
 - CA seventh-consecutive-day overtime is in `notes`, not params (no field for it).
 - CA 16–17 school-week weekly cap: only the Lab. Code § 1391 48 h cap is encoded; Education Code permit limits not yet checked.
 - Texas § 51.013 cited from TWC's official PDF copy of Chapter 51 (statutes site is a JS app that the fetcher can't read).
@@ -33,6 +44,64 @@
 | file | wOT | dOT | meal | rest | minor | minRole | clopen | predict | report | wage | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | federal | 1 | – | – | – | 2 | 1 | – | – | – | 1 | 3 |
+| AK | 1 | 1 | – | – | – | – | – | – | – | 1 | 6 |
+| AL | – | – | – | – | – | – | – | – | – | – | 7 |
+| AR | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| AZ | – | – | – | – | – | – | – | – | – | 1 | 7 |
 | CA | 1 | 1 | 2 | 1 | 4 | – | – | – | 1 | 1 | 5 |
-| TX | – | – | – | – | 2 | – | – | – | – | 1 | 4 |
-
+| CO | 1 | 1 | 1 | 1 | – | – | – | – | – | 1 | 4 |
+| CT | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
+| DC | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
+| DE | – | – | 1 | – | – | – | – | – | – | 1 | 6 |
+| FL | – | – | – | – | – | – | – | – | – | 1 | 8 |
+| GA | – | – | – | – | – | – | – | – | – | – | 7 |
+| HI | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
+| IA | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| ID | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| IL | 1 | – | 1 | – | – | – | – | – | – | 1 | 7 |
+| IN | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| KS | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| KY | 1 | – | – | 1 | – | – | – | – | – | 1 | 6 |
+| LA | – | – | – | – | – | – | – | – | – | – | 7 |
+| MA | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
+| MD | 1 | – | 1 | 1 | – | – | – | – | – | 1 | 5 |
+| ME | 1 | – | 1 | – | – | – | – | – | – | 1 | 6 |
+| MI | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| MN | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
+| MO | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| MS | – | – | – | – | – | – | – | – | – | – | 7 |
+| MT | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| NC | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
+| ND | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
+| NE | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| NH | 1 | – | 1 | – | – | – | – | – | – | 1 | 5 |
+| NJ | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| NM | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| NV | 1 | 1 | 1 | 1 | – | – | – | – | – | 1 | 3 |
+| NY | 1 | – | 1 | – | – | – | – | – | – | 1 | 8 |
+| OH | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| OK | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| OR | 1 | – | 1 | 1 | – | – | 1 | 1 | – | 1 | 8 |
+| PA | 1 | – | – | – | – | – | – | – | – | 1 | 7 |
+| RI | 1 | – | 2 | – | – | – | – | – | – | 1 | 7 |
+| SC | – | – | – | – | – | – | – | – | – | – | 7 |
+| SD | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| TN | – | – | 1 | – | – | – | – | – | – | – | 6 |
+| TX | – | – | – | – | 2 | – | – | – | – | 1 | 5 |
+| UT | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| VA | – | – | – | – | – | – | – | – | – | 1 | 7 |
+| VT | 1 | – | – | – | – | – | – | – | – | 1 | 8 |
+| WA | 1 | – | 1 | 1 | – | – | – | – | – | 1 | 5 |
+| WI | 1 | – | – | – | – | – | – | – | – | 1 | 6 |
+| WV | 1 | – | 1 | – | – | – | – | – | – | 1 | 6 |
+| WY | – | – | – | – | – | – | – | – | – | – | 7 |
+| ca-berkeley | – | – | – | – | – | – | 1 | 1 | – | 1 | 3 |
+| ca-emeryville | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |
+| ca-los-angeles | – | – | – | – | – | – | 1 | 1 | – | 1 | 3 |
+| ca-san-francisco | – | – | – | – | – | – | – | 1 | – | 1 | 4 |
+| il-chicago | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |
+| il-evanston | – | – | – | – | – | – | – | 1 | – | – | 3 |
+| ny-new-york | – | – | – | – | – | – | – | 1 | – | 1 | 5 |
+| pa-philadelphia | – | – | – | – | – | – | 1 | 1 | – | – | 4 |
+| tx-austin | – | – | – | – | – | – | – | – | – | – | 4 |
+| wa-seattle | – | – | – | – | – | – | 1 | 1 | – | 1 | 4 |

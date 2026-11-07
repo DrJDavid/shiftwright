@@ -1,0 +1,85 @@
+{
+  "jurisdiction": {
+    "state": "WA",
+    "city": "seattle"
+  },
+  "level": "city",
+  "notes": [
+    "Secure Scheduling (SMC 14.22) covers hourly employees of retail and food-service establishments with 500+ employees worldwide.",
+    "Predictability pay: 1 hour of pay for hours added or a shift date/time changed after posting; half the hours not worked when sent home early (extra key reduced_hours_fraction).",
+    "Employees may decline hours not on the originally posted schedule.",
+    "Right to rest premium is 1.5x for hours worked within the <10 h gap between a closing and the next opening shift."
+  ],
+  "rules": [
+    {
+      "id": "WA.seattle.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": "seattle"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "reduced_hours_fraction": 0.5,
+        "applies_if_employees_over": 499,
+        "applies_to": "both"
+      },
+      "summary": "Covered retail employers (500+ employees worldwide) must post schedules 14 days ahead and pay predictability pay for later employer changes.",
+      "citation": {
+        "url": "https://www.seattle.gov/laborstandards/ordinances/secure-scheduling",
+        "title": "Seattle Office of Labor Standards \u2014 Secure Scheduling Ordinance",
+        "excerpt": "Covers hourly employees at retail and food services establishments with 500+ employees worldwide ... at least 14 days in advance",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WA.seattle.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": "seattle"
+      },
+      "level": "city",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 600,
+        "premium_multiplier": 1.5,
+        "waivable": false
+      },
+      "summary": "Hours worked between a closing and opening shift less than 10 hours apart are paid at 1.5x.",
+      "citation": {
+        "url": "https://www.seattle.gov/laborstandards/ordinances/secure-scheduling",
+        "title": "Seattle Office of Labor Standards \u2014 Secure Scheduling Ordinance",
+        "excerpt": "Pay time-and-a-half for any hours worked between closing and opening shifts that are separated by less than 10 hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "WA.seattle.minimum_wage.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": "seattle"
+      },
+      "level": "city",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 21.3,
+        "effective": "2026-01-01"
+      },
+      "summary": "Seattle's minimum wage is $21.30 an hour in 2026 for all employers.",
+      "citation": {
+        "url": "https://www.seattle.gov/laborstandards/ordinances/minimum-wage",
+        "title": "Seattle Office of Labor Standards \u2014 Minimum Wage",
+        "excerpt": "2026 minimum wage $21.30; since January 1, 2025 all employers, regardless of size, pay the same minimum wage",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}

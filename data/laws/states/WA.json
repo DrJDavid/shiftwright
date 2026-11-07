@@ -1,0 +1,110 @@
+{
+  "jurisdiction": {
+    "state": "WA",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Seattle has a city file (Secure Scheduling, $21.30 minimum wage).",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "WA.minimum_wage.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 17.13,
+        "effective": "2026-11-05"
+      },
+      "summary": "Washington's basic minimum wage is $17.13 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $17.13",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "WA.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Washington requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "WA.meal_break.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 300,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": 300,
+        "waivable_under_minutes": null,
+        "earliest_start_minute_of_shift": 120
+      },
+      "summary": "Washington requires a 30-minute meal period for work over 5 hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "\u00bd hour, if work period is more than 5 consecutive hours, to be given not less than 2 hours nor more than 5 hours from beginning of shift",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "WA.rest_break.1",
+      "jurisdiction": {
+        "state": "WA",
+        "city": null
+      },
+      "level": "state",
+      "type": "rest_break",
+      "params": {
+        "per_minutes_worked": 240,
+        "duration": 10,
+        "paid": true,
+        "max_minutes_without_rest": 180
+      },
+      "summary": "Washington requires a paid 10-minute rest period per 4 hours worked.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/rest-periods",
+        "title": "US DOL WHD \u2014 State paid rest-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "Paid 10-minute rest period for each 4-hour work period ... Employee may not be required to work more than 3 hours without a rest period",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

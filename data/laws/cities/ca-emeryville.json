@@ -1,0 +1,85 @@
+{
+  "jurisdiction": {
+    "state": "CA",
+    "city": "emeryville"
+  },
+  "level": "city",
+  "notes": [
+    "Fair Workweek Ordinance (Emeryville Mun. Code Title 5 ch. 39), effective July 1, 2017, covers retail firms with 56+ employees globally.",
+    "Predictability pay: 1 hour for changes with <14 days but >=24 h notice; for <24 h notice, 4 hours or the scheduled shift length, whichever is less (extra key change_premium_hours_under_24h=4); other <24 h changes 1 hour.",
+    "Employers must first offer extra hours to existing qualified part-timers up to 35 h/week.",
+    "Right to rest: 1.5x for hours worked between shifts separated by less than 11 hours; employee may decline."
+  ],
+  "rules": [
+    {
+      "id": "CA.emeryville.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "emeryville"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 4,
+        "applies_if_employees_over": 55,
+        "applies_to": "both"
+      },
+      "summary": "Retail firms with 56+ employees globally must post schedules two weeks ahead and pay predictability pay for later changes.",
+      "citation": {
+        "url": "https://www.emeryville.org/files/assets/city/v/1/development/documents/fair-workweek-ordinance/final-final-draft-_content_fww-notice-for-employees.pdf",
+        "title": "City of Emeryville \u2014 Fair Work Week Ordinance official notice",
+        "excerpt": "Retail Firms with 56 or more employees globally ... provide work schedules at least two weeks in advance",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.emeryville.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "emeryville"
+      },
+      "level": "city",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 660,
+        "premium_multiplier": 1.5,
+        "waivable": false
+      },
+      "summary": "Hours worked between a closing and opening shift less than 11 hours apart are paid at 1.5x.",
+      "citation": {
+        "url": "https://www.emeryville.org/files/assets/city/v/1/development/documents/fair-workweek-ordinance/final-final-draft-_content_fww-notice-for-employees.pdf",
+        "title": "City of Emeryville \u2014 Fair Work Week Ordinance official notice",
+        "excerpt": "pay time-and-a-half for any hours worked between closing and opening (clopening) shifts that are separated by less than 11 hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.emeryville.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "emeryville"
+      },
+      "level": "city",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 20.34,
+        "effective": "2026-07-01"
+      },
+      "summary": "Emeryville's minimum wage is $20.34 an hour from July 1, 2026 for all businesses.",
+      "citation": {
+        "url": "https://www.emeryville.org/Services/Business/Permits-Regulations/Minimum-Wage-Ordinance",
+        "title": "City of Emeryville \u2014 Minimum Wage Ordinance",
+        "excerpt": "July 1, 2026: $20.34 (CPI) (all businesses)",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}

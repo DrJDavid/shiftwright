@@ -1,0 +1,85 @@
+{
+  "jurisdiction": {
+    "state": "CA",
+    "city": "los angeles"
+  },
+  "level": "city",
+  "notes": [
+    "Fair Work Week Ordinance (LAMC Ch. XVIII Art. 5) covers retail businesses (NAICS) with 300+ employees globally; employees who work 2+ hours a week in the City of Los Angeles. Effective April 1, 2023.",
+    "Predictability pay: 1 hour for an increase >15 min or a change of date/time/location; 0.5x for hours not worked when hours are cut by 15+ min or an on-call shift is not used (extra key reduced_hours_fraction).",
+    "Clopening (<10 h between shifts spanning two workdays) requires written consent and 1.5x pay for the second shift (extra key premium_applies_to='shift')."
+  ],
+  "rules": [
+    {
+      "id": "CA.los_angeles.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "los angeles"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "reduced_hours_fraction": 0.5,
+        "applies_if_employees_over": 299,
+        "applies_to": "retail"
+      },
+      "summary": "Large retailers (300+ employees globally) must post schedules 14 days ahead and pay predictability pay for later employer changes.",
+      "citation": {
+        "url": "https://wagesla.lacity.gov/fair-work-week-information",
+        "title": "Los Angeles Office of Wage Standards \u2014 Fair Work Week Information",
+        "excerpt": "Provide Employees advance notice of their Work Schedules at least 14 calendar days before the start of a work period",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.los_angeles.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "los angeles"
+      },
+      "level": "city",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 600,
+        "premium_multiplier": 1.5,
+        "waivable": true,
+        "premium_applies_to": "shift"
+      },
+      "summary": "A shift starting less than 10 hours after a closing shift needs the employee's written consent and is paid at 1.5x.",
+      "citation": {
+        "url": "https://wagesla.lacity.gov/fair-work-week-information",
+        "title": "Los Angeles Office of Wage Standards \u2014 Fair Work Week Information",
+        "excerpt": "If the second Shift starts less than ten (10) hours after the end of the previous Shift, Employers must pay Employees time and a half",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.los_angeles.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "los angeles"
+      },
+      "level": "city",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 18.42,
+        "effective": "2026-07-01"
+      },
+      "summary": "The City of Los Angeles minimum wage is $18.42 an hour from July 1, 2026.",
+      "citation": {
+        "url": "https://wagesla.lacity.gov/",
+        "title": "Los Angeles Office of Wage Standards \u2014 Minimum Wage",
+        "excerpt": "July 1, 2026  $18.42",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}

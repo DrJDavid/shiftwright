@@ -14,9 +14,15 @@ def test_tx_austin_has_federal_ot_and_minor_rules():
     assert T.minor_limits in types(pack)
     assert any(r.type == T.minor_prohibited_roles and "powered_industrial_truck" in r.params["role_tags"]
                for r in pack.rules)
-    # Austin has no city file: state + federal with a warning
+    # Austin has a researched city file with no rules (Texas preempts city labor ordinances)
+    assert pack.coverage == "full"
+    assert not any(r.level == "city" for r in pack.rules)
+
+
+def test_city_without_file_warns():
+    pack = resolve(Jurisdiction(state="TX", city="round rock"))
     assert pack.coverage == "state_only"
-    assert any("austin" in w.lower() for w in pack.warnings)
+    assert any("round rock" in w.lower() for w in pack.warnings)
 
 
 def test_ca_has_daily_ot_meal_and_rest():

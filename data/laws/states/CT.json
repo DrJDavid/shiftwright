@@ -1,0 +1,86 @@
+{
+  "jurisdiction": {
+    "state": "CT",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "CT meal period does not apply if the employer gives 30+ total minutes of paid rest/meal time per 7.5-hour period (DOL table).",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "CT.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 16.94,
+        "effective": "2026-11-05"
+      },
+      "summary": "Connecticut's basic minimum wage is $16.94 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $16.94",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CT.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Connecticut requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CT.meal_break.1",
+      "jurisdiction": {
+        "state": "CT",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 450,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": null,
+        "waivable_under_minutes": null,
+        "earliest_start_minute_of_shift": 120
+      },
+      "summary": "Connecticut requires a 30-minute meal period, after the first 2 and before the last 2 hours, for 7.5+ consecutive hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "\u00bd hour at some time after first 2 hours and before last 2 hours for employees who work 7\u00bd consecutive hours or more",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

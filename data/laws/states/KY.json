@@ -1,0 +1,84 @@
+{
+  "jurisdiction": {
+    "state": "KY",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Kentucky 7th-day overtime: 1.5x for hours on the seventh day when an employee works all seven days of the workweek (DOL table); not encoded.",
+    "Kentucky meal period: reasonable off-duty period, ordinarily 30 minutes, between the 3rd and 5th hour of work (DOL meal table); trigger length not stated, so not encoded.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "KY.minimum_wage.1",
+      "jurisdiction": {
+        "state": "KY",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 7.25,
+        "effective": "2026-11-05"
+      },
+      "summary": "Kentucky's basic minimum wage is $7.25 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $7.25",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "KY.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "KY",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Kentucky requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "KY.rest_break.1",
+      "jurisdiction": {
+        "state": "KY",
+        "city": null
+      },
+      "level": "state",
+      "type": "rest_break",
+      "params": {
+        "per_minutes_worked": 240,
+        "duration": 10,
+        "paid": true
+      },
+      "summary": "Kentucky requires a paid 10-minute rest period per 4 hours worked.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/rest-periods",
+        "title": "US DOL WHD \u2014 State paid rest-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "Paid 10-minute rest period during each 4-hour work period",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

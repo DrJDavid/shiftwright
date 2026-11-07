@@ -1,0 +1,38 @@
+{
+  "jurisdiction": {
+    "state": "IL",
+    "city": "evanston"
+  },
+  "level": "city",
+  "notes": [
+    "Evanston Fair Workweek Ordinance 24-O-23 covers employers with 100+ employees globally (incl. franchises) in retail and other listed industries; effective date moved to Jan. 1, 2024 (city page).",
+    "Predictability pay rate equals the employee's regular hourly rate for changes with <14 days' notice; the number of hours per change is not stated on the city page, so change_premium_hours=1 is a placeholder and the rule is confidence=low (excluded by default) until the ordinance text is read.",
+    "No right-to-rest rule stated on the city page; not encoded."
+  ],
+  "rules": [
+    {
+      "id": "IL.evanston.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": "evanston"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "applies_if_employees_over": 99,
+        "applies_to": "both"
+      },
+      "summary": "Employers with 100+ employees globally must post schedules 14 days before the first shift and pay predictability pay for later changes.",
+      "citation": {
+        "url": "https://www.cityofevanston.org/business/fair_workweek.php",
+        "title": "City of Evanston \u2014 Fair Workweek",
+        "excerpt": "Employers have to post schedules 14 days before the first scheduled shift.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "low",
+      "verified": false
+    }
+  ]
+}

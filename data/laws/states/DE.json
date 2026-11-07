@@ -1,0 +1,65 @@
+{
+  "jurisdiction": {
+    "state": "DE",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "No state overtime provision listed in the DOL table; federal weekly overtime applies.",
+    "No state paid rest-period requirement in the DOL table; federal law does not require one.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "DE.minimum_wage.1",
+      "jurisdiction": {
+        "state": "DE",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.0,
+        "effective": "2026-11-05"
+      },
+      "summary": "Delaware's basic minimum wage is $15.00 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $15.00",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "DE.meal_break.1",
+      "jurisdiction": {
+        "state": "DE",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 450,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": null,
+        "waivable_under_minutes": null,
+        "earliest_start_minute_of_shift": 120
+      },
+      "summary": "Delaware requires a 30-minute meal period, after the first 2 and before the last 2 hours, for 7.5+ consecutive hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "\u00bd hour, at some time, after first 2 hours and before the last 2 hours, for employees who work 7\u00bd consecutive hours or more",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

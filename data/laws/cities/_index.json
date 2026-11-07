@@ -1,4 +1,75 @@
 {
   "description": "Cities with their own retail scheduling, break, or minimum-wage rules covered by this dataset. Each entry names its file and the source used to identify it.",
-  "cities": []
+  "cities": [
+    {
+      "file": "ca-berkeley.json",
+      "state": "CA",
+      "city": "berkeley",
+      "reason": "Fair Workweek Ordinance (retail, 56+ employees); city minimum wage",
+      "source": "https://berkeleyca.gov/doing-business/operating-berkeley/workforce-standards-and-enforcement"
+    },
+    {
+      "file": "ca-emeryville.json",
+      "state": "CA",
+      "city": "emeryville",
+      "reason": "Fair Workweek Ordinance (retail, 56+ employees); city minimum wage",
+      "source": "https://www.emeryville.org/Services/Business/Labor-Standards"
+    },
+    {
+      "file": "ca-los-angeles.json",
+      "state": "CA",
+      "city": "los angeles",
+      "reason": "Fair Work Week Ordinance (retail, 300+ employees); city minimum wage",
+      "source": "https://wagesla.lacity.gov/fair-work-week-information"
+    },
+    {
+      "file": "ca-san-francisco.json",
+      "state": "CA",
+      "city": "san francisco",
+      "reason": "Formula Retail Employee Rights Ordinances; city minimum wage",
+      "source": "https://www.sf.gov/information--formula-retail-employee-rights-ordinance"
+    },
+    {
+      "file": "il-chicago.json",
+      "state": "IL",
+      "city": "chicago",
+      "reason": "Fair Workweek Ordinance (retail, 100+ employees) and city minimum wage",
+      "source": "https://www.chicago.gov/city/en/depts/bacp/supp_info/fairworkweek.html"
+    },
+    {
+      "file": "il-evanston.json",
+      "state": "IL",
+      "city": "evanston",
+      "reason": "Fair Workweek Ordinance 24-O-23 (retail, 100+ employees)",
+      "source": "https://www.cityofevanston.org/business/fair_workweek.php"
+    },
+    {
+      "file": "ny-new-york.json",
+      "state": "NY",
+      "city": "new york",
+      "reason": "NYC Fair Workweek Law (retail, 20+ employees); NYC-region state minimum wage",
+      "source": "https://www.nyc.gov/site/dca/workers/workersrights/retail-workers.page"
+    },
+    {
+      "file": "pa-philadelphia.json",
+      "state": "PA",
+      "city": "philadelphia",
+      "reason": "Fair Workweek Ordinance (retail, 250+ employees, 30+ locations)",
+      "source": "https://www.phila.gov/documents/fww/"
+    },
+    {
+      "file": "tx-austin.json",
+      "state": "TX",
+      "city": "austin",
+      "reason": "Demo store location; file records that no city rules apply (state preemption).",
+      "source": "https://capitol.texas.gov/tlodocs/88R/billtext/html/HB02127F.HTM"
+    },
+    {
+      "file": "wa-seattle.json",
+      "state": "WA",
+      "city": "seattle",
+      "reason": "Secure Scheduling Ordinance (retail, 500+ employees) and city minimum wage",
+      "source": "https://www.seattle.gov/laborstandards/ordinances/secure-scheduling"
+    }
+  ]
 }
