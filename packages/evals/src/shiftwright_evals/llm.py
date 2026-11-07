@@ -43,7 +43,7 @@ class OpenRouterClient:
     """Plain chat completions, temperature 0, max output tokens as high as the model allows."""
 
     def __init__(self, api_key: str | None = None, transport: httpx.AsyncBaseTransport | None = None,
-                 timeout_s: float = 900, base_url: str = OPENROUTER_URL, max_output_cap: int | None = None):
+                 timeout_s: float = 2400, base_url: str = OPENROUTER_URL, max_output_cap: int | None = None):
         self.api_key = api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
         if not self.api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not set")
@@ -81,7 +81,7 @@ class OpenRouterClient:
         return max(1024, limit)
 
     async def complete(self, model: str, messages: list[dict]) -> ChatResult:
-        body = {"model": model, "messages": messages, "temperature": 0,
+        body = {"model": model, "messages": messages, "temperature": 0, "usage": {"include": True},
                 "max_tokens": await self.max_output_tokens(model, sum(len(m["content"]) for m in messages))}
         t0 = time.perf_counter()
         try:
@@ -124,6 +124,44 @@ class CachedClient:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(asdict(result)))
         return result
+
+
+class BudgetGuard:
+    """Stops new paid calls when spend so far plus a projection for the remaining planned calls would
+    exceed the budget. Spend is OpenRouter's reported `usage.cost` (USD) per response; cache hits cost 0."""
+
+    def __init__(self, inner: LLMClient, budget_usd: float, planned_calls: int, log=print):
+        self.inner = inner
+        self.budget = budget_usd
+        self.planned = planned_calls
+        self.spent = 0.0
+        self.done = 0
+        self.in_flight = 0
+        self.stopped = False
+        self.log = log
+
+    def projected(self) -> float:
+        avg = self.spent / self.done if self.done else 0.0
+        remaining = max(0, self.planned - self.done)
+        return self.spent + avg * remaining
+
+    async def complete(self, model: str, messages: list[dict]) -> ChatResult:
+        if self.stopped or (self.done >= 3 and self.projected() > self.budget) or self.spent >= self.budget:
+            if not self.stopped:
+                self.log(f"BUDGET STOP: spent ${self.spent:.2f}, projected ${self.projected():.2f} > ${self.budget:.2f}")
+            self.stopped = True
+            return ChatResult("", None, 0.0, model, error=f"budget guard: spent ${self.spent:.2f} of ${self.budget:.2f}")
+        self.in_flight += 1
+        try:
+            res = await self.inner.complete(model, messages)
+        finally:
+            self.in_flight -= 1
+        cost = res.usage.get("cost") if isinstance(res.usage, dict) else None
+        self.spent += float(cost or 0.0)
+        self.done += 1
+        self.log(f"  spend: +${float(cost or 0):.3f} ({model}, {res.usage.get('completion_tokens', '?')} out tok, "
+                 f"{res.finish_reason}) total ${self.spent:.2f}, projected ${self.projected():.2f}")
+        return res
 
 
 class MockClient:

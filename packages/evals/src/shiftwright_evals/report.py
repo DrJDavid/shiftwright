@@ -34,7 +34,7 @@ def color_for(systems: list[str]) -> dict[str, str]:
 
 
 def short(name: str) -> str:
-    return "Shiftwright" if name == "shiftwright" else name.removeprefix("baseline:")
+    return "Shiftwright" if name == "shiftwright" else name.removeprefix("baseline:").split("/")[-1]
 
 
 def fmt(x, nd=1, suffix="") -> str:
@@ -160,14 +160,14 @@ def scatter(rows: list[dict], systems: list[str], colors: dict[str, str]) -> str
 # --------------------------------------------------------------------------- #
 CSS = """
 body{%s;margin:0;background:#fff;color:#1d1d1d;font-size:19px;line-height:1.45}
-main{max-width:1180px;margin:0 auto;padding:28px 36px 80px}
+main{max-width:1280px;margin:0 auto;padding:28px 36px 80px}
 h1{font-size:40px;margin:0 0 6px}h2{font-size:30px;margin:44px 0 12px;border-bottom:3px solid #eee;padding-bottom:6px}
 h3{font-size:22px;margin:22px 0 8px}
 .banner{background:#fff3cd;border:3px solid #e0a800;padding:14px 18px;font-size:22px;font-weight:700;margin:16px 0}
 .note{color:#555;font-size:17px}
 table{border-collapse:collapse;width:100%%;margin:8px 0 18px}
 th,td{border-bottom:1px solid #e3e3e3;padding:7px 9px;text-align:left;vertical-align:top}
-th{background:#f6f6f6;font-size:17px}td:first-child{white-space:nowrap}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+th{background:#f6f6f6;font-size:16px}table.summary{font-size:17px}td:first-child{white-space:nowrap}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .big td{font-size:22px}.good{color:#0b7a53;font-weight:700}.bad{color:#b3261e;font-weight:700}
 .charts{display:grid;grid-template-columns:1fr;gap:30px}\n.cols{display:grid;grid-template-columns:3fr 2fr;gap:28px}table.vs{width:auto;min-width:60%%}
 table.runs{font-size:14px}table.runs td,table.runs th{padding:3px 6px}
@@ -203,22 +203,24 @@ def _why_unavailable(agg, s) -> str:
 
 
 def _summary_table(agg, systems, colors) -> str:
-    out = ['<table><tr><th>System</th><th class="n">Runs</th><th class="n">0 hard violations</th>'
+    out = ['<table class="summary"><tr><th>System</th><th class="n">Runs</th><th class="n">0 hard violations</th>'
            '<th class="n">Hard violations</th><th class="n">Unparseable</th><th class="n">Truncated</th>'
            '<th class="n">Budget respected</th><th class="n">Median coverage<br>(readable)</th>'
-           '<th class="n">Median cost vs Shiftwright</th><th class="n">Median latency</th></tr>']
+           '<th class="n">Median cost vs Shiftwright</th><th class="n">Median latency</th>'
+           '<th class="n">API cost, all suites</th></tr>']
     for s in systems:
         a = agg[s]["weekly"]
         if a["scored"] == 0:
             out.append(f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
-                       f'<td colspan="9" class="note">not run ({esc(_why_unavailable(agg, s))})</td></tr>')
+                       f'<td colspan="10" class="note">not run ({esc(_why_unavailable(agg, s))})</td></tr>')
             continue
         out.append(
             f'<tr><td><span class="swatch" style="background:{colors[s]}"></span>{esc(short(s))}</td>'
             f'<td class="n">{a["scored"]}</td><td class="n">{a["passed"]} / {a["scored"]}</td>'
             f'<td class="n">{a["hard_total"]}</td><td class="n">{a["unparseable"]}</td><td class="n">{a["truncated"]}</td>'
             f'<td class="n">{a["budget_ok"]} / {a["parsed"]}</td><td class="n">{fmt(a["median_coverage"], 1, "%")}</td>'
-            f'<td class="n">{fmt(a["median_cost_vs_sw"], 2, "×")}</td><td class="n">{fmt(a["median_latency_s"], 1, " s")}</td></tr>')
+            f'<td class="n">{fmt(a["median_cost_vs_sw"], 2, "×")}</td><td class="n">{fmt(a["median_latency_s"], 1, " s")}</td>'
+            f'<td class="n">{"$%.2f" % agg[s]["cost_usd"] if s != "shiftwright" else "–"}</td></tr>')
     out.append("</table>")
     return "".join(out)
 
@@ -376,6 +378,10 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
          f'<p class="note">Run <code>{esc(manifest["run_id"])}</code> · {n_scen} scenarios · suites: {esc(suites)}'
          f'{" (quick)" if manifest["quick"] else ""} · every number below is recounted from the run folder '
          f'<a href="{esc(rel)}/">{esc(rel)}/</a> and scored only by the independent validator.</p>']
+    spend = sum(r.get("cost_usd") or 0 for r in rows)
+    if spend:
+        p.append(f'<p class="note">OpenRouter cost of the baseline responses in this report (sum of '
+                 f'<code>usage.cost</code> in run.json): <b>${spend:.2f}</b>. Cached replies are reused, not re-billed.</p>')
     if manifest["mock_baselines"]:
         p.append('<div class="banner">MOCK BASELINES: the baseline rows are canned bad outputs used to test the '
                  'harness. They are not results from any real model.</div>')
@@ -399,6 +405,16 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     p.append('<p class="note">Infeasible scenarios (hard rules conflict, so no legal schedule exists). '
              '"Said infeasible on a feasible store" is counted over the weekly-build scenarios.</p>')
     p.append(_honesty_table(agg, names, colors))
+    suspects = sorted({(r["scenario"], r["expected_suspect"]) for r in rows if r.get("expected_suspect")})
+    for sid, why in suspects:
+        said = sorted(short(r["system"]) for r in rows if r["scenario"] == sid and r.get("honesty") == "suspect")
+        clean = sorted(short(r["system"]) for r in rows if r["scenario"] == sid and r.get("passed")
+                       and r.get("shifts") and not r.get("said_infeasible"))
+        counter = (f' However, {esc(", ".join(clean))} returned a schedule for it with 0 hard violations, so the '
+                   f'store may in fact be feasible; under review.' if clean else "")
+        p.append(f'<p class="note"><b>Suspect scenario</b> <code>{esc(sid)}</code>: {esc(why)} '
+                 f'Saying "infeasible" there is not counted as a false "infeasible"'
+                 f'{" (said so: " + esc(", ".join(said)) + ")" if said else ""}.{counter}</p>')
     p.append("<h2>Call-out repair</h2>")
     p.append(_repair_table(rows, names, colors))
     p.append("<h2>Worked example</h2>")

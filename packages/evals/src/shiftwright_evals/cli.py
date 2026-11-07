@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from .llm import CachedClient, MockClient, OpenRouterClient
+from .llm import BudgetGuard, CachedClient, MockClient, OpenRouterClient
 from .mock import MOCK_MODELS
 from .report import build
 from .runner import run_all
@@ -37,12 +37,16 @@ def parse_args(argv):
     p.add_argument("--engine-workers", type=int, default=2, help="concurrent engine solves")
     p.add_argument("--max-output-tokens", type=int, default=None,
                    help="cap baseline max_tokens (default: as high as each model allows)")
+    p.add_argument("--budget-usd", type=float, default=None,
+                   help="stop new paid calls if spend + projection exceeds this (uses OpenRouter usage.cost)")
     p.add_argument("--concurrency", type=int, default=4, help="max concurrent baseline API calls")
     p.add_argument("--out-dir", type=Path, default=PKG_ROOT / "runs")
     p.add_argument("--reports-dir", type=Path, default=PKG_ROOT / "reports")
     p.add_argument("--cache-dir", type=Path, default=PKG_ROOT / ".cache")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--run-id", default=None)
+    p.add_argument("--report-only", metavar="RUN_ID", default=None,
+                   help="rebuild the report for an existing run folder; runs nothing")
     return p.parse_args(argv)
 
 
@@ -66,6 +70,7 @@ async def _amain(args) -> int:
     systems: list = [engine]
     notes = []
     real_client = None
+    guard = None
     if args.mock_baselines:
         client = CachedClient(MockClient(), cache_dir / "llm-mock" if cache_dir else None)
         systems += [BaselineSystem(m, client, mock=True) for m in MOCK_MODELS]
@@ -76,7 +81,11 @@ async def _amain(args) -> int:
             client = CachedClient(MockClient(), None)
         else:
             real_client = OpenRouterClient(max_output_cap=args.max_output_tokens)
-            client = CachedClient(real_client, cache_dir / "llm" if cache_dir else None)
+            paid = real_client
+            if args.budget_usd is not None:
+                planned = len(build_cases(suites, args.quick)) * len(models)
+                paid = guard = BudgetGuard(real_client, args.budget_usd, planned)
+            client = CachedClient(paid, cache_dir / "llm" if cache_dir else None)
             systems += [BaselineSystem(m, client) for m in models]
     for n in notes:
         print(f"note: {n}", file=sys.stderr)
@@ -99,6 +108,8 @@ async def _amain(args) -> int:
                     for s in systems],
         "llm_calls": {"hits": client.hits, "misses": client.misses},
         "engine_calls": {"hits": engine.hits, "misses": engine.misses},
+        "openrouter_spend_usd": round(guard.spent, 4) if guard else None,
+        "budget_stopped": guard.stopped if guard else None,
         "notes": notes,
         "started": datetime.now().isoformat(timespec="seconds"),
         "wall_s": round(time.perf_counter() - t0, 1),
@@ -110,4 +121,10 @@ async def _amain(args) -> int:
 
 
 def main(argv=None) -> int:
-    return asyncio.run(_amain(parse_args(argv if argv is not None else sys.argv[1:])))
+    args = parse_args(argv if argv is not None else sys.argv[1:])
+    if args.report_only:
+        run_dir = args.out_dir / args.report_only
+        manifest = json.loads((run_dir / "manifest.json").read_text())
+        print(f"report: {build(run_dir, args.reports_dir / args.report_only, manifest)}")
+        return 0
+    return asyncio.run(_amain(args))

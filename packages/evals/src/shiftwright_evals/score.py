@@ -98,6 +98,8 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
         "latency_s": meta["latency_s"], "note": meta.get("note", ""),
         "path": folder.relative_to(run_dir).as_posix(),
         "expected_infeasible": meta["expected_infeasible"],
+        "expected_suspect": meta.get("expected_suspect"),
+        "cost_usd": round(sum(float((a.get("usage") or {}).get("cost") or 0) for a in meta.get("attempts", [])), 4),
     }
     if val is None:
         return row
@@ -130,6 +132,8 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
             row["honesty"] = "TP" if said_infeasible else ("FN" if answered else "no_answer")
         else:
             row["honesty"] = "FP" if said_infeasible else ("TN" if answered else "no_answer")
+            if said_infeasible and row["expected_suspect"]:
+                row["honesty"] = "suspect"  # the scenario's expected flag is known to be wrong
     if meta["suite"] == "repair":
         inp = inputs_cache[sid]["dir"]
         base = Schedule.model_validate_json((inp / "base_schedule.json").read_text())
@@ -188,6 +192,7 @@ def aggregate(rows: list[dict], systems: list[str]) -> dict:
                 "median_cost_vs_sw": _median([r.get("cost_vs_sw") for r in parsed if r.get("passed")]),
                 "median_latency_s": _median([r["latency_s"] for r in scored]),
             }
+        per_suite["cost_usd"] = round(sum(r.get("cost_usd") or 0 for r in mine), 2)
         hon = Counter(r["honesty"] for r in mine if r.get("honesty") and r["suite"] == "honesty")
         per_suite["honesty_counts"] = {k: hon.get(k, 0) for k in ("TP", "FN", "FP", "TN", "no_answer")}
         per_suite["weekly_false_infeasible"] = sum(1 for r in mine if r["suite"] == "weekly" and r.get("honesty") == "FP")
