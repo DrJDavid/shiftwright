@@ -310,6 +310,49 @@ class ChatBaseline:
         return out
 
 
+class ChatReplay:
+    """`--rescore-from` for chat:<model>: re-maps `<old_run>/<system>/<scenario>/raw_output.txt` (the final
+    reply) against the *current* config. No client, so it cannot call a model."""
+
+    realistic = True
+    replay = True
+
+    def __init__(self, name: str, old_run_dir: Path):
+        self.name = name
+        self.old = old_run_dir
+        self.available = True
+        self.unavailable_reason = None
+        self.missing: list[str] = []
+        self.blocked: dict[str, str] = {}
+
+    async def run_realistic(self, case: Case) -> Output:
+        sid = case.scenario_id
+        f = self.old / self.name.replace(":", "_").replace("/", "__") / sid
+        if sid in self.blocked:
+            self.missing.append(sid)
+            return Output("", outcome="unavailable",
+                          note=f"store changed since {self.old.name} ({self.blocked[sid]}); needs a new prompt")
+        if not (f / "run.json").exists():
+            self.missing.append(sid)
+            return Output("", outcome="unavailable",
+                          note=f"no reply for this scenario in {self.old.name}; not re-prompted (no new spend)")
+        meta = json.loads((f / "run.json").read_text())
+        raw = (f / "raw_output.txt").read_text()
+        out = Output((f / "prompt.txt").read_text(), raw_text=raw, latency_s=meta.get("latency_s"),
+                     attempts=meta.get("attempts", []), outcome=meta["outcome"],
+                     note=f"re-scored from {self.old.name} (reply to that run's prompt)")
+        for extra in f.glob("raw_output.attempt*.txt"):
+            out.extra_files[extra.name] = extra.read_text()
+        if out.outcome == "error":
+            return out
+        sched, info = csv_to_schedule(raw, case.config, self.name)
+        out.extra_files["mapping.json"] = json.dumps(info, indent=1)
+        if sched is None and out.outcome == "ok":
+            out.outcome = "unparseable"
+        out.schedule_input = sched if sched is not None else raw
+        return out
+
+
 # --------------------------------------------------------------------------- #
 # shiftwright:intake (the real API, in-process)
 # --------------------------------------------------------------------------- #

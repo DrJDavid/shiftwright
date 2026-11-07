@@ -34,6 +34,12 @@ def test_rescore_reuses_replies_and_lists_changed_stores(tmp_path, monkeypatch):
             continue
         assert r["reused_from"] and r["outcome"] == old[r["key"]]["outcome"]
         assert r.get("hard_count") == old[r["key"]].get("hard_count")  # same config -> same score
+    chat = [r for r in new["rows"] if r["system"].startswith("chat:")]
+    assert chat and {r["system"] for r in chat} == {"chat:mock-a", "chat:mock-b"}
+    for r in chat:
+        assert r["reused_from"] and r["outcome"] == old[r["key"]]["outcome"]
+        assert r.get("hard_count") == old[r["key"]].get("hard_count")
+        assert r.get("coverage_pct") == old[r["key"]].get("coverage_pct")
     html = (tmp_path / "reports" / "new" / "report.html").read_text()
     assert "re-scored" in html and "Not re-scored" in html
     # The old reply files are carried over verbatim.

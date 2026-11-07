@@ -102,6 +102,8 @@ def test_report_numbers_match_recount(two_runs):
         assert row["by_code"] == dict(Counter(v["code"] for v in hard))
         assert row["coverage_pct"] == round(val["recomputed_metrics"]["coverage_pct"], 1)
         assert row["wage_cost"] == round(val["recomputed_metrics"]["total_wage_cost"], 2)
+        metrics = val["recomputed_metrics"]
+        assert row["real_cost"] == round(metrics["total_wage_cost"] + metrics["premium_pay_dollars"], 2)
         # Same numbers in the HTML all-runs table.
         m = re.search(r'<tr id="run-%s">(.*?)</tr>' % re.escape(row["key"]), html, re.S)
         assert m, row["key"]

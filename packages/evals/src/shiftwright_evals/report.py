@@ -361,7 +361,7 @@ def _worked(ex, sw, run_dir: Path, rel: str, colors) -> str:
 def _runs_table(rows, rel: str) -> str:
     out = ['<table class="runs"><tr><th>System</th><th>Scenario</th><th>Outcome</th><th>Status</th>'
            '<th class="n">Hard</th><th>By code</th><th class="n">Coverage %</th><th class="n">Wage $</th>'
-           '<th class="n">Objective $</th><th class="n">Hours / cap</th><th class="n">vs SW</th><th>Honesty</th>'
+           '<th class="n">Premium $</th><th class="n">Hours / cap</th><th class="n">vs SW</th><th>Honesty</th>'
            '<th class="n">Latency s</th><th>Files</th></tr>']
     for r in rows:
         codes = ", ".join(f"{k} {v}" for k, v in sorted(r.get("by_code", {}).items()))
@@ -371,7 +371,7 @@ def _runs_table(rows, rel: str) -> str:
             f'<td>{esc(r["outcome"])}</td><td>{esc(r.get("status") or "–")}</td>'
             f'<td class="n">{r.get("hard_count", "–")}</td><td>{esc(codes)}</td>'
             f'<td class="n">{fmt(r.get("coverage_pct"), 1)}</td><td class="n">{fmt(r.get("wage_cost"), 2)}</td>'
-            f'<td class="n">{fmt(r.get("objective"), 2)}</td><td class="n">{hours}</td>'
+            f'<td class="n">{fmt(r.get("premium_pay"), 2)}</td><td class="n">{hours}</td>'
             f'<td class="n">{fmt(r.get("cost_vs_sw"), 2)}</td><td>{esc(r.get("honesty", "–"))}</td>'
             f'<td class="n">{fmt(r.get("latency_s"), 2)}</td>'
             f'<td><a href="{esc(rel)}/{esc(r["path"])}/">files</a></td></tr>')
@@ -555,13 +555,15 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
     p.append("</div>")
     p.append(_summary_table(agg, names, colors))
     p.append('<p class="note">Unparseable and truncated replies count as failed schedules. "Cost vs Shiftwright" '
-             'compares the validator-recomputed objective (wages + premiums + gap and soft penalties) on scenarios '
-             'where both schedules pass every hard rule.</p>')
+             'compares validator-recomputed real cost (wages incl. overtime + legal premiums) on scenarios where '
+             'both schedules pass every hard rule. Gap and preference penalties are not dollars (they rank '
+             'coverage and preferences), so they are not part of it; coverage is compared separately.</p>')
     p.append("<h2>Coverage and cost</h2><div class='charts'>")
     p.append(bar_chart(cov_items, "Median coverage of demand, schedules with no hard violations"))
     p.append(cost_time_chart(agg, names, colors))
     p.append(scatter(rows, names, colors))
-    p.append("</div><p class='note'>Cost vs Shiftwright: median ratio of validator-recomputed objectives, over "
+    p.append("</div><p class='note'>Cost vs Shiftwright: median ratio of validator-recomputed real cost "
+             "(wages incl. overtime + legal premiums), over "
              "scenarios where both schedules break no hard rule; below 1.00× = cheaper than Shiftwright. "
              "Filled dot = no hard violations; hollow = breaks at least one hard rule. "
              "Right of the dashed line = over the corporate hours budget.</p>")

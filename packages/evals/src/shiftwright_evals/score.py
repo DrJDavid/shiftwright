@@ -122,6 +122,10 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
         "shifts": len(schedule.shifts) if schedule else 0,
         "coverage_pct": round(m["coverage_pct"], 1),
         "wage_cost": round(m["total_wage_cost"], 2),
+        "premium_pay": round(m["premium_pay_dollars"], 2),
+        # Real money: wages incl. overtime (SEMANTICS #2) + legal premiums, the sum the dollar budget caps (#10).
+        "real_cost": round(m["total_wage_cost"] + m["premium_pay_dollars"], 2),
+        # Kept for reference only: gap and soft penalties in it are ranks since C3 (SEMANTICS #25), not prices.
         "objective": round(m["objective_dollars"], 2),
         "hours_used": round(m["budget_hours_used"], 1),
         "hours_cap": round(m["budget_hours_cap"], 1),
@@ -166,13 +170,17 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
 def collect(run_dir: Path) -> list[dict]:
     cache: dict = {}
     rows = [score_run(run_dir, f.parent, cache) for f in sorted(run_dir.glob("*/*/run.json"))]
-    # Cost vs Shiftwright's objective: only against an engine schedule that passed the validator.
+    add_cost_vs_sw(rows)
+    return rows
+
+
+def add_cost_vs_sw(rows: list[dict]) -> None:
+    """Real cost vs Shiftwright's, only against an engine schedule that passed the validator."""
     sw = {r["scenario"]: r for r in rows if r["system"] in ("shiftwright", "shiftwright:intake") and r.get("passed")}
     for r in rows:
         ref = sw.get(r["scenario"])
-        r["cost_vs_sw"] = (round(r["objective"] / ref["objective"], 3)
-                           if ref and r.get("parsed") and ref["objective"] > 0 else None)
-    return rows
+        r["cost_vs_sw"] = (round(r["real_cost"] / ref["real_cost"], 3)
+                           if ref and r.get("parsed") and ref["real_cost"] > 0 else None)
 
 
 def _median(xs):

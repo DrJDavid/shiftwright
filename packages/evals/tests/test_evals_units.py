@@ -133,3 +133,17 @@ def test_mock_assignment_is_keyed_on_store_and_covers_every_kind():
         assert picked == [mock._pick(model, sid, kinds) for sid in stores]  # deterministic
     assert set(mock._pick("mock-a", sid, mock.WEEKLY_KINDS["mock-a"]) for sid in stores) == set(mock.WEEKLY_KINDS["mock-a"])
     assert mock._pick("mock-a", "gen-s-infeasible-1", mock.WEEKLY_KINDS["mock-a"]) == "sloppy"
+
+
+def test_cost_vs_sw_compares_real_cost_not_objective():
+    from shiftwright_evals.score import add_cost_vs_sw
+    def row(system, real_cost, objective, passed=True):
+        return {"system": system, "scenario": "s", "parsed": True, "passed": passed,
+                "real_cost": real_cost, "objective": objective}
+    # The baseline leaves more demand open (bigger objective) but pays less: it is cheaper, not dearer.
+    rows = [row("shiftwright", 1000.0, 50000.0), row("baseline:x", 900.0, 80000.0)]
+    add_cost_vs_sw(rows)
+    assert rows[1]["cost_vs_sw"] == 0.9
+    rows = [row("shiftwright", 1000.0, 50000.0, passed=False), row("baseline:x", 900.0, 80000.0)]
+    add_cost_vs_sw(rows)
+    assert rows[1]["cost_vs_sw"] is None

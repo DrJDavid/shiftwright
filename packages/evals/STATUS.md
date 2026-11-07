@@ -39,6 +39,53 @@
   plus OpenRouter request shape/retry/cache/truncation/HTTP error via `httpx.MockTransport`, prompt completeness,
   mock kinds → intended validator codes.
 
+**C3c: cost compared on real money; `real-quick-3` and `realistic-quick-2`, Sat Nov 7 ~08:10 CT, branch
+`cursor/C3c-evals` (= `cursor/C3-coverage-first` d367a41: ranked objective rules → coverage tiers → preference
+tiers → real cost) (no spend).**
+- "Cost vs SW" is now the ratio of validator-recomputed **real cost** = `total_wage_cost` (incl. overtime,
+  SEMANTICS #2) + `premium_pay_dollars` (legal premiums), the same sum the dollar budget caps (#10). It no longer
+  uses `objective_dollars`: its gap and soft penalties are ranks since C3 (#25), not prices. Rows carry
+  `wage_cost`, `premium_pay`, `real_cost` (`objective` kept in report.json for reference only); the all-runs table
+  shows Premium $ instead of Objective $. Every earlier "Cost vs SW" in this file is objective-based.
+- Read it next to coverage: real cost rewards leaving demand open (Grok's clean M legal_trap CA schedule is 0.76×
+  at 66.2% coverage vs Shiftwright's 87.6%).
+- New `ChatReplay` (`realistic.py`): `--rescore-from` now also replays `chat:<model>` replies (re-maps the stored
+  final CSV reply against today's config; no client, so it cannot call a model).
+- Commands (keys unset): `env -u OPENROUTER_API_KEY -u BASELINE_MODELS … uv run python -m shiftwright_evals --quick
+  --suites weekly,honesty,repair --rescore-from real-quick-1 --run-id real-quick-3` and `… --suites realistic
+  --rescore-from realistic-quick-1 --run-id realistic-quick-2`. Both manifests: llm calls 0 hits / 0 misses,
+  OpenRouter spend none, nothing under "Not re-scored". real-quick-3: 10 fresh engine solves, 197 s wall.
+  "Before" = real-quick-2 (pre-C3 engine) rebuilt with `--report-only` under the new cost definition.
+
+| Weekly build (6) | 0 hard | Hard | Legal coverage | Real cost vs SW, before (real-quick-2) | after (real-quick-3) | SW time / schedule |
+|---|---|---|---|---|---|---|
+| Shiftwright (30 s, 8 workers) | 6/6 | 0 | 90.0% → 89.6% | 1.00× | 1.00× | 21 s → 32 s |
+| grok-4.7 | 5/6 | 4 | 90.0% | 0.998× | 0.985× | (1,299 s) |
+| claude-opus-5.5 | 5/6 | 3 | 90.2% | 1.002× | 0.986× | (425 s) |
+| gpt-6.1-terra-pro | 2/6 | 14 | 91.05% | 1.024× | 0.995× | (216 s) |
+
+Shiftwright per scenario, real-quick-2 → real-quick-3 (all 0 hard, no premiums on any clean schedule):
+
+| Scenario | Coverage | Real cost | Time |
+|---|---|---|---|
+| S easy TX | 100.0% → 99.4% | $11,692.00 → $11,606.00 | 14 s → 16 s |
+| S tight TX | 90.0% → 90.0% | $10,795.50 → $10,806.00 | 14 s → 22 s |
+| S legal_trap CA | 89.1% → 86.1% | $12,555.88 → $12,713.38 | 25 s → 42 s |
+| M easy TX | 94.8% → 99.9% | $25,047.25 → $26,504.75 | 20 s → 27 s |
+| M tight TX | 90.0% → 89.2% | $24,169.62 → $24,569.88 | 22 s → 37 s |
+| M legal_trap CA | 88.5% → 87.6% | $28,931.25 → $29,238.12 | 25 s → 47 s |
+
+**For WS1 (C3):** on S legal_trap CA, M tight TX and M legal_trap CA, C3's schedule has lower coverage *and*
+higher real cost than the pre-C3 one. `coverage_pct` weights every role-hour equally, so tier reordering may
+explain the coverage side; not checked here (the report has no per-tier coverage). Times exceed the 30 s limit
+(what-ifs / stages, load avg ~11–18). Honesty 2/2 for all; repair Shiftwright 2/2 clean (94.25% median, 1.6 s).
+
+Realistic (`realistic-quick-1` real replies, rescored as `realistic-quick-2`): no system has a schedule with 0 hard
+violations on any of the 4 stores, so there is no real-cost ratio. Chat rows re-score identically (Grok 0/4,
+153 hard; Opus 0/4, 168 hard; GPT 4 × `error`: the original run's $8 budget guard stopped it). shiftwright:intake
+builds an empty schedule (7 always_staffed per store) with both the original real agent (recall 4/12, 4/9 food)
+and today's FakeLLM (2/12, 2/9), so it does not exercise the engine; food is now included (E1 merged).
+
 **E2: `real-quick-2`, Sat Nov 7 ~05:00 CT, branch `cursor/E2-rescore` (main + WS1 C1 fix-plan + C2 split shifts) (no spend).**
 `env -u OPENROUTER_API_KEY -u BASELINE_MODELS uv run python -m shiftwright_evals --quick --rescore-from real-quick-1
 --run-id real-quick-2`, production engine defaults (`S=30,M=30,L=60`, 8 CP-SAT workers, 1 solve at a time; load avg
