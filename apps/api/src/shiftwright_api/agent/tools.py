@@ -24,6 +24,7 @@ from shiftwright_contracts.models import (
     EventKind,
     Jurisdiction,
     LawRuleType,
+    Employee,
     Role,
     RuleStatus,
     StoreConfig,
@@ -154,6 +155,9 @@ def ask_store_basics(ctx: ToolContext, args: dict) -> CardRequest:
         if _cancelled(result):
             return CANCELLED
         fields = {k: v for k, v in result.items() if k != "id"}
+        if isinstance(fields.get("hours"), list):  # a closed day is simply absent
+            fields["hours"] = [h for h in fields["hours"] if isinstance(h, dict) and not h.get("closed")
+                               and "open" in h and "close" in h]
 
         def fn(d):
             d["store"].update(fields)
@@ -615,14 +619,26 @@ def upsert_role(ctx: ToolContext, args: dict) -> ToolResult:
 
 
 def upsert_employee(ctx: ToolContext, args: dict) -> ToolResult:
-    emp = args.get("employee") or {}
+    emp = dict(args.get("employee") or {})
 
     def fn(d):
-        roles = {r["id"] for r in d["roles"]}
+        roles = {r["id"]: r for r in d["roles"]}
         bad = [r for r in emp.get("trained_role_ids", []) if r not in roles]
         if bad:
             raise ToolError(f"Unknown role ids {bad}; add the roles first.")
-        _upsert(d["employees"], emp)
+        old = next((e for e in d["employees"] if e["id"] == emp.get("id")), {})
+        merged = {**old, **emp}
+        # chat-entered people: fill structural defaults the leader wasn't asked about (never wages/ages)
+        trained = merged.get("trained_role_ids") or []
+        merged.setdefault("trained_role_ids", trained)
+        if not merged.get("home_department_id") and trained:
+            merged["home_department_id"] = roles[trained[0]]["department_id"]
+        merged.setdefault("status", "part_time")
+        merged.setdefault("hire_date", d["store"]["week_start"])
+        if merged.get("phone"):
+            from ..imports import parse_phone
+            merged["phone"] = parse_phone(str(merged["phone"])) or merged["phone"]
+        _upsert(d["employees"], merged)
     return ctx.mutate("upsert_employee", {"employee_id": emp.get("id")}, fn, [f"employee {emp.get('id')}"])
 
 
@@ -919,8 +935,10 @@ TOOLS: list[Tool] = [
     Tool("upsert_role", "Add or update a role. Pass `department` to add its department too, `tags` for role tags.",
          _obj({"role": {**_schema(Role)}, "department": {"type": "object"},
                "tags": {"type": "array", "items": {"type": "string"}}}, ["role"]), upsert_role, "mutation"),
-    Tool("upsert_employee", "Add or update an employee (trained roles must exist).",
-         _obj({"employee": {"type": "object", "description": "An Employee (see contracts)."}}, ["employee"]),
+    Tool("upsert_employee", "Add or update one employee (trained roles must exist). Required: id, name, age, "
+         "phone, wage_per_hour, trained_role_ids. home_department_id defaults to the first role's department, "
+         "status to part_time. tipped_wage_per_hour only if the leader states a tipped cash wage.",
+         _obj({"employee": {**_schema(Employee)}}, ["employee"]),
          upsert_employee, "mutation"),
     Tool("set_demand", "Add/update DemandRequirements. `replace_days` first clears those days.",
          _obj({"requirements": {"type": "array", "items": {"type": "object"}},

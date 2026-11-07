@@ -99,10 +99,22 @@ def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readin
     else:
         rate, rule_id = floor
         low = [e for e in config.employees if e.wage_per_hour < rate]
-        add("minimum_wage", "Wages at or above minimum wage", not low,
-            f"All wages ≥ ${rate:.2f}/hr ({rule_id})." if not low else
-            f"Below the ${rate:.2f}/hr minimum ({rule_id}): "
-            + ", ".join(f"{e.name} (${e.wage_per_hour:.2f})" for e in low))
+        # SEMANTICS #20/#15: tipped cash wages vs tipped_minimum_wage, or the full minimum when there is none
+        tipped_roles = {r.id for r in config.roles if r.tipped}
+        tip = minimum_wage(pack, s.week_start, LawRuleType.tipped_minimum_wage, "cash_wage_per_hour")
+        t_rate, t_rule = tip if tip else (rate, rule_id)
+        low_tip = [e for e in config.employees if e.tipped_wage_per_hour is not None
+                   and tipped_roles & set(e.trained_role_ids) and e.tipped_wage_per_hour < t_rate]
+        parts = []
+        if low:
+            parts.append(f"Below the ${rate:.2f}/hr minimum ({rule_id}): "
+                         + ", ".join(f"{e.name} (${e.wage_per_hour:.2f})" for e in low))
+        if low_tip:
+            parts.append(f"Tipped cash wage below ${t_rate:.2f}/hr ({t_rule}"
+                         + ("" if tip else "; no tipped minimum wage in the law pack, so the full minimum applies")
+                         + "): " + ", ".join(f"{e.name} (${e.tipped_wage_per_hour:.2f})" for e in low_tip))
+        add("minimum_wage", "Wages at or above minimum wage", not (low or low_tip),
+            f"All wages ≥ ${rate:.2f}/hr ({rule_id})." if not parts else " ".join(parts))
 
     prov = [c.note or c.kind.value.replace("_", " ") for c in config.constraints
             if c.status == RuleStatus.provisional]
@@ -113,17 +125,18 @@ def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readin
     return Readiness(ready=ready, checks=checks)
 
 
-def minimum_wage(pack: LawPack, on: date) -> tuple[float, str] | None:
-    """Highest minimum_wage rule in effect on `on` (most protective wins), as (rate, rule id)."""
+def minimum_wage(pack: LawPack, on: date, rule_type: LawRuleType = LawRuleType.minimum_wage,
+                 key: str = "dollars_per_hour") -> tuple[float, str] | None:
+    """Highest rule of `rule_type` in effect on `on` (most protective wins), as (rate, rule id)."""
     best: tuple[float, str] | None = None
     for r in pack.rules:
-        if r.type != LawRuleType.minimum_wage:
+        if r.type != rule_type:
             continue
         eff = r.params.get("effective")
         try:
             if eff and date.fromisoformat(str(eff)) > on:
                 continue
-            rate = float(r.params["dollars_per_hour"])
+            rate = float(r.params[key])
         except (KeyError, TypeError, ValueError):
             continue
         if best is None or rate > best[0]:

@@ -7,9 +7,13 @@ Mode: onboarding. Work through what `readiness_check` says is missing, in this o
    costs or how many hours they usually schedule; never invent a cap.
 3. Roles in their own words (ask_roles): e.g. for a restaurant server, host, line cook, prep,
    dishwasher, bartender; mark `tipped` roles if they say staff get tips. Group roles into areas
-   (departments) only as they describe them (one area is fine for a small place).
+   (departments) only as they describe them (one area is fine for a small place). If they say a role
+   works hazardous equipment (fryer, meat slicer, forklift, baler, power saw, driving, ladders,
+   alcohol), add that ROLE_TAGS tag with upsert_role `tags` and tell them minor-labor rules use it.
 4. People: CSV import if they have an export, otherwise upsert_employee from chat (name, age,
-   wage, phone, roles). Ask for ages when minors might work there (hazard rules depend on it).
+   wage, phone, roles), one call per person. Ask for ages when minors might work there (hazard rules
+   depend on it). If they state a tipped cash wage, put it in `tipped_wage_per_hour` and keep
+   `wage_per_hour` for untipped hours; never look up or suggest a tipped wage yourself.
 5. Training (ask_training_matrix) if not already clear.
 6. Staffing (demand):
    - If they have a forecast or labor-model export, ask_csv_import with the matching kind

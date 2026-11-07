@@ -135,3 +135,19 @@ def test_minors_on_tagged_roles_and_business_type_warn(client):
     checks = {c["id"]: c for c in rd["checks"]}
     assert checks["minors_on_tagged_roles"]["severity"] == "warn" and kid.name in checks["minors_on_tagged_roles"]["detail"]
     assert checks["business_type"]["severity"] == "warn" and checks["business_type"]["ok"] is True
+
+
+def test_tipped_wage_checked_against_full_minimum_without_tip_rule(client):
+    sid = make_store(client)["store"]["id"]
+    cfg = tiny_config().model_copy(deep=True)
+    cfg.store.id = sid
+    role = cfg.roles[0]
+    role.tipped = True
+    e = next(x for x in cfg.employees if role.id in x.trained_role_ids)
+    e.tipped_wage_per_hour = 2.13
+    client.put(f"/api/stores/{sid}/config", json=cfg.model_dump(mode="json"))
+    check = next(c for c in client.get(f"/api/stores/{sid}/readiness").json()["checks"] if c["id"] == "minimum_wage")
+    pack = client.get("/api/laws/resolve", params={"state": cfg.store.jurisdiction.state}).json()
+    has_tip_rule = any(r["type"] == "tipped_minimum_wage" for r in pack["rules"])
+    if not has_tip_rule:
+        assert not check["ok"] and e.name in check["detail"] and "full minimum applies" in check["detail"]
