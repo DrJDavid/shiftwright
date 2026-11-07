@@ -102,3 +102,24 @@ def test_mock_false_feasible_on_infeasible_store():
     rep = validate_raw(case.config, text)
     assert extract_json(text)[0]["status"] == "feasible"
     assert not rep.passed
+
+
+def test_budget_guard_stops_on_projection():
+    from shiftwright_evals.llm import BudgetGuard, ChatResult
+
+    class Paid:
+        calls = 0
+
+        async def complete(self, model, messages):
+            Paid.calls += 1
+            return ChatResult("{}", "stop", 0.0, model, usage={"cost": 5.0, "completion_tokens": 10})
+
+    guard = BudgetGuard(Paid(), budget_usd=42, planned_calls=10, log=lambda *_: None)
+
+    async def go():
+        return [await guard.complete("m", [{"role": "user", "content": "x"}]) for _ in range(10)]
+
+    results = asyncio.run(go())
+    # After 3 calls at $5 the projection is $50 > $42: no further paid calls.
+    assert Paid.calls == 3 and guard.stopped and guard.spent == 15.0
+    assert results[-1].error and "budget guard" in results[-1].error

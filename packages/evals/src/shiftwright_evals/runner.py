@@ -85,6 +85,7 @@ def write_run(folder: Path, system: str, case: Case, out: Output) -> None:
         "difficulty": case.difficulty, "seed": case.seed, "jurisdiction": case.jurisdiction,
         "outcome": out.outcome, "latency_s": out.latency_s, "attempts": out.attempts, "note": out.note,
         "expected_infeasible": case.expected_infeasible,
+        "expected_suspect": case.expected_suspect,
         "expected_conflicting_ids": case.scenario.expected.get("conflicting_ids", []),
     }
     _write(folder / "run.json", _dump(meta))
