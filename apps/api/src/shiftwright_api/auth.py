@@ -27,7 +27,7 @@ COOKIE = "sw_session"
 SESSION_DAYS = 30
 _SCRYPT = dict(n=2**14, r=8, p=1, dklen=32)
 BAD_LOGIN = "Wrong email or password."
-PUBLIC = ("/api/health", "/api/templates", "/api/sms/inbound")
+PUBLIC = ("/api/health", "/api/templates", "/api/sms/inbound", "/api/sms/optin")
 STORE_PATH = re.compile(r"^/api/stores/([^/]+)")
 
 
