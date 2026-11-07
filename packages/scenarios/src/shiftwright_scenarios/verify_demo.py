@@ -6,11 +6,12 @@ Checks:
   1. solve_week returns a schedule (optimal/feasible).
   2. Each demo call-out (expected.demo.callout_employee_ids) has a Saturday shift still running
      at 06:04 that starts by 12:00 ("Saturday morning").
-  3. The demo phones (expected.demo.demo_phone_employee_ids) rank 1-2 for outreach. With
-     fix_day: the engine's outreach_queue. Without it: a proxy from config + schedule only,
-     ranking every callable employee (adult non-leader, trained in a called-out role, no
-     Saturday shift, free Saturday morning, under max days and max hours) by
-     est_accept_prob = (accepted+1)/(offered+2), then wage.
+  3. The repair is possible but not trivial:
+     - the call-outs leave real work behind (headcount-hours after 06:04, by role);
+     - several plausible call-in candidates exist: adult non-leaders trained (and old enough) for a
+       called-out role, with no Saturday shift, free Saturday morning, under max days and max hours,
+       and a decent call-in record (offered >= 2, (accepted+1)/(offered+2) >= 0.5).
+     With fix_day, also the engine's plan (actions, outreach queue, coverage before/after).
 If a call-out misses, `repick` suggests replacements via pick_callouts() (demo people excluded).
 """
 from __future__ import annotations
@@ -33,6 +34,9 @@ from .demo import SATURDAY
 from .fixtures import load_demo_scenario
 
 MORNING_END = 12 * 60
+MIN_PLAUSIBLE = 3        # "several" call-in candidates
+DECENT_PROB = 0.5
+CALL_IN_HOURS = 4        # min shift length in the demo store
 
 
 def engine_functions() -> tuple[Optional[Callable], Optional[Callable]]:
@@ -56,8 +60,13 @@ def est_accept_prob(e) -> float:
     return (a.callins_accepted_90d + 1) / (a.callins_offered_90d + 2)
 
 
-def proxy_outreach_ranking(cfg: StoreConfig, sched: Schedule, callout_ids: list[str], day: int = SATURDAY,
-                           now: int = DEFAULT_REPORTED_AT) -> list[str]:
+def _paid_hours(s) -> float:
+    return (s.end - s.start - sum(b.end - b.start for b in s.breaks if not b.paid)) / 60
+
+
+def callin_candidates(cfg: StoreConfig, sched: Schedule, callout_ids: list[str], day: int = SATURDAY,
+                      now: int = DEFAULT_REPORTED_AT) -> list[dict]:
+    """Everyone who could be called in for a called-out role, best call-in record first."""
     roles = sorted({g.role_id for s in sched.shifts if s.employee_id in callout_ids and s.day == day
                     for g in s.segments if g.end > now})
     min_age = {r.id: r.min_age for r in cfg.roles}
@@ -65,22 +74,24 @@ def proxy_outreach_ranking(cfg: StoreConfig, sched: Schedule, callout_ids: list[
                     if c.kind == ConstraintKind.max_days_per_week and c.strength.value == "hard"), default=7)
     working_today = {s.employee_id for s in sched.shifts if s.day == day}
     days = {e.id: len({s.day for s in sched.shifts if s.employee_id == e.id}) for e in cfg.employees}
-    hours = {e.id: sum((s.end - s.start - sum(b.end - b.start for b in s.breaks if not b.paid)) / 60
-                       for s in sched.shifts if s.employee_id == e.id) for e in cfg.employees}
+    hours = {e.id: sum(_paid_hours(s) for s in sched.shifts if s.employee_id == e.id) for e in cfg.employees}
 
-    def callable_(e) -> bool:
+    out: list[dict] = []
+    for e in cfg.employees:
         if e.home_department_id == "leadership" or e.id in working_today or e.id in callout_ids:
-            return False
-        if not any(r in e.trained_role_ids and e.age >= min_age.get(r, 0) for r in roles):
-            return False
-        if days[e.id] >= max_days or hours[e.id] + 4 > e.max_hours_week:
-            return False
-        return not any(a.kind == AvailabilityKind.unavailable and a.weekday == day and a.start < MORNING_END
-                       and now < a.end for a in e.availability)
-
-    cands = [e for e in cfg.employees if callable_(e)]
-    cands.sort(key=lambda e: (-est_accept_prob(e), e.wage_per_hour, e.id))
-    return [e.id for e in cands]
+            continue
+        can = [r for r in roles if r in e.trained_role_ids and e.age >= min_age.get(r, 0)]
+        if not can or days[e.id] >= max_days or hours[e.id] + CALL_IN_HOURS > e.max_hours_week:
+            continue
+        if any(a.kind == AvailabilityKind.unavailable and a.weekday == day and a.start < MORNING_END
+               and now < a.end for a in e.availability):
+            continue
+        a = e.attendance
+        out.append({"employee_id": e.id, "roles": can, "offered": a.callins_offered_90d,
+                    "accepted": a.callins_accepted_90d, "est_accept_prob": round(est_accept_prob(e), 3),
+                    "wage": e.wage_per_hour, "hours_scheduled": hours[e.id]})
+    out.sort(key=lambda c: (-c["est_accept_prob"], c["wage"], c["employee_id"]))
+    return out
 
 
 def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
@@ -89,39 +100,44 @@ def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
     cfg = with_law_pack(sc.config)
     demo = sc.expected["demo"]
     callout_ids: list[str] = demo["callout_employee_ids"]
-    phones: list[str] = demo["demo_phone_employee_ids"]
     if schedule is None:
         if solve_week is None:
             solve_week, fix_day = engine_functions()
         if solve_week is None:
             raise RuntimeError("shiftwright_engine.solve_week not available")
         schedule = solve_week(cfg, time_limit_s=time_limit_s)
-    rep: dict[str, Any] = {"status": schedule.status.value if hasattr(schedule.status, "value") else schedule.status}
+    rep: dict[str, Any] = {"status": getattr(schedule.status, "value", schedule.status)}
     if schedule.metrics is not None:
         rep["metrics"] = schedule.metrics.model_dump(include={"coverage_pct", "total_hours", "total_wage_cost",
                                                               "gap_penalty_dollars"})
 
     morning: dict[str, Any] = {}
+    lost: dict[str, float] = {}
     for eid in callout_ids:
         shifts = [s for s in schedule.shifts if s.employee_id == eid and s.day == SATURDAY]
         ok = [s for s in shifts if s.end > DEFAULT_REPORTED_AT and s.start < MORNING_END]
         morning[eid] = {"scheduled_morning": bool(ok),
                         "shifts": [(s.start, s.end, sorted({g.role_id for g in s.segments})) for s in shifts]}
+        for s in ok:
+            for g in s.segments:
+                h = (g.end - max(g.start, DEFAULT_REPORTED_AT)) / 60
+                if h > 0:
+                    lost[g.role_id] = lost.get(g.role_id, 0) + h
     rep["callouts"] = morning
     rep["callouts_ok"] = all(v["scheduled_morning"] for v in morning.values())
+    rep["lost_hours_by_role"] = {r: round(h, 2) for r, h in sorted(lost.items())}
     if not rep["callouts_ok"]:
-        keep_out = set(phones) | {demo["jordan_id"], demo["casey_id"], demo["minor_pit_id"]}
-        repick = pick_callouts(cfg, schedule.model_copy(update={"shifts": [
-            s for s in schedule.shifts if s.employee_id not in keep_out]}), SATURDAY, n=3,
-            now=DEFAULT_REPORTED_AT, seed=417)
-        rep["repick"] = [c.employee_id for c in repick]
+        keep_out = {demo["jordan_id"], demo["casey_id"], demo["minor_pit_id"]}
+        trimmed = schedule.model_copy(update={"shifts": [s for s in schedule.shifts if s.employee_id not in keep_out]})
+        rep["repick"] = [c.employee_id for c in pick_callouts(cfg, trimmed, SATURDAY, n=3,
+                                                               now=DEFAULT_REPORTED_AT, seed=417)]
 
-    rep["demo_phones_scheduled_saturday"] = sorted({s.employee_id for s in schedule.shifts
-                                                    if s.day == SATURDAY and s.employee_id in phones})
-    proxy = proxy_outreach_ranking(cfg, schedule, callout_ids)
-    rep["proxy_ranking_top5"] = [(eid, round(est_accept_prob(next(e for e in cfg.employees if e.id == eid)), 3))
-                                 for eid in proxy[:5]]
-    rep["proxy_phones_ok"] = proxy[:2] == phones or set(proxy[:2]) == set(phones)
+    cands = callin_candidates(cfg, schedule, callout_ids)
+    plausible = [c for c in cands if c["offered"] >= 2 and c["est_accept_prob"] >= DECENT_PROB]
+    rep["callin_candidates"] = len(cands)
+    rep["plausible_callins"] = plausible[:8]
+    rep["repair_not_trivial"] = sum(lost.values()) >= CALL_IN_HOURS
+    rep["repair_possible"] = len(plausible) >= MIN_PLAUSIBLE
 
     if fix_day is not None:
         from shiftwright_contracts.models import FixRequest
@@ -129,13 +145,12 @@ def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
         callouts = [CallOut(employee_id=eid, day=SATURDAY, reported_at=DEFAULT_REPORTED_AT) for eid in callout_ids]
         plan = fix_day(FixRequest(config=cfg, schedule=schedule, callouts=callouts, day=SATURDAY,
                                   now=DEFAULT_REPORTED_AT))
-        queue = [c.employee_id for c in sorted(plan.outreach_queue, key=lambda c: c.rank)]
         rep["fix"] = {"actions": [(a.lever.value, a.employee_id, a.role_id) for a in plan.actions],
-                      "outreach_queue": queue,
+                      "outreach_queue": [(c.employee_id, c.est_accept_prob)
+                                         for c in sorted(plan.outreach_queue, key=lambda c: c.rank)],
                       "coverage_before_pct": plan.coverage_before_pct,
                       "coverage_after_best_pct": plan.coverage_after_best_pct,
                       "coverage_after_worst_pct": plan.coverage_after_worst_pct}
-        rep["fix_phones_ok"] = set(queue[:2]) == set(phones)
     return rep
 
 

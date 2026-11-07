@@ -2,7 +2,7 @@
 import pytest
 
 from shiftwright_scenarios import FIXTURES_DIR, load_demo_scenario, load_demo_store
-from shiftwright_scenarios.demo import apply_demo_phones, build_demo_scenario
+from shiftwright_scenarios.demo import build_demo_scenario
 
 
 @pytest.fixture(scope="module")
@@ -81,22 +81,17 @@ def test_saturday_callouts(sc):
     assert all(c.day == 5 and c.reported_at == 364 and c.employee_id in ids for c in sc.callout_events)
 
 
-def test_demo_phones(monkeypatch, sc):
-    ids = sc.expected["demo"]["demo_phone_employee_ids"]
-    assert len(ids) == 2
-    monkeypatch.delenv("DEMO_PHONE_1", raising=False)
-    monkeypatch.delenv("DEMO_PHONE_2", raising=False)
-    assert apply_demo_phones(sc.config) == sc.config
-    monkeypatch.setenv("DEMO_PHONE_1", "+15550001111")
-    monkeypatch.setenv("DEMO_PHONE_2", "+15550002222")
-    cfg = apply_demo_phones(sc.config)
-    phones = {e.id: e.phone for e in cfg.employees}
-    assert phones[ids[0]] == "+15550001111" and phones[ids[1]] == "+15550002222"
-    assert sc.config.employees != cfg.employees  # original not mutated in place... returns a copy
-    emps = {e.id: e for e in sc.config.employees}
-    for eid in ids:  # best call-in odds in the store
-        a = emps[eid].attendance
-        assert a.callins_offered_90d >= 8 and a.callins_accepted_90d / a.callins_offered_90d >= 0.85
+def test_callouts_pinned(sc):
+    assert sc.expected["demo"]["callout_employee_ids"] == ["e034", "e052", "e053"]
+    assert "demo_phone_employee_ids" not in sc.expected["demo"]
+
+
+def test_narrative_states_the_exact_hours_cap(sc):
+    cap = sc.config.budget.weekly_hours_cap
+    assert cap == int(cap)
+    assert f"{int(cap):,} hours" in sc.narrative
+    fact = next(f for f in sc.expected["narrative_facts"] if f["kind"] == "budget_hours_cap")
+    assert fact["value"] == cap
 
 
 def test_every_demanded_role_trained_and_budget(sc):

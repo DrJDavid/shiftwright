@@ -59,3 +59,16 @@ def test_school_week():
     assert generate(1, "S", "easy", "TX", school_week=None).config.store.school_week is None
     for cfg in (load_tiny_store(), load_demo_store(), load_demo_scenario().config):
         assert cfg.store.school_week is True  # Nov 9-15 2026: a normal school week in Austin
+
+
+def test_narrative_hours_cap_is_exact():
+    """The narrative must state the configured cap exactly (1,393.5 was once rounded to 1,394)."""
+    for seed in (1, 2, 3):
+        for size in SIZES:
+            for diff in DIFFICULTIES:
+                sc = generate(seed, size, diff, "TX")
+                if not any(f["kind"] == "budget_hours_cap" for f in sc.expected["narrative_facts"]):
+                    continue
+                cap = sc.config.budget.weekly_hours_cap
+                text = f"{cap:,.0f}" if cap == int(cap) else f"{cap:,.1f}"
+                assert f"{text} hours" in sc.narrative, (seed, size, diff, cap)
