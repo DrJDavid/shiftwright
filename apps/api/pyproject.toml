@@ -3,7 +3,13 @@ name = "shiftwright-api"
 version = "0.1.0"
 description = "FastAPI app, chat agent loop, messenger (WS6)."
 requires-python = ">=3.12"
-dependencies = ["shiftwright-contracts"]
+dependencies = [
+  "shiftwright-contracts",
+  "fastapi",
+  "uvicorn[standard]",
+  "httpx",
+  "python-multipart",
+]
 
 [tool.uv.sources]
 shiftwright-contracts = { workspace = true }
