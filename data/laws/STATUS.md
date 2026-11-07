@@ -23,7 +23,9 @@
 
 - **Follow-up (2026-11-07):** Chicago alcohol_service (MCC 4-60-140/-143: under 21 conservative, under 18 absolute; trained 18-20 restaurant servers lawful); CA alcohol under 18 (BPC 25663/25667 via DLSE); WA under-16 cooking/baking/machinery bans (WAC 296-125-141) and alcohol under 18 (RCW 66.44.340/.350); TX hazard list = federal (§ 51.014). Tipped minimum wage added for NC, AZ, MD, MO, CO, NJ (2026 medium, 2027 high), WI, NY + NYC (from 2027-01-01), MI (2026, 2027); no-tip-credit notes: MN, AK, OR, NV; no rule with reason: VA (no fixed cash wage), PA and FL (amount not stated in the fetched text). GA and TN have no state minimum wage, so the federal $2.13 applies.
 
-**In progress / next:** tipped_minimum_wage for the remaining states (OH, MA, IN, TN ok via federal, etc.); TX alcohol ages (statutes site JS-only). VT done 2026-11-07 (VT DOL WH-30). Not done — MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). `minor_prohibited_roles` beyond HO 7: none encoded (only role tag in use is `powered_industrial_truck`; state lists in notes).
+**In progress / next:** tipped_minimum_wage for the remaining states (OH, MA, IN, TN ok via federal, etc.); TX alcohol ages (statutes site JS-only). VT done 2026-11-07 (VT DOL WH-30). Not done — MS (Lexis-hosted code, no MDES page found), NM (DWS site blocks fetches; NMOneSource 403). Their notes still say minor limits are not researched (federal floor applies). Remaining DOL-drafted wage effective dates (OH portal is JS; NJ 2026). State `minor_prohibited_roles` beyond IL, CA, WA: in notes only.
+
+- **D1 (2026-11-07): federal hazardous-job rules for minors**, all re-read from eCFR (29 CFR 570.2, .33, .34, .52, .58, .61-.63, .65); every excerpt fragment checked verbatim against the fetched text. Under 18 (`age_below` 18, no `age_min`): `.1` HO 7 `powered_industrial_truck`, `.2` HO 10 `meat_slicer`, `.3` HO 11 `bakery_machine`, `.4` HO 12 `baler_compactor`, `.5` HO 2 `motor_vehicle_driving`, `.6` HO 14 `power_saw`. Ages 14-15 (`age_min` 14, `age_below` 16): `.7` `cooking`/`fryer` (570.33(h) + 570.34(c)); `.8` `ladder_scaffold` (570.33(g)); `.9` machinery/hoisting/driving tags (570.33(c),(e),(f)). The old `.7` covered all of these with a ladder/cooking excerpt; it was split so a fryer ban cites the fryer exception. ID `.7` is kept for cooking/fryer because the web app, the API and the validator tests refer to it. Exemptions that aren't modeled (17-year-old incidental driving, 16-17 loading of safe balers, small mixers / guarded pizza rollers, apprentices and student-learners, the parent exemption for 14-15, auto-basket fryers and flameless grills) are in `federal.json` notes; the tags ban outright (conservative). Tests: `tests/test_minor_hazards.py`.
 
 **Blocked on:** nothing.
 
@@ -73,7 +75,7 @@
 
 | file | wOT | dOT | meal | rest | minor | minRole | clopen | predict | report | wage | tipW | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| federal | 1 | – | – | – | 2 | 7 | – | – | – | 1 | 1 | 7 |
+| federal | 1 | – | – | – | 2 | 9 | – | – | – | 1 | 1 | 7 |
 | AK | 1 | 1 | – | – | 2 | – | – | – | – | 1 | – | 8 |
 | AL | – | – | – | – | 3 | – | – | – | – | – | – | 7 |
 | AR | 1 | – | – | – | 4 | – | – | – | – | 1 | – | 7 |

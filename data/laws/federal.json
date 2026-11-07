@@ -9,8 +9,8 @@
     "FLSA sets no hours or time-of-day limits for 16- and 17-year-olds in non-agricultural work; only hazardous-occupation orders apply to them.",
     "minor_limits school_week=true: 'max_hours_day' is for days school is in session; 'max_hours_non_school_day' (extra key) is the cap on a non-school day within a school week (29 CFR 570.35(a)(1),(3)).",
     "Tipped minimum wage: max_tip_credit_per_hour 5.12 = $7.25 federal minimum wage \u2212 $2.13 cash wage (29 CFR 531.50(a)(2)); tip credit only for employees who customarily receive more than $30/month in tips and only after notice to the employee.",
-    "Hazardous orders mapped to ROLE_TAGS (29 CFR Part 570): HO 2 motor_vehicle_driving, HO 7 powered_industrial_truck, HO 10 meat_slicer, HO 11 bakery_machine, HO 12 baler_compactor, HO 14 power_saw (all under 18). 17-year-old incidental driving (570.52(b)), 16-17 loading of safe balers (570.63(c)), and household-type mixers / guarded pizza-dough rollers (570.62(b)) are exemptions not modeled: the tag bans the role outright (conservative).",
-    "14-15 (US.minor_prohibited_roles.7, 570.33-.34): permitted cooking is only electric/gas grills with no open flame and deep fryers that automatically lower and raise the baskets (570.34(c)); rotisseries, broilers and pressure fryers are not permitted. Tag a role 'fryer' when it uses manual-basket or pressure fryers and 'cooking' when it cooks or bakes beyond that exception. 570.33(e) bans 14-15 from all power-driven machinery (food slicers, grinders, choppers, processors, mixers) except office machines, vacuums and floor waxers; dishwashers, toasters, milkshake blenders, coffee machines are permitted (570.34(i)).",
+    "Hazardous orders mapped to ROLE_TAGS (29 CFR Part 570, re-read from eCFR 2026-11-07): HO 2 motor_vehicle_driving, HO 7 powered_industrial_truck, HO 10 meat_slicer, HO 11 bakery_machine, HO 12 baler_compactor, HO 14 power_saw. Each order covers 'minors between 16 and 18', and 570.33(b) extends every order to 14-15, so the rules use age_below 18 with no age_min. Exemptions not modeled (the tag bans the role outright, conservative): 17-year-old occasional and incidental driving (570.52(b): <= 6,000 lb GVW, daylight only, valid license and driver ed, no moving violations, no towing/route/urgent deliveries such as pizza, <= 2 delivery trips/day, <= 30 miles, <= 1/3 of the workday and 20% of the workweek); 16-17 loading (not operating or unloading) of ANSI-compliant scrap paper balers and paper box compactors with a key-lock switch held by adults 18+ and a posted notice (570.63(c)(1)); household-type countertop mixers (not hardwired, <= 1/2 hp, <= 5 qt bowl) and fully guarded pizza-dough rollers (570.62(b)), also carved out of HO 10 when not processing meat or poultry (570.61(a)(4)); apprentices and student-learners (570.50(b),(c)) under HO 10, 12 and 14.",
+    "14-15 (570.33-.34): US.minor_prohibited_roles.7 cooking/fryer, .8 ladder_scaffold, .9 power-driven machinery, hoisting and driving. Permitted cooking is only electric/gas grills with no open flame and deep fryers that automatically lower and raise the baskets (570.34(c)); rotisseries, broilers and pressurized equipment including fryolators are not permitted. 'cooking' and 'fryer' are banned outright for 14-15 because a role tag cannot say which equipment is used (conservative: an auto-basket fryer or flameless grill would be lawful). 570.33(e) bans 14-15 from all power-driven machinery (food slicers, grinders, choppers, processors, mixers, with no small-mixer carve-out) except office machines, vacuums and floor waxers; dishwashers, toasters, milkshake blenders and coffee machines are permitted (570.34(i)). Rules start at age_min 14 because 570.2(a)(1) sets a general 16-year minimum and subpart C permits only 14-15 (no non-agricultural work is authorized under 14). 570.2(a)(2) exempts employment by a parent of their own child from the 14-15 rules (not from the hazardous orders); not modeled.",
     "No federal age rule for alcohol_service (state law governs)."
   ],
   "rules": [
@@ -272,7 +272,7 @@
           "power_saw"
         ]
       },
-      "summary": "Workers under 18 may not operate or help on circular saws, band saws, guillotine shears, chain saws, reciprocating saws or abrasive cutting discs (HO 14).",
+      "summary": "Workers under 18 may not operate or help on circular saws, band saws, guillotine shears, chain saws, reciprocating saws, wood chippers or abrasive cutting discs, or set up or clean them (HO 14).",
       "citation": {
         "url": "https://www.ecfr.gov/current/title-29/subtitle-C/chapter-V/subchapter-A/part-570/subpart-E/section-570.65",
         "title": "29 CFR \u00a7 570.65 \u2014 Circular saws, band saws, guillotine shears, etc. (HO 14)",
@@ -294,22 +294,70 @@
         "age_below": 16,
         "role_tags": [
           "cooking",
-          "fryer",
-          "ladder_scaffold",
-          "meat_slicer",
-          "bakery_machine",
-          "baler_compactor",
-          "motor_vehicle_driving",
-          "power_saw",
-          "powered_industrial_truck"
+          "fryer"
         ],
         "age_min": 14
       },
-      "summary": "14- and 15-year-olds may not cook or bake (except on electric/gas grills without open flame and auto-lowering fryers), use ladders or scaffolds, operate power-driven food slicers, mixers or other machinery, or drive.",
+      "summary": "14- and 15-year-olds may not cook or bake, except on electric or gas grills with no open flame and on deep fryers that lower and raise the baskets automatically; no broilers, rotisseries or pressure fryers.",
       "citation": {
         "url": "https://www.ecfr.gov/current/title-29/subtitle-C/chapter-V/subchapter-A/part-570/subpart-C/section-570.33",
-        "title": "29 CFR \u00a7 570.33(e)-(h) \u2014 Occupations prohibited to minors 14 and 15",
-        "excerpt": "(g) Outside window washing that involves working from window sills, and all work requiring the use of ladders, scaffolds, or their substitutes. (h) All baking and cooking activities except that cooking which is permitted by \u00a7 570.34(c).",
+        "title": "29 CFR \u00a7 570.33(h) and \u00a7 570.34(c) \u2014 Cooking by minors 14 and 15",
+        "excerpt": "All baking and cooking activities except that cooking which is permitted by \u00a7 570.34(c) ... Cooking is also permitted with deep fryers ... which automatically lowers the baskets into the hot oil",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "US.minor_prohibited_roles.8",
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
+      "level": "federal",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 16,
+        "role_tags": [
+          "ladder_scaffold"
+        ],
+        "age_min": 14
+      },
+      "summary": "14- and 15-year-olds may not do any work that requires ladders, scaffolds or their substitutes.",
+      "citation": {
+        "url": "https://www.ecfr.gov/current/title-29/subtitle-C/chapter-V/subchapter-A/part-570/subpart-C/section-570.33",
+        "title": "29 CFR \u00a7 570.33(g) \u2014 Occupations prohibited to minors 14 and 15",
+        "excerpt": "all work requiring the use of ladders, scaffolds, or their substitutes",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "US.minor_prohibited_roles.9",
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
+      "level": "federal",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 16,
+        "role_tags": [
+          "meat_slicer",
+          "bakery_machine",
+          "baler_compactor",
+          "power_saw",
+          "powered_industrial_truck",
+          "motor_vehicle_driving"
+        ],
+        "age_min": 14
+      },
+      "summary": "14- and 15-year-olds may not operate, clean or set up any power-driven machinery (including food slicers, grinders and mixers of any size), hoisting equipment such as forklifts, or motor vehicles.",
+      "citation": {
+        "url": "https://www.ecfr.gov/current/title-29/subtitle-C/chapter-V/subchapter-A/part-570/subpart-C/section-570.33",
+        "title": "29 CFR \u00a7 570.33(c), (e), (f) \u2014 Occupations prohibited to minors 14 and 15",
+        "excerpt": "operating, tending, setting up, adjusting, cleaning, oiling, or repairing any power-driven machinery, including ... food slicers, food grinders, food choppers, food processors, food cutters, and food mixers ... (f) The operation of motor vehicles",
         "last_verified": "2026-11-07"
       },
       "confidence": "high",
