@@ -46,28 +46,49 @@ def shifts_from_solution(built, solver: cp_model.CpSolver) -> list[Shift]:
 
 
 def make_shift(p: Prep, c, roles_at: dict[int, str]) -> Shift:
+    """Segments tile [start, end) minus the breaks exactly (breaks may end off the slot grid)."""
     segs: list[RoleSegment] = []
     base = c.day * DAY
+    brks = sorted((b.start, b.end) for b in c.breaks)
     for a in c.work_slots:
         r = roles_at[a]
-        t = a - base
-        if segs and segs[-1].role_id == r and segs[-1].end == t:
-            segs[-1] = RoleSegment(role_id=r, start=segs[-1].start, end=t + p.slot)
-        else:
-            segs.append(RoleSegment(role_id=r, start=t, end=t + p.slot))
+        t0, t1 = a - base, a - base + p.slot
+        pieces, cur = [], t0
+        for b0, b1 in brks:
+            if b1 <= cur or b0 >= t1:
+                continue
+            if b0 > cur:
+                pieces.append((cur, b0))
+            cur = max(cur, b1)
+        if cur < t1:
+            pieces.append((cur, t1))
+        for u0, u1 in pieces:
+            if segs and segs[-1].role_id == r and segs[-1].end == u0:
+                segs[-1] = RoleSegment(role_id=r, start=segs[-1].start, end=u1)
+            else:
+                segs.append(RoleSegment(role_id=r, start=u0, end=u1))
     return Shift(id=shift_id(c.emp, c.day), employee_id=c.emp, day=c.day, start=c.start, end=c.end,
                  breaks=list(c.breaks), segments=segs)
 
 
+TICK = 5  # minutes; coverage and gaps are exact per minute at this resolution (v1.1)
+
+
 def coverage_map(p: Prep, shifts: Iterable[Shift]) -> dict[tuple[str, int], int]:
+    """(role, absolute minute of a TICK) -> headcount working that role then."""
     cov: dict[tuple[str, int], int] = defaultdict(int)
     for sh in shifts:
         for seg in sh.segments:
-            t = seg.start
+            t = seg.start - seg.start % TICK
             while t < seg.end:
                 cov[(seg.role_id, sh.day * DAY + t)] += 1
-                t += p.slot
+                t += TICK
     return cov
+
+
+def slot_min_cov(p: Prep, cov, r: str, a: int) -> int:
+    """Lowest headcount on role r during slot a."""
+    return min(cov.get((r, a + t), 0) for t in range(0, p.slot, TICK))
 
 
 def gaps_from_shifts(p: Prep, shifts: Iterable[Shift]) -> list[Gap]:
@@ -75,22 +96,25 @@ def gaps_from_shifts(p: Prep, shifts: Iterable[Shift]) -> list[Gap]:
     roles = {r.id: r for r in p.cfg.roles}
     missing = {}
     for (r, a), dem in p.demand.items():
-        miss = dem - min(dem, cov.get((r, a), 0))
-        if miss > 0:
-            missing[(r, a)] = miss
+        for t in range(0, p.slot, TICK):
+            miss = dem - min(dem, cov.get((r, a + t), 0))
+            if miss > 0:
+                missing[(r, a + t)] = miss
     gaps: list[Gap] = []
     for (r, a) in sorted(missing, key=lambda k: (k[0], k[1])):
         miss = missing[(r, a)]
         day = min(a // DAY, 6)
         t = a - day * DAY
-        pen = (roles[r].gap_penalty_per_hour if r in roles else 0.0) * p.slot / 60 * miss
+        pen = (roles[r].gap_penalty_per_hour if r in roles else 0.0) * TICK / 60 * miss
         last = gaps[-1] if gaps else None
         if last and last.role_id == r and last.day == day and last.end == t and last.missing_headcount == miss:
-            last.end = t + p.slot
-            last.penalty_dollars = round(last.penalty_dollars + pen, 2)
+            last.end = t + TICK
+            last.penalty_dollars = last.penalty_dollars + pen
         else:
-            gaps.append(Gap(role_id=r, day=day, start=t, end=t + p.slot, missing_headcount=miss,
-                            penalty_dollars=round(pen, 2)))
+            gaps.append(Gap(role_id=r, day=day, start=t, end=t + TICK, missing_headcount=miss,
+                            penalty_dollars=pen))
+    for g in gaps:
+        g.penalty_dollars = round(g.penalty_dollars, 2)
     return gaps
 
 
@@ -164,8 +188,8 @@ def compute_metrics(p: Prep, shifts: list[Shift], soft: list[SoftViolation], gap
     ot_h, ot_prem = ot_breakdown(p, shifts)
     wage += ot_prem
     cov = coverage_map(p, shifts)
-    req = sum(p.demand.values())
-    got = sum(min(d, cov.get(k, 0)) for k, d in p.demand.items())
+    req = sum(p.demand.values()) * p.slot
+    got = sum(min(d, cov.get((r, a + t), 0)) * TICK for (r, a), d in p.demand.items() for t in range(0, p.slot, TICK))
     gap_pen = sum(g.penalty_dollars for g in gaps)
     soft_pen = sum(s.penalty_dollars for s in soft)
     cap = cfg.budget.weekly_hours_cap + sum(a.extra_hours for a in cfg.budget.approvals)

@@ -44,6 +44,7 @@ from .output import (
     availability_violations,
     compute_metrics,
     coverage_map,
+    slot_min_cov,
     gaps_from_shifts,
     make_shift,
     paid_minutes,
@@ -313,8 +314,13 @@ class _Fix:
     # ------------------------------------------------------------------ outreach
     def _residual(self, shifts: list[Shift]) -> dict[tuple[str, int], int]:
         cov = coverage_map(self.p, shifts)
-        return {k: dem - min(dem, cov.get(k, 0)) for k, dem in self.p.demand.items()
-                if k[1] // DAY == self.d and dem > cov.get(k, 0)}
+        out = {}
+        for (r, a), dem in self.p.demand.items():
+            if a // DAY == self.d:
+                have = slot_min_cov(self.p, cov, r, a)
+                if dem > have:
+                    out[(r, a)] = dem - have
+        return out
 
     def _feasible_callin(self, c: Cand, shifts: list[Shift]) -> bool:
         """Python checks of the hard rules a single added call-in could break, given `shifts`."""

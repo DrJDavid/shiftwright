@@ -5,6 +5,7 @@ This lets overnight shifts cover the next day's slots without special cases.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Optional
@@ -30,6 +31,12 @@ SCALE = 10_000  # objective units per dollar (0.01 cent resolution)
 DEFAULT_MIN_SHIFT = 180
 DEFAULT_MAX_SHIFT = 600
 
+# v1.1: breaks keep their exact length (rounded up to 5 min) and start on the slot grid, so a 10-min
+# rest break covers the first 10 min of a slot. Coverage is then exact per minute. Env
+# ENGINE_EXACT_BREAKS=0 falls back to breaks rounded up to whole slots.
+BREAK_GRANULARITY = 5
+EXACT_BREAKS = os.environ.get("ENGINE_EXACT_BREAKS", "1") != "0"
+
 
 def money(dollars: float) -> int:
     return int(round(dollars * SCALE))
@@ -44,7 +51,7 @@ class Cand:
     end: int  # day-local
     breaks: list[Break]
     on_slots: list[int]  # abs slot starts inside [start, end)
-    work_slots: list[int]  # on_slots minus breaks
+    work_slots: list[int]  # on_slots where some minute is worked (not wholly on break)
     paid_min: int
     wage_units: int  # wage + daily OT premium, objective units
     daily_ot_min: int
@@ -54,6 +61,7 @@ class Cand:
     is_close: bool = False
     weekend: bool = False
     extra_units: int = 0  # objective-only cost (fixer: call-in disruption + premiums)
+    part: dict[int, int] = field(default_factory=dict)  # work slot -> bitmask of sub-intervals on break
 
     @property
     def abs_start(self) -> int:
@@ -83,6 +91,12 @@ class Prep:
     meal_rules: list[LawRule]
     rest_rule: Optional[LawRule]
     notes: list[str]
+    sub: list[int] = field(default_factory=lambda: [0])  # sub-interval boundaries within a slot (+ slot)
+    bv_cache: dict = field(default_factory=dict)
+
+    def sub_bounds(self) -> list[tuple[int, int]]:
+        b = self.sub + [self.slot]
+        return [(b[i], b[i + 1]) for i in range(len(b) - 1)]
 
     def law_of(self, t: LawRuleType) -> list[LawRule]:
         return [r for r in self.laws if r.type == t]
@@ -173,18 +187,27 @@ def break_variants(p: Prep, start: int, length: int, flexible: bool = False) -> 
     can cover each other's meals. With `flexible` (employees in a hard always_staffed role), rest
     breaks are also tried packed early or late, so two leaders can cover each other's breaks.
     Deduplicated; empty list if nothing fits."""
-    out, seen = [], set()
-    needs_meal = any(length > int(m.params["after_minutes"]) for m in p.meal_rules)
-    for mode in (REST_MODES if flexible and p.rest_rule is not None else ("even",)):
-        for sh in (MEAL_SHIFTS if needs_meal else (0,)):
-            b = place_breaks(p, start, length, sh, mode)
-            if b is None:
-                continue
-            key = tuple((x.start, x.end) for x in b)
-            if key not in seen:
-                seen.add(key)
-                out.append(b)
-    return out
+    key = (length, flexible)
+    rel = p.bv_cache.get(key)
+    if rel is None:  # layouts are relative to the start (starts are on the slot grid)
+        rel, seen = [], set()
+        needs_meal = any(length > int(m.params["after_minutes"]) for m in p.meal_rules)
+        for mode in (REST_MODES if flexible and p.rest_rule is not None else ("even",)):
+            for sh in (MEAL_SHIFTS if needs_meal else (0,)):
+                b = place_breaks(p, 0, length, sh, mode)
+                if b is None:
+                    continue
+                k = tuple((x.start, x.end, x.kind, x.paid) for x in b)
+                if k not in seen:
+                    seen.add(k)
+                    rel.append(k)
+        p.bv_cache[key] = rel
+    return [[Break.model_construct(start=start + a, end=start + b, kind=kd, paid=pd) for a, b, kd, pd in lay]
+            for lay in rel]
+
+
+def break_minutes(p: Prep, duration: int) -> int:
+    return _round_up(duration, BREAK_GRANULARITY) if EXACT_BREAKS else _round_up(duration, p.slot)
 
 
 def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0,
@@ -204,10 +227,10 @@ def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0,
     for m in sorted(p.meal_rules, key=lambda r: r.params["after_minutes"]):
         if length <= int(m.params["after_minutes"]):
             continue
-        dur = _round_up(int(m.params["duration"]), s)
+        dur = break_minutes(p, int(m.params["duration"]))
         latest = m.params.get("latest_start_minute_of_shift")
         if latest is not None:
-            bs = min(start + _round_down(int(latest) - dur, s), end - s - dur)
+            bs = start + min(_round_down(int(latest) - dur, s), _round_down(length - s - dur, s))
         else:
             bs = start + _round_down((length - dur) // 2, s)
         bs += _round_down(meal_shift, s) if meal_shift >= 0 else -_round_up(-meal_shift, s)
@@ -226,13 +249,13 @@ def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0,
         nru = r.params.get("not_required_under_minutes")
         if nru is not None and length >= int(nru):
             n = max(n, 1)
-        dur = _round_up(int(r.params["duration"]), s)
+        dur = break_minutes(p, int(r.params["duration"]))
         for k in range(1, n + 1):
             target = start + _round_down(k * length // (n + 1), s)
             if rest_mode == "early":
                 target = start + s
             elif rest_mode == "late":
-                target = end - s - dur
+                target = start + _round_down(length - s - dur, s)
             placed = False
             for off in range(0, length, s):
                 for bs in (target + off, target - off):
@@ -290,6 +313,9 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                         lambda r: r.params["per_minutes_worked"]),
         notes=notes,
     )
+
+    durs = [int(r.params["duration"]) for r in p.meal_rules] + ([int(p.rest_rule.params["duration"])] if p.rest_rule else [])
+    p.sub = sorted({0} | {break_minutes(p, d) % slot for d in durs})
 
     # Roles each employee may work (training is the hard gate; then age/law).
     roles = {r.id: r for r in cfg.roles}
@@ -429,12 +455,25 @@ def make_cand(p: Prep, e: Employee, day: int, start: int, end: int, brks: list[B
         elif a.kind == AvailabilityKind.preferred_on:
             pref -= a.weight_dollars * ov  # constant added in model
     on = [day * DAY + t for t in range(start, end, slot)]
-    work = [day * DAY + t for t in range(start, end, slot)
-            if not any(b.start < t + slot and t < b.end for b in brks)]
+    subs = p.sub_bounds()
+    fullmask = (1 << len(subs)) - 1
+    masks: dict[int, int] = {}
+    for b in brks:
+        t = b.start - (b.start - start) % slot
+        while t < b.end:
+            mk = masks.get(t, 0)
+            for k, (u0, u1) in enumerate(subs):
+                if b.start < t + u1 and t + u0 < b.end:
+                    mk |= 1 << k  # any break minute in a sub-interval takes all of it (conservative)
+            masks[t] = mk
+            t += slot
+    base = day * DAY
+    work = [base + t for t in range(start, end, slot) if masks.get(t, 0) != fullmask]
+    part = {base + t: mk for t, mk in masks.items() if mk and mk != fullmask}
     o, c = p.store_open.get(day, (start, end))
     return Cand(
         idx=len(p.cands) if idx is None else idx, emp=e.id, day=day, start=start, end=end, breaks=brks,
         on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
         daily_ot_min=daily_ot, pref_units=money(pref), pref_detail=detail,
-        is_open=start < o, is_close=end > c, weekend=day in (5, 6),
+        is_open=start < o, is_close=end > c, weekend=day in (5, 6), part=part,
     )

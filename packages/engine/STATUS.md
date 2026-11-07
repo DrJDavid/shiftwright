@@ -119,14 +119,38 @@ If CP-SAT finds nothing in time, the greedy schedule is checked by the phase-2 m
 flexible rest-break layouts and are not pruned. `ENGINE_WORKERS` env sets CP-SAT workers (default
 min(8, cpu)); `ENGINE_LOG=1` logs CP-SAT search. Memory work not done (Railway now 8 GB).
 
-**Next steps (in order):**
-1. v1.1 5-minute breaks + per-minute coverage (`BREAK_GRANULARITY_MINUTES=5`): place breaks at
-   5-min resolution with exact durations; coverage/gap per minute; `output.make_shift` splits
-   RoleSegments at break bounds; metrics and `gaps_from_shifts` per minute.
-2. Check WS4's Chicago/Seattle demo variants solve in ≤30 s. Perf of big CA models (M legal_trap:
-   189k candidates, CP-SAT finds nothing in 30 s; greedy fallback is used).
+**v1.1 exact breaks — done** (`prep.EXACT_BREAKS`, env `ENGINE_EXACT_BREAKS=0` reverts to slot-rounded):
+- Break length = law duration rounded up to 5 min; breaks START on the slot grid (meal placement and
+  rest targets rounded to the slot), so a 10-min rest break covers the first 10 min of a slot.
+  `Prep.sub` = sub-interval boundaries inside a slot (e.g. [0, 10] → [0,10) and [10,30)); `Cand.part`
+  = work slot → bitmask of sub-intervals on break. Slots only partly on break stay working slots.
+- Model: `l[e,r,a,k] ≤ x[e,r,a]`, `Σ_r l = (on break at a,k)`; gaps per sub-interval weighted by
+  minutes; hard always_staffed per sub-interval (SEMANTICS #18: break ≠ on duty).
+- Output: segments tile shift minus breaks exactly (off-grid ends); `coverage_map` per 5-min tick;
+  gaps per tick (merged); coverage_pct per minute. Validator agreement tests green (CA exact 10-min).
+- tiny_store under CA is now FEASIBLE (7.5 h overlapping leader shifts cover each other's breaks;
+  validator 0 hard apart from below_minimum_wage) — WS2's "provably infeasible" note was about
+  30-min-rounded breaks. S legal_trap CA is still proven infeasible (needs 21 leader shifts, 20 days).
+- Bound / greedy / always_staffed seed are sub-interval aware. Prep 6× faster (break layouts cached per
+  length relative to the start, `Break.model_construct`, slot masks from break list): Seattle 20 s → 3 s.
 
-**Blocked on:** nothing. Rebased onto main 0145de2 (contracts v1.4).
+**Very large models (> FULL_MODEL_MAX_CANDS = 100k: Seattle 256k, SF 216k, Chicago 120k):** day-by-day
+LNS (`solve._day_lns`): each day re-solved on its full candidate grid with every other day fixed,
+hinted with the current week (y and x); falls back to the hourly-grid + greedy-shifts model if the
+greedy start is not feasible. 30 s results (coverage / objective): Seattle 89.9–90.2% / $45.5k,
+SF 88.9–89.3% / $42.2k, Chicago 91.1% / $34.8k, Austin demo 94.6% / $29.0k; Seattle at 120 s 91.6% /
+$43.7k. Much of the Seattle/SF shortfall is priced: e.g. fitting_room ($20/h gap) below the $21.30
+minimum wage. fix_day: Chicago 1.1 s, Seattle 5.7 s, SF 4.2 s; validator clean except the known
+premium `metrics_mismatch` (#17 fix-plan check pending in WS2) and the fixtures' below_minimum_wage.
+
+**Next steps (in order, coordinator 01:00):**
+1. Quality push at 30 s on eval stores (S/M easy/tight/legal_trap, demo stores): greedy repair /
+   local search, LNS neighborhoods (days, employees), solver params; LLMs found 5–6% cheaper.
+2. Split shifts (SEMANTICS #23, `Store.max_shifts_per_day`), proofs valid under that max.
+3. v1.5: tipped pay (#20), age_min, sector applicability (#19).
+4. fix_day re-fix candidates priced for the plan's mode (WS6 note).
+
+**Blocked on:** nothing. Rebased onto main 94567f6 (contracts v1.5).
 
 **Interpretations / shortcuts (please review — validator WS2 should agree):**
 - Hours = paid hours: shift length minus unpaid breaks. Budget hours and `max_hours_week` use paid hours.
