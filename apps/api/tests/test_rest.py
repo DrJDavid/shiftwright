@@ -80,8 +80,8 @@ def test_readiness(client):
     rd = Readiness.model_validate(client.get(f"/api/stores/{sid}/readiness").json())
     assert rd.ready is False
     assert [c.id for c in rd.checks] == [
-        "store_basics", "jurisdiction", "roles", "employees", "training", "demand", "budget", "minimum_wage",
-        "provisional_rules"]
+        "store_basics", "jurisdiction", "roles", "employees", "training", "demand", "priorities", "equipment_roles",
+        "budget", "minimum_wage", "provisional_rules"]
 
     sid = _put_tiny(client)
     rd = Readiness.model_validate(client.get(f"/api/stores/{sid}/readiness").json())

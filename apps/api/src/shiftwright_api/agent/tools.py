@@ -29,7 +29,7 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import integrations, readiness
+from .. import equipment, integrations, readiness
 from ..db import ConfigInvalid, Database
 
 
@@ -59,6 +59,17 @@ class ToolContext:
 
     def mutate(self, tool: str, args: dict, fn: Callable[[dict], Any], summary: list[str],
                actor: Optional[str] = None) -> ToolResult:
+        tagged: list = []
+        if tool in ("upsert_role", "card:roles"):
+            review = equipment.state(self.db, self.store_id)
+            inner = fn
+
+            def fn(d):  # noqa: F811 - same mutation, plus powered-equipment tagging
+                out = inner(d)
+                if out is not None:
+                    d = out
+                tagged.extend(equipment.tag_in_dict(d, review))
+                return out
         try:
             cfg = self.db.mutate(self.store_id, fn, tool, args, actor or self.actor)
         except ConfigInvalid as e:
@@ -66,8 +77,14 @@ class ToolContext:
                                "details": _short_errors(e.errors)})
         except ToolError as e:
             return ToolResult({"error": str(e)})
-        return ToolResult({"ok": True, "config_version": cfg.config_version, "changed": summary},
-                          patch_summary=summary, config_version=cfg.config_version)
+        content: dict = {"ok": True, "config_version": cfg.config_version, "changed": summary}
+        if tagged:
+            equipment.record_auto(self.db, self.store_id, tagged)
+            summary = summary + [f"tagged as powered equipment: {', '.join(n for _, n in tagged)}"]
+            content.update(changed=summary, equipment_tagged=[rid for rid, _ in tagged],
+                           note="These look like powered industrial trucks, so minor-labor rules now apply. "
+                                "Tell the leader and ask them to confirm or reject (review_equipment_role).")
+        return ToolResult(content, patch_summary=summary, config_version=cfg.config_version)
 
 
 class ToolError(ValueError):
@@ -573,7 +590,20 @@ def get_config_summary(ctx: ToolContext, args: dict) -> dict:
 
 
 def readiness_check(ctx: ToolContext, args: dict) -> dict:
-    return readiness.compute(ctx.config()).model_dump(mode="json")
+    return readiness.compute(ctx.config(), equipment.state(ctx.db, ctx.store_id)).model_dump(mode="json")
+
+
+def review_equipment_role(ctx: ToolContext, args: dict) -> ToolResult:
+    """Only after the leader said so: confirm keeps the powered_industrial_truck tag, reject removes it."""
+    try:
+        cfg = equipment.decide(ctx.db, ctx.store_id, args.get("role_id", ""), args.get("decision", ""))
+    except KeyError:
+        return ToolResult({"error": f"Unknown role_id {args.get('role_id')!r}"})
+    except ValueError as e:
+        return ToolResult({"error": str(e)})
+    summary = [f"equipment role {args['role_id']} {args['decision']}ed"]
+    return ToolResult({"ok": True, "config_version": cfg.config_version, "changed": summary},
+                      patch_summary=summary, config_version=cfg.config_version)
 
 
 def with_law(cfg: StoreConfig) -> StoreConfig:
@@ -735,6 +765,10 @@ TOOLS: list[Tool] = [
                "reason": {"type": "string"}}, ["option_id"]), approve_budget_increase, "mutation"),
     # reads / computes
     Tool("get_config_summary", "Read the current store config.", _obj({}), get_config_summary),
+    Tool("review_equipment_role", "After the LEADER decides: confirm (keep) or reject (remove) the automatic "
+         "powered_industrial_truck tag on a role. Never decide this yourself.",
+         _obj({"role_id": {"type": "string"}, "decision": {"type": "string", "enum": ["confirm", "reject"]}},
+              ["role_id", "decision"]), review_equipment_role, "mutation"),
     Tool("readiness_check", "Check whether the store is ready to schedule; lists what's missing.", _obj({}),
          readiness_check),
     Tool("dry_run_solve", "Run the engine and validator on the current config. Returns metrics, gaps, infeasibility. "

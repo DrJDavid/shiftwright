@@ -88,7 +88,6 @@ def test_clean_readiness_and_solve(clean):
     assert out["coverage_pct"] >= 90, out
 
 
-@bug
 def test_bug_readiness_flags_zero_priority_roles():
     """Imported roles get $0/h gap penalty. Without the leader's priorities step readiness is still green,
     and /solve returns an empty schedule (0 shifts, 0% coverage) that the validator passes."""
@@ -268,7 +267,6 @@ def test_messy_minor_never_on_forklift_once_tagged(messy_solves):
     assert h.role_assignments(tagged, "forklift")  # adults still cover it
 
 
-@bug
 def test_bug_minor_on_untagged_forklift(messy_solves):
     """Without the leader's manual tag the engine schedules the 16-year-old on FORKLIFT and the
     validator passes it (neither can know the imported role is a powered industrial truck)."""
@@ -277,13 +275,11 @@ def test_bug_minor_on_untagged_forklift(messy_solves):
 
 
 # --- importer bugs found with the messy pack (desired behaviour; xfail until WS6 fixes) ---
-@bug
 def test_bug_manager_column_not_mapped_to_age(messy):
     _, res, _ = messy
     assert res["roster"].preview["proposed_mapping"]["Manager"] != "age"
 
 
-@bug
 def test_bug_imported_pit_role_is_protected(messy):
     """A role named FORKLIFT/PIT imported into an empty store gets no role_tags and min_age 0, so the
     federal minor_prohibited_roles rule can't see it (engine and validator both rely on tags/min_age)."""
@@ -295,51 +291,43 @@ def test_bug_imported_pit_role_is_protected(messy):
     assert role["min_age"] >= 18 or "powered_industrial_truck" in cfg["role_tags"].get("forklift", [])
 
 
-@bug
 def test_bug_duplicate_employee_rows_warned(messy):
     _, res, _ = messy
     assert any(DUP in w and "duplicate" in w.lower() for w in res["roster"].warnings)
 
 
-@bug
 def test_bug_two_digit_birth_year_gives_sane_age(messy):
     _, _, cfg = messy
     assert all(14 <= e["age"] <= 100 for e in cfg["employees"]), \
         [(e["id"], e["age"]) for e in cfg["employees"] if not 14 <= e["age"] <= 100]
 
 
-@bug
 def test_bug_seas_status_is_seasonal(messy):
     _, _, cfg = messy
     assert _emps(cfg)["2213"]["status"] == "seasonal"
 
 
-@bug
 def test_bug_bad_phone_warned(messy):
     _, res, _ = messy
     assert any(NO_AREA in w and "phone" in w.lower() for w in res["roster"].warnings)
 
 
-@bug
 def test_bug_not_available_means_unavailable(messy):
     _, _, cfg = messy
     assert _unavail(_emps(cfg)["2213"], 0) == [(0, 1440)]
 
 
-@bug
 def test_bug_hourly_forecast_rows_cover_the_hour(messy):
     _, _, cfg = messy
     lod_mon = sorted((d["start"], d["end"]) for d in cfg["demand"] if d["role_id"] == "lod" and d["day"] == 0)
     assert lod_mon == [(480, 1320)], lod_mon[:4]
 
 
-@bug
 def test_bug_fractional_headcount_warned(messy):
     _, res, _ = messy
     assert any("0.5" in w or "1.5" in w for w in res["forecast"].warnings)
 
 
-@bug
 def test_bug_commit_returns_row_warnings(messy):
     """Commit-time warnings (skipped rows, unknown ids, new roles) are stored but not returned, so the UI
     never shows them. Desired: the commit response (or a GET) exposes them."""
@@ -414,7 +402,6 @@ def test_edge_overnight_forecast_window(edge):
     assert [(d["day"], d["start"], d["end"]) for d in edge.config()["demand"]] == [(4, 1320, 1800)]
 
 
-@bug
 def test_bug_overnight_forecast_end_column(edge):
     r = edge.import_file("forecast", EDGE / "forecast_overnight_end_column.csv")
     assert r.commit_status == 200
@@ -430,7 +417,6 @@ def test_edge_15min_forecast_in_15min_store(edge):
     assert got == [(600, 615, 2), (615, 645, 3), (645, 675, 2), (675, 705, 3), (705, 720, 2)]
 
 
-@bug
 def test_bug_15min_forecast_in_30min_store_flagged(edge):
     r = edge.import_file("forecast", EDGE / "forecast_15min_slots.csv")
     slot = edge.config()["store"]["slot_minutes"]
@@ -438,19 +424,16 @@ def test_bug_15min_forecast_in_30min_store_flagged(edge):
     assert r.commit_status != 200 or not off_grid or any("slot" in w for w in r.warnings)
 
 
-@bug
 def test_bug_hourly_start_only_rows(edge):
     edge.import_file("forecast", EDGE / "forecast_hourly_start_only.csv")
     assert [(d["start"], d["end"]) for d in edge.config()["demand"]] == [(600, 780)]
 
 
-@bug
 def test_bug_forecast_dates_outside_week_warned(edge):
     r = edge.import_file("forecast", EDGE / "forecast_other_week_dates.csv")
     assert r.commit_status != 200 or any("week" in w for w in r.warnings)
 
 
-@bug
 def test_bug_fractional_headcount(edge):
     r = edge.import_file("forecast", EDGE / "forecast_fractional_hc.csv")
     assert any("0.5" in w or "1.6" in w for w in r.warnings)
