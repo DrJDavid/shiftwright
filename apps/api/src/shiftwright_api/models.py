@@ -7,14 +7,14 @@ from pydantic import BaseModel, Field
 
 from shiftwright_contracts.models import InboundMessage, Jurisdiction, OutboundMessage, Schedule
 
-Template = Literal["bigbox_small", "bigbox_mid", "empty"]
+Template = Literal["bigbox_small", "bigbox_mid", "empty", "demo", "tiny"]
 ImportKind = Literal["roster", "training", "availability", "forecast", "history"]
 
 
 class CreateStoreRequest(BaseModel):
     template: Template = "bigbox_small"
-    name: str
-    jurisdiction: Jurisdiction
+    name: Optional[str] = None  # required except for fixture templates (demo, tiny), which keep their own
+    jurisdiction: Optional[Jurisdiction] = None
 
 
 class ImportPreview(BaseModel):
@@ -25,6 +25,8 @@ class ImportPreview(BaseModel):
     rows_preview: list[dict[str, Any]]
     row_count: int
     warnings: list[str] = []
+    target_fields: list[str] = []    # fields a column can map to for this kind (dropdown options), in order
+    required_fields: list[str] = []  # subset of target_fields that must be mapped
 
 
 class ReadinessCheck(BaseModel):

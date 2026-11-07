@@ -7,6 +7,7 @@ text the next. Stops when fix_day's queue is empty after an accept (filled) or n
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 import uuid
 from collections import deque
@@ -26,7 +27,7 @@ from shiftwright_contracts.models import (
 
 from . import integrations
 from .db import Database
-from .explain import DAYS, hhmm
+from .explain import DAYS, clock
 from .messenger import Messenger, RecipientBlocked, interpret
 from .models import OutreachState
 
@@ -37,8 +38,24 @@ def offer_text(config: StoreConfig, cand: OutreachCandidate) -> str:
     roles = {r.id: r.name for r in config.roles}
     role_names = ", ".join(dict.fromkeys(roles.get(s.role_id, s.role_id) for s in sh.segments)) or "a shift"
     first = emp.name.split(" ")[0]
-    return (f"Hi {first}, {config.store.name} needs {role_names} {DAYS[sh.day]} {hhmm(sh.start)}-{hhmm(sh.end)} "
+    return (f"Hi {first}, {config.store.name} needs {role_names} {DAYS[sh.day]} {clock(sh.start)}-{clock(sh.end)} "
             f"at ${emp.wage_per_hour:.2f}/hr. Can you work it? Reply YES or NO")
+
+
+def answer_text(config: StoreConfig, cand: OutreachCandidate) -> str:
+    """Reply to an employee's question: restate the offer's own facts (no new ones)."""
+    emp = next(e for e in config.employees if e.id == cand.employee_id)
+    sh = cand.proposed_shift
+    roles = {r.id: r.name for r in config.roles}
+    role_names = ", ".join(dict.fromkeys(roles.get(s.role_id, s.role_id) for s in sh.segments)) or "the shift"
+    return (f"It's {role_names}, {DAYS[sh.day]} {clock(sh.start)} to {clock(sh.end)}, ${emp.wage_per_hour:.2f}/hr. "
+            f"Your manager will see any other questions. Reply YES or NO")
+
+
+AUTOREPLY_MODES = ("off", "script", "prob")
+SCRIPT_DECLINE = "Sorry, can't today"
+SCRIPT_QUESTION = "What time?"
+SCRIPT_ACCEPT = "Yes I can"
 
 
 @dataclass
@@ -55,6 +72,8 @@ class Run:
     replies: asyncio.Queue = field(default_factory=asyncio.Queue)
     current_phone: Optional[str] = None
     task: Optional[asyncio.Task] = None
+    auto_task: Optional[asyncio.Task] = None  # simulated reply for the current text (mock messenger)
+    texted: int = 0  # how many people this run has texted (drives the scripted demo replies)
 
 
 class OutreachBusy(RuntimeError):
@@ -65,9 +84,13 @@ TEXT_WINDOW_S = 3600.0
 
 
 class OutreachManager:
-    def __init__(self, db: Database, messenger: Messenger, llm, timeout_s: float, max_texts_per_hour: int = 20):
+    def __init__(self, db: Database, messenger: Messenger, llm, timeout_s: float, max_texts_per_hour: int = 20,
+                 autoreply: str = "off", reply_delay_s: float = 4.0, seed: int = 417):
         self.db, self.messenger, self.llm, self.timeout_s = db, messenger, llm, timeout_s
         self.max_texts_per_hour = max_texts_per_hour
+        # Simulated replies only ever apply to the mock messenger.
+        self.autoreply = autoreply if messenger.name == "mock" and autoreply in AUTOREPLY_MODES else "off"
+        self.reply_delay_s, self.seed = reply_delay_s, seed
         self.runs: dict[str, Run] = {}
         self.sent_at: dict[str, deque[float]] = {}  # store_id -> monotonic send times (last hour)
         self.changed: dict[str, asyncio.Event] = {}  # store_id -> set (then replaced) on every state change
@@ -137,6 +160,7 @@ class OutreachManager:
     async def cancel(self, store_id: str) -> OutreachState:
         run = self.runs.get(store_id)
         if run and run.task and not run.task.done():
+            self._stop_auto(run)
             run.task.cancel()
             try:
                 await run.task
@@ -149,9 +173,13 @@ class OutreachManager:
         return self.state(store_id)
 
     # ---------------------------------------------------------------- inbound
-    async def inbound(self, from_phone: str, body: str) -> Optional[InboundMessage]:
+    async def inbound(self, from_phone: str, body: str, manual: bool = False) -> Optional[InboundMessage]:
+        """A reply arrived (Twilio webhook, mock-reply endpoint, or the simulated replier).
+        `manual=True` (POST /api/sms/mock-reply) cancels any pending simulated reply for that person."""
         run = next((r for r in self.runs.values() if r.current_phone and _same_phone(r.current_phone, from_phone)
                     and r.state.status == "texting"), None)
+        if run is not None and manual:
+            self._stop_auto(run)
         kind = await interpret(body, self.llm)
         msg = InboundMessage(id="in_" + uuid.uuid4().hex[:10], from_phone=from_phone, body=body,
                              received_at=datetime.now(timezone.utc), interpreted_as=kind)
@@ -197,9 +225,12 @@ class OutreachManager:
                 run.current_phone = emp.phone
                 run.state.current_rank = cand.rank
                 run.state.messages.append(out)
+                run.texted += 1
                 self._persist(run)
+                self._start_auto(run, emp.phone, cand)
 
-                verdict = await self._await_verdict(run)
+                verdict = await self._await_verdict(run, config, emp, cand)
+                self._stop_auto(run)
                 run.current_phone = None
                 if verdict == "accept":
                     run.state.accepted_employee_ids.append(cand.employee_id)
@@ -216,6 +247,7 @@ class OutreachManager:
                     queue = await self._refix(run, config)
                 self._persist(run)
         except asyncio.CancelledError:
+            self._stop_auto(run)
             raise
         except Exception as e:  # noqa: BLE001 - surface in state rather than dying silently
             run.state.status = "exhausted"
@@ -223,7 +255,49 @@ class OutreachManager:
         finally:
             self._persist(run)
 
-    async def _await_verdict(self, run: Run) -> str:
+    # ---------------------------------------------------------------- simulated replies (mock only)
+    def _script(self, run: Run, cand: OutreachCandidate) -> list[str]:
+        if self.autoreply == "script":
+            # demo: 1st person texted declines; 2nd asks a question, then accepts; anyone after accepts
+            return {1: [SCRIPT_DECLINE], 2: [SCRIPT_QUESTION, SCRIPT_ACCEPT]}.get(run.texted, [SCRIPT_ACCEPT])
+        if self.autoreply == "prob":
+            rng = random.Random(f"{self.seed}:{run.plan_id}:{cand.employee_id}")
+            return [SCRIPT_ACCEPT if rng.random() < cand.est_accept_prob else SCRIPT_DECLINE]
+        return []
+
+    def _start_auto(self, run: Run, phone: str, cand: OutreachCandidate) -> None:
+        replies = self._script(run, cand)
+        if not replies:
+            return
+
+        async def reply() -> None:
+            for body in replies:
+                await asyncio.sleep(self.reply_delay_s)
+                if not (run.current_phone and _same_phone(run.current_phone, phone)):
+                    return
+                await self.inbound(phone, body)
+        run.auto_task = asyncio.create_task(reply())
+
+    @staticmethod
+    def _stop_auto(run: Run) -> None:
+        t = run.auto_task
+        if t and not t.done() and t is not asyncio.current_task():
+            t.cancel()
+        run.auto_task = None
+
+    async def _answer(self, run: Run, config: StoreConfig, emp, cand: OutreachCandidate) -> None:
+        if self._texts_left(run.store_id) <= 0:
+            return
+        try:
+            out = await self.messenger.send(emp, answer_text(config, cand), outreach_rank=cand.rank)
+        except RecipientBlocked:
+            return
+        self.sent_at.setdefault(run.store_id, deque()).append(time.monotonic())
+        self.db.log_message(out.id, run.store_id, "out", out.model_dump(mode="json"))
+        run.state.messages.append(out)
+        self._persist(run)
+
+    async def _await_verdict(self, run: Run, config: StoreConfig, emp, cand: OutreachCandidate) -> str:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.timeout_s
         while True:
@@ -236,7 +310,9 @@ class OutreachManager:
                 return "timeout"
             if msg.interpreted_as in ("accept", "decline"):
                 return msg.interpreted_as
-            # question / unknown: forwarded to the leader's view (it's in state.messages); keep waiting
+            if msg.interpreted_as == "question":
+                await self._answer(run, config, emp, cand)
+            # question / unknown: also in the leader's view (state.messages); keep waiting
 
     def _commit_shift(self, config: StoreConfig, schedule: Schedule, cand: OutreachCandidate) -> Schedule:
         sched = schedule.model_copy(deep=True)

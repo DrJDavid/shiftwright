@@ -136,3 +136,40 @@ def test_card_pauses_and_resumes(live_server):
         assert ("text", {"delta": "Budget saved."}) in events
         assert c.get(f"/api/stores/{sid}/config").json()["budget"]["weekly_hours_cap"] == 900
         assert c.post(f"/api/stores/{sid}/chat/card", json={"card_id": "nope", "result": {}}).status_code == 404
+
+
+def _read_until_card(resp) -> dict:
+    buf = ""
+    for chunk in resp.iter_text():
+        buf += chunk
+        while "\n\n" in buf:
+            block, buf = buf.split("\n\n", 1)
+            ev = parse_sse(block + "\n\n")[0]
+            if ev[0] == "card":
+                return ev[1]
+    raise AssertionError("no card")
+
+
+@pytest.mark.parametrize("disconnect", [True, False])
+def test_new_turn_supersedes_a_parked_card(live_server, disconnect):
+    base, llm = live_server
+    llm.script([say("New turn here.")])  # after ask_payroll + "Budget saved." (unused: the old turn stops)
+    llm._steps = [llm._steps[0], llm._steps[2]]
+    with httpx.Client(base_url=base, timeout=10) as c:
+        sid = make_store(c)["store"]["id"]
+        body = {"mode": "onboard", "messages": [{"role": "user", "content": "budget"}]}
+        old = c.stream("POST", f"/api/stores/{sid}/chat", json=body)
+        resp = old.__enter__()
+        card = _read_until_card(resp)
+        if disconnect:
+            old.__exit__(None, None, None)
+        r = c.post(f"/api/stores/{sid}/chat", json={"mode": "onboard", "messages": [{"role": "user", "content": "hi"}]})
+        assert r.status_code == 200, r.text
+        events = parse_sse(r.text)
+        assert ("text", {"delta": "New turn here."}) in events and events[-1] == ("done", {})
+        if not disconnect:
+            old.__exit__(None, None, None)
+        assert c.post(f"/api/stores/{sid}/chat/card", json={"card_id": card["card_id"], "result": {}}).status_code == 404
+    tool_results = [m for m in llm.calls[-1] if m["role"] == "tool"]
+    assert len(tool_results) == 1 and '"cancelled": true' in tool_results[0]["content"]
+    assert [m["content"] for m in llm.calls[-1] if m["role"] == "user"] == ["budget", "hi"]

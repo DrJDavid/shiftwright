@@ -24,6 +24,15 @@ class CardBroker:
         fut.get_loop().call_soon_threadsafe(_set, fut, result)
         return True
 
+    def cancel_all(self, store_id: str, reason: str) -> int:
+        """Resolve every open card for this store as cancelled (e.g. a new turn superseded it)."""
+        n = 0
+        for (s, c), fut in list(self._pending.items()):
+            if s == store_id and not fut.done():
+                fut.get_loop().call_soon_threadsafe(_set, fut, {"cancelled": True, "reason": reason})
+                n += 1
+        return n
+
     def pending(self, store_id: str) -> list[str]:
         return [c for (s, c), f in self._pending.items() if s == store_id and not f.done()]
 

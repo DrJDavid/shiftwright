@@ -78,6 +78,7 @@ async def run_turn(
     mode: str,
     user_messages: list[dict],
     await_card: CardWaiter,
+    aborted: Callable[[], bool] = lambda: False,
 ) -> AsyncIterator[tuple[str, dict]]:
     transcript = repair_transcript(db.get_transcript(store_id))
     for m in user_messages:
@@ -153,6 +154,9 @@ async def run_turn(
                 if result.patch_summary:
                     yield "config", {"config_version": result.config_version, "patch_summary": result.patch_summary}
                 yield "tool", {"name": tc.name, "status": "done", "summary": _summary(tc.name, result.content)}
+                if aborted():  # a newer turn took over; remaining tool calls are repaired as cancelled
+                    yield "error", {"message": "This turn was replaced by a newer message."}
+                    return
         else:
             yield "error", {"message": f"Stopped after {MAX_STEPS} steps without finishing."}
             return

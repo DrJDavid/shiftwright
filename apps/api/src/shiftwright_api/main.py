@@ -65,6 +65,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     app.state.llm = llm or OpenRouterClient(settings.openrouter_api_key, settings.agent_model)
     app.state.cards = CardBroker()
     app.state.turn_locks = {}
+    app.state.turn_abort = {}
     if helper_llm is None and settings.openrouter_api_key:
         helper_llm = OpenRouterClient(settings.openrouter_api_key, settings.agent_model)
     app.state.helper_llm = helper_llm
@@ -76,7 +77,8 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         messenger = MockMessenger()
     app.state.messenger = messenger
     app.state.outreach = OutreachManager(app.state.db, messenger, helper_llm, settings.outreach_timeout_s,
-                                         settings.max_texts_per_store_hour)
+                                         settings.max_texts_per_store_hour, autoreply=settings.mock_autoreply,
+                                         reply_delay_s=settings.mock_reply_delay_s, seed=settings.mock_seed)
 
     if settings.demo_key:
         @app.middleware("http")
@@ -108,13 +110,19 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             "llm_configured": bool(settings.openrouter_api_key) or llm is not None,
             "stubs": integrations.active_stubs(),
             "demo_key_required": bool(settings.demo_key),
+            "mock_autoreply": app.state.outreach.autoreply,
             "warnings": startup_warnings,
         }
 
     # ---------------------------------------------------------------- stores
     @app.post("/api/stores", response_model=StoreConfig)
     def create_store(req: CreateStoreRequest) -> StoreConfig:
-        cfg = templates.build(req.template, req.name, req.jurisdiction)
+        if req.template in templates.FIXTURE_TEMPLATES:
+            cfg = templates.from_fixture(req.template)
+        elif not req.name or req.jurisdiction is None:
+            raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
+        else:
+            cfg = templates.build(req.template, req.name, req.jurisdiction)
         return db().create_store(cfg, actor="leader")
 
     @app.get("/api/stores/{store_id}/config", response_model=StoreConfig)
@@ -137,11 +145,16 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     @app.post("/api/stores/{store_id}/solve")
     def solve(store_id: str, req: SolveRequest = Body(default_factory=SolveRequest)) -> dict:
         cfg = with_law(load(store_id))
-        sched = integrations.solve_week(cfg, time_limit_s=req.time_limit_s or 20)
+        try:
+            sched = integrations.solve_week(cfg, time_limit_s=req.time_limit_s or 20)
+        except Exception as e:  # noqa: BLE001 - engine crash / MemoryError: say so plainly, keep serving
+            raise HTTPException(500, f"Schedule engine failed ({type(e).__name__}: {e}). Nothing was saved.")
         try:
             val = integrations.validate(cfg, sched)
         except integrations.StubUnavailable as e:
             raise HTTPException(503, str(e))
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(500, f"Validator failed ({type(e).__name__}: {e}). Nothing was saved.")
         db().save_schedule(store_id, sched, val)
         return {"schedule": sched.model_dump(mode="json"), "validation": val.model_dump(mode="json")}
 
@@ -295,7 +308,7 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     async def sms_mock_reply(body: dict = Body(...)) -> dict:
         if app.state.messenger.name != "mock":
             raise HTTPException(404, "Only available when MESSENGER=mock")
-        msg = await app.state.outreach.inbound(str(body.get("from_phone", "")), str(body.get("body", "")))
+        msg = await app.state.outreach.inbound(str(body.get("from_phone", "")), str(body.get("body", "")), manual=True)
         return {"ok": True, "interpreted_as": msg.interpreted_as if msg else None}
 
     # ---------------------------------------------------------------- laws
@@ -310,17 +323,31 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         load(store_id)
         lock = app.state.turn_locks.setdefault(store_id, asyncio.Lock())
         if lock.locked():
-            raise HTTPException(409, "A chat turn is already running for this store.")
+            # A turn parked on a card (e.g. the browser closed mid-card) is superseded by the new message;
+            # a turn still talking to the model is not interrupted.
+            if not app.state.cards.pending(store_id):
+                raise HTTPException(409, "A chat turn is already running for this store.")
+            app.state.turn_abort.get(store_id, asyncio.Event()).set()
+            app.state.cards.cancel_all(store_id, "superseded by a new message")
         waiter = (scripted_waiter(req.card_script) if auto_cards == "scripted"
                   else broker_waiter(app.state.cards, store_id, settings.card_timeout_s))
 
         async def stream():
-            async with lock:
+            try:
+                await asyncio.wait_for(lock.acquire(), timeout=10)
+            except asyncio.TimeoutError:
+                yield sse("error", {"message": "The previous turn did not stop in time; try again."})
+                return
+            try:
+                abort = app.state.turn_abort[store_id] = asyncio.Event()
                 async for event, data in run_turn(
                     db=db(), llm=app.state.llm, store_id=store_id, mode=req.mode,
                     user_messages=[m.model_dump() for m in req.messages], await_card=waiter,
+                    aborted=abort.is_set,
                 ):
                     yield sse(event, data)
+            finally:
+                lock.release()
 
         return StreamingResponse(stream(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

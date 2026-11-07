@@ -23,6 +23,9 @@ class Settings:
     sms_allowlist: list[str] = field(default_factory=list)  # SMS_ALLOWLIST + DEMO_PHONE_1/2; Twilio texts only these
     demo_key: str = ""  # DEMO_KEY: if set, mutating /api/stores* routes need header X-Demo-Key
     max_texts_per_store_hour: int = 20
+    mock_autoreply: str = "off"  # off | script | prob (from_env: default "script" when MESSENGER=mock)
+    mock_reply_delay_s: float = 4.0
+    mock_seed: int = 417
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -44,6 +47,9 @@ class Settings:
                 if p.strip()],
             demo_key=(env("DEMO_KEY") or "").strip(),
             max_texts_per_store_hour=int(env("MAX_TEXTS_PER_STORE_HOUR") or 20),
+            mock_autoreply=(env("MOCK_AUTOREPLY") or "script").strip().lower(),
+            mock_reply_delay_s=float(env("MOCK_REPLY_DELAY_S") or 4),
+            mock_seed=int(env("MOCK_SEED") or 417),
         )
 
     @property

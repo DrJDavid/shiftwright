@@ -104,3 +104,47 @@ def test_laws_resolve(client):
     r = client.get("/api/laws/resolve", params={"state": "TX", "city": "austin"})
     assert r.status_code == 200
     LawPack.model_validate(r.json())
+
+
+def test_fixture_templates(client):
+    from shiftwright_scenarios import load_demo_store, load_tiny_store
+    for template, loader in (("demo", load_demo_store), ("tiny", load_tiny_store)):
+        r = client.post("/api/stores", json={"template": template})
+        assert r.status_code == 200, r.text
+        cfg = StoreConfig.model_validate(r.json())
+        want = loader()
+        assert cfg.store.id != want.store.id and cfg.store.id.startswith("st_")
+        assert cfg.store.name == want.store.name and len(cfg.employees) == len(want.employees)
+        assert cfg.demand == want.demand and cfg.constraints == want.constraints
+    assert client.post("/api/stores", json={"template": "bigbox_mid"}).status_code == 422
+
+
+def test_solve_reports_engine_crash(client, monkeypatch):
+    from shiftwright_api import integrations
+
+    def boom(*a, **k):
+        raise MemoryError("out of memory")
+    monkeypatch.setattr(integrations, "solve_week", boom)
+    sid = _put_tiny(client)
+    r = client.post(f"/api/stores/{sid}/solve", json={})
+    assert r.status_code == 500 and "Schedule engine failed (MemoryError" in r.json()["detail"]
+
+
+def test_human_readable_text():
+    from shiftwright_api.explain import clock, phrase_gap
+    from shiftwright_api.readiness import compute
+    from shiftwright_contracts.models import Gap
+    assert [clock(m) for m in (0, 390, 720, 870, 1320, 1440)] == ["12 am", "6:30 am", "12 pm", "2:30 pm", "10 pm", "12 am"]
+    cfg = tiny_config()
+    role = cfg.roles[0]
+    text = phrase_gap(cfg, Gap(role_id=role.id, day=5, start=600, end=870, missing_headcount=1, penalty_dollars=120.0,
+                               reasons=[]), [])
+    assert text.startswith(f"{role.name} Sat 10 am–2:30 pm uncovered (1 short, $120)")
+    cfg = cfg.model_copy(deep=True)
+    day = min(d.day for d in cfg.demand)
+    cfg.demand = [d for d in cfg.demand if d.day != day]
+    for e in cfg.employees:
+        e.trained_role_ids = [r for r in e.trained_role_ids if r != role.id]
+    checks = {c.id: c.detail for c in compute(cfg).checks}
+    assert role.name in checks["training"] and role.id not in checks["training"].split(": ")[1].split(", ")
+    assert ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day] in checks["demand"]

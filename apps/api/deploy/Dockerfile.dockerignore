@@ -1,0 +1,15 @@
+# BuildKit uses <Dockerfile>.dockerignore next to the Dockerfile (build context = repo root).
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.db
+**/*.db-wal
+**/*.db-shm
+.git
+.env
+.env.*
+!.env.example
+.claude
+apps/web/dist

@@ -751,6 +751,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "shiftwright-contracts" },
     { name = "shiftwright-laws" },
+    { name = "shiftwright-scenarios" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -761,6 +762,7 @@ requires-dist = [
     { name = "python-multipart" },
     { name = "shiftwright-contracts", editable = "contracts" },
     { name = "shiftwright-laws", editable = "data/laws" },
+    { name = "shiftwright-scenarios", editable = "packages/scenarios" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 
