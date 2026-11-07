@@ -104,3 +104,19 @@ describe('mock accounts (PUNCHLIST A1)', () => {
     await expect(a.solve(mine.store.id)).rejects.toMatchObject({ status: 404 })
   })
 })
+
+describe('mock build progress (C4)', () => {
+  it('reports progress while building, then a stop_reason with the seconds taken', async () => {
+    const a = createApi(createMockFetch({ latencyMs: 30 }))
+    const cfg = await a.createStore({ template: 'bigbox_small', name: 'S', jurisdiction: { state: 'TX', city: 'austin' } })
+    expect(await a.solveProgress(cfg.store.id)).toEqual({ running: false, elapsed_s: 0 })
+    const building = a.solve(cfg.store.id)
+    await new Promise((r) => setTimeout(r, 700))
+    const mid = await a.solveProgress(cfg.store.id)
+    expect(mid.running).toBe(true)
+    expect(mid.coverage_pct).toEqual(expect.any(Number))
+    const { schedule } = await building
+    expect(schedule.solver_stats).toMatchObject({ stop_reason: 'plateau', total_s: expect.any(Number) })
+    expect((await a.solveProgress(cfg.store.id)).running).toBe(false)
+  }, 10_000)
+})

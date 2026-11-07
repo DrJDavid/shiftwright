@@ -18,16 +18,18 @@ type Props = {
   lawRules?: LawRule[]
   /** Opens the chat, where the agent asks about the solver's tradeoffs. */
   onOpenChat?: () => void
+  /** C4: coverage so far while a build runs, when the server reports it. */
+  coveragePct?: number | null
 }
 
-export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules, onOpenChat }: Props) {
+export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules, onOpenChat, coveragePct }: Props) {
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const names = useMemo(() => new Map(config.employees.map((e) => [e.id, e.name])), [config.employees])
 
   if (!result) {
     return (
       <div className="relative flex flex-1 items-center justify-center p-10">
-        {solve.status === 'running' && <SolveProgress startedAt={solve.startedAt} />}
+        {solve.status === 'running' && <SolveProgress startedAt={solve.startedAt} coveragePct={coveragePct} />}
         <div className="max-w-md">
           <h2 className="text-xl font-semibold">No schedule for this week yet</h2>
           <p className="mt-2 text-ink-2">
@@ -49,7 +51,7 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {solve.status === 'running' && <SolveProgress startedAt={solve.startedAt} />}
+      {solve.status === 'running' && <SolveProgress startedAt={solve.startedAt} coveragePct={coveragePct} />}
       <ScheduleStats schedule={schedule} validation={validation} employeeName={(id) => names.get(id) ?? id} demand={config.demand} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-rule bg-panel px-4 py-2 text-xs text-ink-2">
         {config.roles.map((r) => (

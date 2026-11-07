@@ -19,6 +19,7 @@ import { ReceiptTab } from './components/ReceiptTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
 import { ruleNames as makeRuleNames } from './lib/ruleNames'
+import { useSolveProgress } from './lib/useSolveProgress'
 import { placeLabel, rememberStore } from './lib/stores'
 
 type Tab = 'schedule' | 'callouts' | 'team' | 'compliance'
@@ -55,6 +56,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
   const [lawPack, setLawPack] = useState<LawPack | null>(null)
   const [lawError, setLawError] = useState<string | null>(null)
   const storeId = config?.store.id
+  const coverageSoFar = useSolveProgress(api, storeId, solve.status === 'running')
   const lawState = config?.store.jurisdiction.state
   const lawCity = config?.store.jurisdiction.city ?? null
   const embeddedLaw = config?.law_pack ?? null
@@ -298,6 +300,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
               callouts={callouts}
               lawRules={lawPack?.rules}
               onOpenChat={openChat}
+              coveragePct={coverageSoFar}
               onDayClick={(d) => {
                 setCoverageDay(d)
                 setScheduleView('coverage')
@@ -401,6 +404,7 @@ export function Workspace({ storeId: id }: { storeId: string }) {
             onEquipment={onEquipment}
             plain={ruleNames?.plain}
             place={placeLabel(juris.city, juris.state)}
+            coveragePct={coverageSoFar}
           />
         ) : (
           workspaceMain

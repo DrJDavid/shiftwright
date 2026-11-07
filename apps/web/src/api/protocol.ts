@@ -158,6 +158,9 @@ export type WorkplaceSummary = {
   sample_of: string | null
 }
 
+/** C4 (optional endpoint): a running build's progress. */
+export type SolveProgress = { running: boolean; elapsed_s: number; coverage_pct?: number | null }
+
 /** `validation` is null when GET /schedule has a stored schedule that was never validated. */
 export type SolveResponse = { schedule: Schedule; validation: ValidationReport | null }
 
