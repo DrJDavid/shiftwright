@@ -1,0 +1,296 @@
+{
+  "jurisdiction": {
+    "state": "CA",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Seventh consecutive workday: first 8 hours at 1.5x and over 8 at 2x (Lab. Code \u00a7 510(a)); not representable in the daily_overtime params, recorded here.",
+    "No statewide minimum-rest-between-shifts or predictive-scheduling law for retail; see city files (e.g. San Francisco, Los Angeles, Berkeley, Emeryville) for local ordinances.",
+    "16-17 school-week weekly cap: Lab. Code \u00a7 1391 sets 48 h/week; a lower school-week cap may exist in the Education Code work-permit rules \u2014 not yet verified, so not encoded.",
+    "Extra param keys: rest_break.not_required_under_minutes, reporting_time_pay.max_paid_hours, minor_limits.max_hours_non_school_day, minor_limits.latest_end_before_non_school_day.",
+    "Wage Order 7 meal/rest premium: one hour of pay per workday a required rest (or meal) period is not provided."
+  ],
+  "rules": [
+    {
+      "id": "CA.daily_overtime.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "daily_overtime",
+      "params": {
+        "threshold_hours": 8,
+        "multiplier": 1.5,
+        "double_threshold_hours": 12
+      },
+      "summary": "Work over 8 hours in a workday is paid at 1.5x and over 12 hours at 2x (seventh-day rules also apply).",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=510",
+        "title": "Cal. Lab. Code \u00a7 510(a) \u2014 Day's work; overtime",
+        "excerpt": "Any work in excess of eight hours in one workday ... Any work in excess of 12 hours in one day ... no less than twice the regular rate",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Work over 40 hours in a workweek is paid at 1.5x.",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=510",
+        "title": "Cal. Lab. Code \u00a7 510(a) \u2014 Day's work; overtime",
+        "excerpt": "any work in excess of 40 hours in any one workweek ... shall be compensated at the rate of no less than one and one-half times",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.meal_break.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 300,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": 300,
+        "waivable_under_minutes": 360
+      },
+      "summary": "A 30-minute unpaid meal period is required for a work period over 5 hours; it may be waived by mutual consent if the day is no more than 6 hours.",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=512",
+        "title": "Cal. Lab. Code \u00a7 512(a) \u2014 Meal periods",
+        "excerpt": "work period of more than five hours per day without providing the employee with a meal period of not less than 30 minutes",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.meal_break.2",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 600,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": 600,
+        "waivable_under_minutes": 720
+      },
+      "summary": "A second 30-minute meal period is required for a work period over 10 hours; waivable if no more than 12 hours and the first was not waived.",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=512",
+        "title": "Cal. Lab. Code \u00a7 512(a) \u2014 Meal periods",
+        "excerpt": "more than 10 hours per day without providing the employee with a second meal period of not less than 30 minutes",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.rest_break.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "rest_break",
+      "params": {
+        "per_minutes_worked": 240,
+        "duration": 10,
+        "paid": true,
+        "not_required_under_minutes": 210
+      },
+      "summary": "Employees get a paid 10-minute rest period per 4 hours worked or major fraction thereof; none required if the day is under 3.5 hours.",
+      "citation": {
+        "url": "https://www.dir.ca.gov/IWC/IWCArticle7.pdf",
+        "title": "IWC Wage Order 7-2001 (Mercantile), \u00a7 12 \u2014 Rest periods",
+        "excerpt": "ten (10) minutes net rest time per four (4) hours or major fraction thereof",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.reporting_time_pay.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "reporting_time_pay",
+      "params": {
+        "min_paid_hours": 2,
+        "fraction_of_scheduled": 0.5,
+        "max_paid_hours": 4
+      },
+      "summary": "An employee who reports but gets less than half the scheduled day is paid for half the scheduled day, at least 2 and at most 4 hours.",
+      "citation": {
+        "url": "https://www.dir.ca.gov/IWC/IWCArticle7.pdf",
+        "title": "IWC Wage Order 7-2001 (Mercantile), \u00a7 5 \u2014 Reporting time pay",
+        "excerpt": "shall be paid for half the usual or scheduled day's work, but in no event for less than two (2) hours nor more than four (4) hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 16.9,
+        "effective": "2026-01-01"
+      },
+      "summary": "California's minimum wage is $16.90 an hour for all employers from January 1, 2026.",
+      "citation": {
+        "url": "https://www.dir.ca.gov/dlse/faq_minimumwage.htm",
+        "title": "DIR/DLSE \u2014 Minimum Wage FAQ",
+        "excerpt": "the minimum wage is $16.90 per hour for all employers (effective January 1, 2026)",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.minor_limits.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_non_school_day": 8,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "While school is in session, 14- and 15-year-olds may work at most 3 hours on a school day and 18 hours a week, between 7 a.m. and 7 p.m.",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=1391",
+        "title": "Cal. Lab. Code \u00a7 1391(a)(1)-(2) \u2014 Minors' hours",
+        "excerpt": "while school is in session ... not more than three hours in any schoolday, nor more than 18 hours in any week",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.minor_limits.2",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
+      "summary": "Minors 15 and under may work at most 8 hours a day and 40 a week, 7 a.m.-7 p.m. (until 9 p.m. June 1 through Labor Day).",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=1391",
+        "title": "Cal. Lab. Code \u00a7 1391(a)(1) \u2014 Minors' hours",
+        "excerpt": "more than eight hours in one day of 24 hours, or more than 40 hours in one week, or before 7 a.m. or after 7 p.m.",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.minor_limits.3",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": true,
+        "max_hours_day": 4,
+        "max_hours_non_school_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 300,
+        "latest_end": 1320,
+        "latest_end_before_non_school_day": 1470,
+        "latest_end_summer": null
+      },
+      "summary": "While school is in session, 16- and 17-year-olds may work at most 4 hours on a school day (8 otherwise), between 5 a.m. and 10 p.m. before a school day (12:30 a.m. before a non-school day).",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=1391",
+        "title": "Cal. Lab. Code \u00a7 1391(a)(3)-(4) \u2014 Minors' hours",
+        "excerpt": "while school is in session ... a minor 16 or 17 years of age for more than four hours in any schoolday",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.minor_limits.4",
+      "jurisdiction": {
+        "state": "CA",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 16,
+        "age_max": 17,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 48,
+        "earliest_start": 300,
+        "latest_end": 1320,
+        "latest_end_before_non_school_day": 1470,
+        "latest_end_summer": null
+      },
+      "summary": "16- and 17-year-olds may work at most 8 hours a day and 48 a week, not before 5 a.m. or after 10 p.m. before a school day (12:30 a.m. before a non-school day).",
+      "citation": {
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=1391",
+        "title": "Cal. Lab. Code \u00a7 1391(a)(3) \u2014 Minors' hours",
+        "excerpt": "more than eight hours in one day of 24 hours or more than 48 hours in one week, or before 5 a.m., or after 10 p.m. on any day preceding a schoolday",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}
