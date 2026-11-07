@@ -39,6 +39,29 @@
   plus OpenRouter request shape/retry/cache/truncation/HTTP error via `httpx.MockTransport`, prompt completeness,
   mock kinds → intended validator codes.
 
+**E2: `real-quick-2`, Sat Nov 7 ~05:00 CT, branch `cursor/E2-rescore` (main + WS1 C1 fix-plan + C2 split shifts) (no spend).**
+`env -u OPENROUTER_API_KEY -u BASELINE_MODELS uv run python -m shiftwright_evals --quick --rescore-from real-quick-1
+--run-id real-quick-2`, production engine defaults (`S=30,M=30,L=60`, 8 CP-SAT workers, 1 solve at a time; load avg
+~11–18). Manifest: llm calls 0 hits / 0 misses, OpenRouter spend none; all 30 baseline rows re-scored from
+real-quick-1's stored replies (none under "Not re-scored"); 10 fresh engine solves, 145 s wall.
+Report: `packages/evals/reports/real-quick-2/report.html` (gitignored, like all reports).
+
+| Weekly build (6) | 0 hard | Hard | Legal coverage | Cost vs SW | Time / schedule |
+|---|---|---|---|---|---|
+| Shiftwright (30 s, 8 workers) | **6/6** | **0** | 90.0% | 1.00× | 21 s |
+| grok-4.7 | 5/6 | 4 | 90.0% | 1.03× | 1,299 s |
+| claude-opus-5.5 | 5/6 | 3 | 90.2% | 1.00× (1.003) | 425 s |
+| gpt-6.1-terra-pro | 2/6 | 14 | 91.05% | 1.07× | 216 s |
+
+S legal_trap CA: Shiftwright now returns a feasible schedule (0 hard, 89.1% coverage, $12,555.88, 25 s) instead of
+"infeasible" with 7 always_staffed; weekly false "infeasible" 1 → 0. On that row the two clean baselines are slightly
+cheaper (Opus 0.96×, Grok 0.97×, coverage 90.2% / 90.7%); every other clean baseline schedule costs 1.003–1.12× SW.
+Honesty TP 2/2 for all; repair Shiftwright 2/2 clean (93.9% / 94.2%) in < 1 s, baselines 1/2 each.
+`SUSPECT_EXPECTED` was already empty (cleared at the 02:40 rescore); nothing to drop.
+Realistic: still 3 intake rows (FakeLLM) + food skipped (`KeyError 'management'`); **E1 (`cursor/E1-food-export`)
+fixes `write_exports` for food, so after it merges the food skip goes away** (food rows have no cached chat replies;
+the realistic chat baselines need approved spend either way).
+
 **Production engine configuration: `rescore-30s-8w` and `rescore-120s-8w`, Sat Nov 7 ~02:40 CT, main 1125c6e (no spend).**
 Defaults are now `--engine-workers 1` (one solve at a time) and `--cpsat-workers 8` (sets `ENGINE_WORKERS`, = the
 deployed 8-vCPU service), `--engine-time-limit S=30,M=30,L=60`; the engine cache key includes the worker count.
@@ -109,11 +132,9 @@ At 120 s the cost gap is gone (was 0.94–0.95× at 30 s). Honesty 2/2 for every
 in 0.7–1.9 s. Caveat: the validator doesn't check `shifts_per_day` (SEMANTICS #23) yet; when WS2 adds it, Grok's
 clean S legal_trap schedule (one split day) fails under max_shifts_per_day=1 until WS4 sets 2 for that store.
 
-**Next (waiting on WS1 split shifts + quality, WS4 legal_trap CA max_shifts_per_day=2 + no min-wage trap + food scenarios):**
-real-quick-2 = `--quick --rescore-from real-quick-1 --run-id real-quick-2` (re-scoring stays valid while the
-store's employee/role ids, demand, hours and week are unchanged; otherwise those rows are listed under "Not
-re-scored" and need coordinator approval for new spend). Then drop `SUSPECT_EXPECTED` for S legal_trap CA, and add
-food scenarios to `build_cases(quick=True)` once `generate` supports them (food rows will have no cached baseline
+**Next:** real-quick-2 is done (above). Re-scoring stays valid while the store's employee/role ids, demand,
+hours and week are unchanged; otherwise those rows are listed under "Not re-scored" and need coordinator approval
+for new spend. Still open: add food scenarios to `build_cases(quick=True)` once `generate` supports them (food rows will have no cached baseline
 replies → they need a new prompt, ask first).
 
 **First real baseline run (approved by David): `real-quick-1`, Sat Nov 7 ~00:00–00:35 CT, main 0414a9b.**
