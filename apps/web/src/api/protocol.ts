@@ -108,6 +108,9 @@ export type ImportPreview = {
   rows_preview: object[]
   row_count: number
   warnings: string[]
+  /** v1.2: fields a column may map to (in order) / must map. Older servers omit them. */
+  target_fields?: string[]
+  required_fields?: string[]
 }
 
 export type OutreachState = {
