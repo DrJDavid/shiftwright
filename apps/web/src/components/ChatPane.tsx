@@ -101,9 +101,19 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
     }
   }
 
+  // API v1.2: a new message while the turn is paused on an agent card cancels that card and starts a new turn.
+  const openAgentCard = items.some((x) => x.kind === 'card' && !x.local && x.status === 'open')
+  const canSend = !busy || openAgentCard
+  const turn = useRef(0)
+
   const send = async (text: string) => {
     const content = text.trim()
-    if (!content || busy) return
+    if (!content || !canSend) return
+    if (busy) {
+      setItems((xs) => xs.map((x) => (x.kind === 'card' && !x.local && x.status === 'open' ? { ...x, status: 'cancelled' } : x)))
+      abortRef.current?.abort()
+    }
+    const myTurn = ++turn.current
     setDraft('')
     push({ kind: 'user', text: content })
     newBubble.current = true
@@ -120,7 +130,7 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
           text: `Chat connection failed: ${(err as Error).message}`,
         })
     } finally {
-      setBusy(false)
+      if (turn.current === myTurn) setBusy(false)
     }
   }
 
@@ -280,14 +290,14 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={busy ? 'Waiting for the current step…' : 'Message Shiftwright'}
-              disabled={busy}
+              placeholder={busy ? (openAgentCard ? 'Or type an answer instead of using the card' : 'Waiting for the current step…') : 'Message Shiftwright'}
+              disabled={!canSend}
               aria-label="Message"
               className="min-w-0 flex-1 rounded-md border border-rule bg-panel px-3 py-2 focus:border-pine focus:outline-none focus:ring-2 focus:ring-pine/20 disabled:bg-paper"
             />
             <button
               type="submit"
-              disabled={busy || !draft.trim()}
+              disabled={!canSend || !draft.trim()}
               className="rounded-md bg-ink px-4 py-2 font-semibold text-white disabled:opacity-40"
             >
               Send
