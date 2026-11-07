@@ -79,6 +79,19 @@ export function mockSolve(cfg: StoreConfig): { schedule: Schedule; validation: V
     }
   }
 
+  const schedule = mockScore(cfg, shifts, 'mock-greedy')
+  return { schedule, validation: { passed: true, hard_count: 0, violations: [], recomputed_metrics: schedule.metrics! } }
+}
+
+/** Gaps + metrics for any set of shifts, computed only from those shifts (MOCK-ONLY). */
+export function mockScore(cfg: StoreConfig, shifts: Shift[], producedBy: string): Schedule {
+  const slot = cfg.store.slot_minutes ?? 30
+  const roleById = new Map(cfg.roles.map((r) => [r.id, r]))
+  const cap = cfg.budget.weekly_hours_cap + (cfg.budget.approvals ?? []).reduce((h, a) => h + (a.extra_hours ?? 0), 0)
+  const paidMinutes = (span: number) => (span > BREAK_AFTER ? span - 30 : span)
+  const hoursUsed = new Map<string, number>()
+  for (const s of shifts) hoursUsed.set(s.employee_id, (hoursUsed.get(s.employee_id) ?? 0) + paidMinutes(s.end - s.start) / 60)
+  const budgetUsed = [...hoursUsed.values()].reduce((a, b) => a + b, 0)
   // Coverage per (role, day, slot)
   let reqSlots = 0
   let coveredSlots = 0
@@ -148,7 +161,7 @@ export function mockSolve(cfg: StoreConfig): { schedule: Schedule; validation: V
     store_id: cfg.store.id,
     week_start: cfg.store.week_start,
     config_version: cfg.config_version ?? 1,
-    produced_by: 'mock-greedy',
+    produced_by: producedBy,
     status: 'feasible',
     shifts,
     gaps,
@@ -157,7 +170,7 @@ export function mockSolve(cfg: StoreConfig): { schedule: Schedule; validation: V
     infeasibility: null,
     solver_stats: { mock: true },
   }
-  return { schedule, validation: { passed: true, hard_count: 0, violations: [], recomputed_metrics: metrics } }
+  return schedule
 }
 
 function round2(n: number) {

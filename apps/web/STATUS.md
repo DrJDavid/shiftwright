@@ -1,8 +1,25 @@
 # WS7 status
 
-_Updated Sat Nov 7, ~00:45 CT. Rebased on main fafe76a (contracts v1.1)._
+_Updated Sat Nov 7, ~01:45 CT. Rebased on main 4f53a85 (real engine solve_week; fix_day not yet)._
 
-## Running it
+## How David runs it locally
+
+From the repo root, after `make install` once:
+
+```
+set -a; . ./.env; set +a; make dev
+```
+
+then open **http://localhost:5173/?demo** (the `?demo` loads a fresh copy of the demo store, Store #0417 with
+60 people; afterwards plain http://localhost:5173 reopens the same store). `make dev` runs the API on :8000 and Vite
+on :5173 (Vite proxies `/api` to :8000). The `set -a; . ./.env` part matters: `make dev-api` doesn't read `.env`
+itself, so without it the chat has no OpenRouter key. **Suggested Makefile fix (coordinator, root file):**
+`dev-api: set -a; [ -f .env ] && . ./.env; set +a; uv run uvicorn shiftwright_api.main:app --reload --port 8000`.
+
+In the app: **Store ▾** (top right) loads the demo store or starts an empty one at any time. Click **Build schedule**
+(about 20–30 s), then use the tabs. Without an API: `cd apps/web && npm run dev`, open http://localhost:5173/?api=mock&demo.
+
+## Running it (details)
 
 - Live API (default now): start the API, then `API_PORT=8017 npm run dev -- --port 5177` (proxy port defaults to 8000).
 - `?api=mock` switches to the in-browser mock (remembered in localStorage; `?api=live` to go back; `VITE_API_MODE=mock` for a mock default).
@@ -13,6 +30,34 @@ _Updated Sat Nov 7, ~00:45 CT. Rebased on main fafe76a (contracts v1.1)._
   remembers its id per mode (`sw.storeId.live` / `sw.storeId.mock`). Clear that key for a fresh store.
 
 ## Done
+
+**Slice 3 (Sat 01:45)**
+- Real engine checked on the demo store (174 shifts, 69 gaps, 90% coverage, validator 0 hard): grid, stats, heatmap and
+  gap panel render correctly with real data. Fixes: heatmap now fits the pane width (it overflowed at 4a–11p); schedule
+  rows grouped by home department with per-department totals (toggle "Group by: Dept / Hours"); 14 distinct role
+  colors (was 9 with repeats); a day's "$X gaps" header jumps to that day in the Coverage tab.
+- Solve progress overlay with elapsed seconds and a time-based bar (labelled as an estimate; typical 20–30 s).
+- Demo store loader: `?demo` or Store ▾ → "Load the demo store" creates a store and PUTs
+  `packages/scenarios/fixtures/demo_store.json` (bundled read-only via `src/lib/demoStore.ts`).
+- **Store tab** (read-only review): People (sortable, searchable: name, department, age with Minor badge, status, wage,
+  hours range, trained roles by name, extra-shift record from attendance, tenure), Roles (by department, gap $/h, min
+  age, role tags, trained count), Training matrix (grouped by department, totals row), Demand (role × slot heatmap
+  per day with store-open band and trucks/events marked, staff-hours per day), Availability (week strip + lines;
+  Mon–Fri ranges collapsed), Budget & rules (caps, OT, approvals, demand total vs cap, constraints, store hours,
+  link to the rulebook). The chat column can be hidden (Hide / "Chat" strip) to give the tables room.
+- **Fix call-outs tab** (M3): pick the day, the time now, and who called out (chips of that day's shifts; prefilled
+  with the demo Sat 6:04a e034/e052/e053 when those people work that day) → `POST /fix` → coverage now / best / worst,
+  plan actions (lever, person, role, time, cost, rationale, law ids), ranked outreach queue (shift offered, cost,
+  likely-yes %, why, live status chips) → **Start texting** → phone-style thread from `GET /outreach/stream`
+  (falls back to polling `GET /outreach` every 2 s), simulated Yes / No / Question replies (`POST /api/sms/mock-reply`),
+  Stop texting (`/outreach/cancel`), coverage number animates and the Schedule tab updates (badge "Not validated",
+  matching the API, which saves outreach schedules without a validation). The tab stays mounted, so outreach survives
+  tab switches. `503` from `/fix` shows "The call-out fixer isn't on this server yet" with a `?api=mock` link.
+- Mock API: `src/mock/fix.ts` fake FixPlan + outreach loop with WS6-style scripted replies (rank 1 declines, next
+  asks a question then accepts, 4 s apart; manual replies win), `/outreach/stream` SSE, `/sms/mock-reply`.
+  Mock metrics come from `mockScore` (factored out of the mock solver), never typed in.
+- Chat handles token-streamed `text` (leading blank line of a later step is trimmed when it starts a new bubble).
+- Tests: 16 (adds mock fix/outreach). build, lint clean.
 
 **M1** — three panes at 1280×720, schedule grid from `/solve`, chat over SSE with cards, readiness rail, mock API.
 
@@ -45,10 +90,12 @@ solve → grid, stats, validator badge + report. (Solve runs WS6's engine stub u
 - Stats bar fits at 1280 with the rail open; day headers use compact money ($8.8k).
 - Tests: 14 (vitest). `npm run build`, `npm run lint`, `npm test` clean.
 
-## Next (M3 and polish)
+## Next
 
-- Fix tab (call-outs → `/fix` → plan → `/outreach/start` → poll `/outreach`, mock Yes/No replies via `/sms/mock-reply`).
-- Re-check the grid and heatmap once WS1's engine lands (real shifts, real breaks, gap reasons).
+- Re-check the Fix tab against the real `fix_day` + WS6 scripted messenger when they land (FixPlan field use,
+  `why` text length, system notes in the thread). Call-in shifts aren't visually marked in the Schedule grid yet.
+- FixPlan coverage numbers are whatever the engine reports (likely week-level, so a 3-person Saturday change moves
+  it only a little); a day-level number would need to come from the engine.
 - `conflict_menu` shows raw constraint/law ids under "Involved"; could map to rule notes.
 - Coverage heatmap: cells are slot-sized; a gap shorter than a slot still marks the whole cell red (hover shows the exact range).
 

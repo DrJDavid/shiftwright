@@ -1,10 +1,12 @@
-import type { Gap, GapReason, Jurisdiction, LawPack, StoreConfig } from '../contracts'
+import type { FixPlan, Gap, GapReason, Jurisdiction, LawPack, StoreConfig } from '../contracts'
 import type {
   CardSubmission,
   ChatEvent,
   ChatRequest,
   CreateStoreRequest,
   CsvImportKind,
+  FixRequestBody,
+  OutreachState,
   Health,
   ImportPreview,
   Readiness,
@@ -71,6 +73,21 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
     },
     importCommit: (id: string, kind: CsvImportKind, mapping: Record<string, string | null>, rows: object[]) =>
       post<StoreConfig>(`${s(id)}/import/${kind}/commit`, { mapping, rows }),
+    fix: (id: string, body: FixRequestBody) => post<FixPlan>(`${s(id)}/fix`, body),
+    outreachStart: (id: string, planId: string) => post<OutreachState>(`${s(id)}/outreach/start`, { plan_id: planId }),
+    outreachCancel: (id: string) => post<OutreachState>(`${s(id)}/outreach/cancel`, {}),
+    outreach: (id: string) => json<OutreachState>(`${s(id)}/outreach`),
+    /** MESSENGER=mock only: reply as the employee. Same code path as a real inbound SMS. */
+    mockReply: (fromPhone: string, body: string) =>
+      post<{ ok: boolean; interpreted_as: string | null }>('/sms/mock-reply', { from_phone: fromPhone, body }),
+    /** SSE `state` snapshots until the outreach stops texting. Resolves when the stream closes. */
+    async outreachStream(id: string, onState: (st: OutreachState) => void, signal?: AbortSignal) {
+      const res = await fetchImpl(`/api${s(id)}/outreach/stream`, { headers: { Accept: 'text/event-stream', ...keyHeader }, signal })
+      if (!res.ok || !res.body) throw new ApiError(res.status, await errorText(res))
+      await readSSE(res.body, (e) => {
+        if (e.event === 'state') onState(e.data as OutreachState)
+      })
+    },
     submitCard: (id: string, sub: CardSubmission) => post<unknown>(`${s(id)}/chat/card`, sub),
 
     /** Streams one chat turn. Resolves when the stream closes. */

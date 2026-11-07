@@ -2,16 +2,19 @@
 // the SSE chat protocol (turn pauses on a card; POST /chat/card resumes the same stream).
 // It returns real Response objects so the production client + SSE parser are exercised unchanged.
 import type { Budget, Schedule, Store, StoreConfig, ValidationReport } from '../contracts'
-import type { CardSubmission, ChatEvent, ChatRequest, CreateStoreRequest, Readiness } from '../api/protocol'
+import type { CardSubmission, ChatEvent, ChatRequest, CreateStoreRequest, FixRequestBody, Readiness } from '../api/protocol'
 import type { FetchLike } from '../api/client'
 import { mockStoreConfig } from './fixture'
 import { mockSolve } from './solver'
+import { MockOutreach, mockFix } from './fix'
 
 type StoreState = {
   config: StoreConfig
   latest: { schedule: Schedule; validation: ValidationReport } | null
   basicsDone: boolean
   payrollDone: boolean
+  plans: Map<string, ReturnType<typeof mockFix>>
+  outreach: MockOutreach
 }
 
 export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
@@ -125,9 +128,19 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
         latest: null,
         basicsDone: false,
         payrollDone: false,
+        plans: new Map(),
+        outreach: new MockOutreach(),
       }
       stores.set(id, st)
       return ok(st.config)
+    }
+    if (path === '/sms/mock-reply' && method === 'POST') {
+      const b = body as { from_phone: string; body: string }
+      for (const st of stores.values()) {
+        const kind = st.outreach.reply(b.from_phone, b.body)
+        if (kind) return ok({ ok: true, interpreted_as: kind })
+      }
+      return ok({ ok: true, interpreted_as: null })
     }
     if (path === '/laws/resolve') return notFound('The mock API has no law data. Open with ?api=live for real law.')
     const m = path.match(/^\/stores\/([^/]+)(\/.*)$/)
@@ -153,6 +166,58 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       // Mock: echo the gap's own reasons; no phrasing model.
       const gap = (body as { gap: { reasons?: unknown[] } }).gap
       return ok({ text: 'Mock API: reasons below come from the mock solver.', reasons: gap.reasons ?? [] })
+    }
+    if (rest === '/fix' && method === 'POST') {
+      if (!st.latest) return ok({ detail: 'No schedule yet; POST /solve first.' }, 409)
+      const planId = `plan_mock_${st.plans.size + 1}`
+      const saved = mockFix(st.config, st.latest.schedule, body as FixRequestBody, planId)
+      st.plans.set(planId, saved)
+      return ok(saved.plan)
+    }
+    if (rest === '/outreach/start' && method === 'POST') {
+      const saved = st.plans.get((body as { plan_id: string }).plan_id)
+      if (!saved) return notFound('No such fix plan')
+      st.outreach.start(st.config, saved)
+      return ok(st.outreach.state)
+    }
+    if (rest === '/outreach/cancel' && method === 'POST') {
+      st.outreach.stop()
+      return ok(st.outreach.state)
+    }
+    if (rest === '/outreach' && method === 'GET') return ok(st.outreach.state)
+    if (rest === '/outreach/stream') {
+      const enc = new TextEncoder()
+      let unsub: (() => void) | null = null
+      const stream = new ReadableStream<Uint8Array>({
+        start(ctrl) {
+          let last = ''
+          const send = () => {
+            const data = JSON.stringify(st.outreach.state)
+            if (data !== last) {
+              last = data
+              ctrl.enqueue(enc.encode(`event: state\ndata: ${data}\n\n`))
+            }
+            if (st.outreach.state.status !== 'texting') {
+              unsub?.()
+              ctrl.close()
+            }
+          }
+          unsub = st.outreach.subscribe(send)
+          init?.signal?.addEventListener('abort', () => {
+            unsub?.()
+            try {
+              ctrl.close()
+            } catch {
+              /* already closed */
+            }
+          })
+          send()
+        },
+        cancel() {
+          unsub?.()
+        },
+      })
+      return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
     }
     if (rest === '/chat' && method === 'POST') return chatStream(st, body as ChatRequest, init?.signal)
     if (rest === '/chat/card' && method === 'POST') {
