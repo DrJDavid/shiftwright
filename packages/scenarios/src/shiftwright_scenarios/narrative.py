@@ -40,6 +40,11 @@ FILLER = [
 ]
 
 
+def _hours(x: float) -> str:
+    """1394 -> "1,394", 1393.5 -> "1,393.5": exactly the configured number, never rounded."""
+    return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.1f}"
+
+
 def build_narrative(
     rng: random.Random, cfg: StoreConfig, trucks: list[int], messy: bool = False
 ) -> tuple[str, list[dict], list[dict], list[dict]]:
@@ -53,8 +58,8 @@ def build_narrative(
                   rng.choice([f"We're open {_hhmm(h.open)} to {_hhmm(h.close)}, seven days.",
                               f"Doors open at {_hhmm(h.open)}, close at {_hhmm(h.close)}, every day of the week."])))
     items.append(({"kind": "budget_hours_cap", "value": cap},
-                  rng.choice([f"Corporate gave us {cap:,.0f} hours for the week and that's a hard number.",
-                              f"Payroll is {cap:,.0f} hours this week. Can't go over without my DM signing off."])))
+                  rng.choice([f"Corporate gave us {_hours(cap)} hours for the week and that's a hard number.",
+                              f"Payroll is {_hours(cap)} hours this week. Can't go over without my DM signing off."])))
     items.append(({"kind": "overtime_allowed", "value": False},
                   rng.choice(["No overtime, period.", "Nobody goes into overtime unless I approve it, and I won't."])))
     items.append(({"kind": "truck", "days": trucks, "start": 240, "end": 600},
@@ -114,7 +119,7 @@ def build_narrative(
             contradictions.append({"kind": "truck", "fact_value": trucks, "contradicting_value": alt, "statement": s2})
         else:
             alt_cap = round(cap * rng.choice([0.9, 1.1]) / 10) * 10
-            s2 = f"Actually I think the hours number is more like {alt_cap:,.0f}, don't quote me."
+            s2 = f"Actually I think the hours number is more like {_hours(alt_cap)}, don't quote me."
             contradictions.append({"kind": "budget_hours_cap", "fact_value": cap, "contradicting_value": alt_cap,
                                    "statement": s2})
 
