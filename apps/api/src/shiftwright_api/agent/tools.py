@@ -829,7 +829,9 @@ TOOLS: list[Tool] = [
     Tool("ask_events", "Show the events card (trucks, floor sets, promos, online surges). Saved on submit.",
          _obj({"events": {"type": "array", "items": {"type": "object"}}}), ask_events, "card"),
     Tool("ask_csv_import", "Show the CSV import card for a kind of export the leader has.",
-         _obj({"kind": {"type": "string", "enum": ["roster", "training", "availability", "forecast", "history"]}},
+         _obj({"kind": {"type": "string", "enum": ["roster", "training", "availability", "forecast", "history",
+                                                    "labor_model", "labor_hours", "labor_standards",
+                                                    "sales_forecast", "workload"]}},
               ["kind"]), ask_csv_import, "card"),
     Tool("propose_rule", "Show a rule card so the leader decides hard / soft (and $ weight) / not a rule. "
          "Use for every unwritten rule and every mined pattern.",

@@ -14,6 +14,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
+from . import demand
 from .agent.llm import LLMClient
 from .models import ImportPreview
 
@@ -50,11 +51,51 @@ TARGETS: dict[str, dict[str, tuple[bool, list[str]]]] = {
     },
     "forecast": {
         "role": (True, ["role", "job", "position", "workload", "labor group"]),
-        "day": (True, ["day", "date", "weekday", "dow", "day of week"]),
+        "day": (True, ["day", "days", "date", "weekday", "dow", "day of week", "business date"]),
         "start": (True, ["start", "start time", "from", "time", "interval", "interval start", "begin"]),
         "end": (False, ["end", "end time", "to", "interval end", "finish"]),
         "duration": (False, ["duration", "length", "minutes", "mins", "interval length", "duration minutes"]),
         "headcount": (True, ["headcount", "hc", "staff", "required", "need", "needed", "required staff", "fte", "count"]),
+    },
+    # corporate labor-model kinds (demand/README.md Specs 3-5)
+    "labor_model": {
+        "dept": (True, ["dept", "department", "home org", "org"]),
+        "role": (True, ["role", "job", "position"]),
+        "share": (True, ["share", "share %", "percent", "pct", "share pct", "allocation"]),
+        "window_start": (False, ["window start", "start", "from"]),
+        "window_end": (False, ["window end", "end", "to"]),
+    },
+    "labor_hours": {
+        "dept": (True, ["dept", "department", "org", "labor group"]),
+        **{d: (False, [d, full, *alts]) for d, full, alts in [
+            ("mon", "monday", []), ("tue", "tuesday", ["tues"]), ("wed", "wednesday", ["weds"]),
+            ("thu", "thursday", ["thur", "thurs"]), ("fri", "friday", []), ("sat", "saturday", []),
+            ("sun", "sunday", [])]},
+        "day": (False, ["day", "date", "business date"]),
+        "hours": (False, ["hours", "budget hours", "labor hours", "budgeted hours", "hrs"]),
+        "week_total": (False, ["week total", "weekly total", "total hours", "total"]),
+    },
+    "labor_standards": {
+        "role": (True, ["role", "job", "position"]),
+        "driver": (True, ["driver", "workload driver", "basis"]),
+        "units_per_staff_hour": (False, ["units per staff hour", "uph", "units per hour", "standard", "rate"]),
+        "min_hc": (False, ["min hc", "min headcount", "minimum", "min"]),
+        "max_hc": (False, ["max hc", "max headcount", "maximum", "max"]),
+        "max_duration_hours": (False, ["max duration hrs", "max duration hours", "max duration", "finish within"]),
+    },
+    "sales_forecast": {
+        "day": (True, ["day", "date", "business date"]),
+        "hour": (True, ["hour", "time", "hour start", "interval start", "start"]),
+        "transactions": (False, ["transactions", "trans", "txns", "customer count", "tickets"]),
+        "sales": (False, ["sales", "net sales", "revenue"]),
+        "online_orders": (False, ["online orders", "orders", "digital orders"]),
+    },
+    "workload": {
+        "day": (True, ["day", "date", "arrival date"]),
+        "arrival": (True, ["arrival", "sched arrival", "scheduled arrival", "eta", "start"]),
+        "cases": (False, ["cases", "case count"]),
+        "pieces": (False, ["pieces", "units", "piece count"]),
+        "truck_id": (False, ["truck", "truck #", "truck id", "load", "trailer"]),
     },
     "history": {
         "employee_id": (True, ["id", "employee id", "emp id", "tm id", "tm_id", "team member id"]),
@@ -124,7 +165,16 @@ def requirements(kind: str) -> list[dict]:
         reqs.append({"need": "age", "any_of": [["age"], ["birth_date"]]})
     if kind == "availability":
         reqs.append({"need": "avail_mon..avail_sun", "any_of": [[f] for f in TARGETS[kind] if f.startswith("avail_")]})
+    if kind == "labor_hours":
+        reqs.append({"need": "hours", "any_of": [["day", "hours"], *[[w] for w in DAY_COLS]]})
+    if kind == "sales_forecast":
+        reqs.append({"need": "driver", "any_of": [["transactions"], ["sales"], ["online_orders"]]})
+    if kind == "workload":
+        reqs.append({"need": "cases", "any_of": [["cases"], ["pieces"]]})
     return reqs
+
+
+DAY_COLS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 
 def unmapped_required(kind: str, mapping: dict[str, Optional[str]]) -> list[str]:
@@ -316,10 +366,78 @@ def _mapped(row: dict, mapping: dict[str, Optional[str]]) -> dict[str, str]:
     return {field: row.get(col, "") for col, field in mapping.items() if field}
 
 
+STORED_KINDS = ("labor_model", "labor_standards")  # kept per store (kv), used by the demand kinds below
+DEMAND_KINDS = ("labor_hours", "sales_forecast", "workload")
+
+
+def stored_rows(kind: str, mapping: dict[str, Optional[str]], rows: list[dict], existing: list[dict],
+                warnings: list[str]) -> list[dict]:
+    """labor_model / labor_standards rows, upserted by (dept, role) / role into what's stored."""
+    out = {(_key(kind, r)): r for r in existing}
+    for i, row in enumerate(rows):
+        m = _mapped(row, mapping)
+        try:
+            if kind == "labor_model":
+                r = {"dept": m["dept"].strip(), "role": m["role"].strip(), "share": str(demand.frac(m.get("share") or 0)),
+                     "start": parse_time(m["window_start"]) if m.get("window_start") else None,
+                     "end": parse_time(m["window_end"]) if m.get("window_end") else None}
+                if r["start"] is not None and r["end"] is not None and r["end"] <= r["start"]:
+                    r["end"] += 1440
+            else:
+                drv = norm(m["driver"]).replace(" ", "_")
+                if drv not in ("transactions", "sales", "online_orders", "cases", "pieces", "fixed"):
+                    raise ValueError(f"unknown driver {m['driver']!r}")
+                if drv != "fixed" and not m.get("units_per_staff_hour"):
+                    raise ValueError(f"no units per staff hour for {m['role']!r}")
+                r = {"role": m["role"].strip(), "driver": drv,
+                     "units_per_staff_hour": m.get("units_per_staff_hour") or None,
+                     "min_hc": int(float(m.get("min_hc") or 0)), "max_hc": int(float(m.get("max_hc") or 99)),
+                     "max_duration_hours": m.get("max_duration_hours") or None}
+        except (KeyError, ValueError) as e:
+            warnings.append(f"Row {i + 2}: {e}; skipped.")
+            continue
+        out[_key(kind, r)] = r
+    return list(out.values())
+
+
+def _key(kind: str, r: dict) -> tuple:
+    return (norm(r["dept"]), norm(r["role"])) if kind == "labor_model" else (norm(r["role"]),)
+
+
 def apply_rows(kind: str, d: dict, mapping: dict[str, Optional[str]], rows: list[dict],
-               warnings: list[str]) -> Any:
+               warnings: list[str], stored: Optional[dict] = None) -> Any:
     res = Resolver(d, warnings)
     week_start = date.fromisoformat(d["store"]["week_start"])
+    stored = stored or {}
+    if kind == "labor_hours":
+        long_rows = []
+        day_cols = [c for c, f in mapping.items() if f in DAY_COLS]
+        for i, row in enumerate(rows):
+            m = _mapped(row, mapping)
+            if not m.get("dept"):
+                continue
+            if day_cols:
+                for col in day_cols:
+                    long_rows.append({"dept": m["dept"], "day": DAY_COLS.index(mapping[col]),
+                                      "hours": row.get(col) or "0", "week_total": m.get("week_total")})
+                if not any(row.get(c) for c in day_cols) and m.get("week_total"):
+                    long_rows.append({"dept": m["dept"], "day": 0, "hours": "0", "week_total": m["week_total"]})
+            else:
+                try:
+                    day = demand.week_day(m["day"], week_start, parse_date, warnings, i + 2)
+                except (KeyError, ValueError) as e:
+                    warnings.append(f"Row {i + 2}: {e}; skipped.")
+                    continue
+                if day is not None:
+                    long_rows.append({"dept": m["dept"], "day": day, "hours": m.get("hours") or "0",
+                                      "week_total": m.get("week_total")})
+        demand.labor_hours(d, long_rows, stored.get("labor_model") or [], res.role, week_start, parse_date, warnings)
+        return None
+    if kind in ("sales_forecast", "workload"):
+        mrows = [_mapped(r, mapping) for r in rows]
+        fn = demand.sales if kind == "sales_forecast" else demand.workload
+        fn(d, mrows, stored.get("labor_standards") or [], res.role, week_start, parse_date, parse_time, warnings)
+        return None
     if kind == "roster":
         return _roster(d, mapping, rows, res, week_start, warnings)
     if kind == "training":
@@ -468,7 +586,13 @@ def _forecast(d, mapping, rows, res: Resolver, week_start: date, warnings: list[
     for i, row in enumerate(rows):
         m = _mapped(row, mapping)
         try:
-            day = parse_day(m["day"], week_start, warnings, i + 2)
+            if demand.looks_like_day_list(m["day"]):
+                days = demand.parse_days(m["day"])  # Spec 2: Mon-Thu, Daily, Tue/Thu/Sat, Fri-Mon
+            else:
+                one = demand.week_day(m["day"], week_start, parse_date, warnings, i + 2)
+                if one is None:  # dated row outside the schedule week (warned)
+                    continue
+                days = [one]
             end = None
             if m.get("end"):
                 start, end = parse_time(m["start"]), parse_time(m["end"])
@@ -489,7 +613,9 @@ def _forecast(d, mapping, rows, res: Resolver, week_start: date, warnings: list[
             warnings.append(f"Row {i + 2}: headcount {m['headcount']} is not a whole number; rounded up to {hc}.")
         if hc <= 0:
             continue
-        parsed.append((i + 2, res.role(m["role"]), day, start, end, hc))
+        rid = res.role(m["role"])
+        for day in days:
+            parsed.append((i + 2, rid, day, start, end, hc))
 
     # start-only rows: each row lasts its group's own spacing (gap between consecutive starts)
     starts: dict[tuple[str, int], list[int]] = {}
@@ -530,5 +656,7 @@ def _forecast(d, mapping, rows, res: Resolver, week_start: date, warnings: list[
                  "source": "corporate"} for t, h in sorted(peak.items())]
         warnings.append(f"{roles.get(rid, rid)} {WEEKDAYS[day]}: times don't fit the store's {slot}-minute slots; "
                         f"rolled up to the peak headcount per {slot}-minute slot.")
-    d["demand"] = [x for x in d["demand"] if x.get("source") != "corporate"] + _merge_slots(out)
+    reqs = _merge_slots(out)
+    demand.check_plausible(d, reqs, warnings)
+    demand.replace_corporate(d, reqs, {(r["role_id"], r["day"]) for r in reqs})  # Spec 0
     return None

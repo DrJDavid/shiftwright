@@ -223,8 +223,10 @@ class OutreachManager:
         return True
 
     async def _run(self, run: Run) -> None:
-        """Waves of offers: 1 person at a time (sequential), or the top N at once (group offer, when the law's
-        exemption needs a mass communication). First accept wins; the rest of a group wave hear it's filled."""
+        """Waves of offers: 1 person at a time (one_to_one), or the top N at once (group_offer, when the law's
+        exemption needs a mass communication). Each person is offered their own proposed shift. A YES fills
+        only that shift; after it, the engine re-plans, and others in the wave whose offer is no longer needed
+        hear it's filled while the rest keep waiting."""
         queue = list(run.plan.outreach_queue)
         pol = run.policy or predictive.Policy()
         try:
@@ -241,20 +243,23 @@ class OutreachManager:
                     break
                 wave = cands[:pol.min_recipients] if pol.mode == "group_offer" else cands[:1]
                 if pol.mode == "group_offer" and len(wave) < pol.min_recipients:
-                    run.state.premium = {**pol.premium(), "status": "owed",
-                                         "note": f"Only {len(wave)} candidate(s) left: not a mass communication "
-                                                 f"(needs {pol.min_recipients}+), so the premium is owed."}
-                    self._note(run, run.state.premium["note"])
+                    note = (f"Only {len(wave)} candidate left for this offer: not a mass communication "
+                            f"(needs {pol.min_recipients}+), so the premium is owed if they accept.")
+                    run.state.premium = {**(run.state.premium or {}), "status": "owed", "note": note}
+                    self._note(run, note)
                 if self._texts_left(run.store_id) < len(wave):
                     self._note(run, f"Outreach stopped: text limit reached ({self.max_texts_per_hour} per store per hour).")
                     run.state.status, run.state.current_rank = "exhausted", None
                     break
                 run.waiting = {}
+                solo = pol.mode == "group_offer" and len(wave) < pol.min_recipients
                 for c in wave:
-                    extra = list(pol.sentences)
+                    # never call a single text a mass communication
+                    extra = [predictive.VOLUNTARY] if solo else list(pol.sentences)
                     if "voluntary" in (c.why or "").lower() and not any("voluntary" in x for x in extra):
                         extra.append(predictive.VOLUNTARY)  # SEMANTICS #17: plan says exempt as voluntary
                     if await self._send(run, emps[c.employee_id], offer_text(config, c, extra), c.rank):
+                        _drop_queued(run, emps[c.employee_id].phone)  # earlier replies were to an older offer
                         run.waiting[emps[c.employee_id].phone] = (emps[c.employee_id], c)
                         run.texted += 1
                     else:
@@ -264,31 +269,21 @@ class OutreachManager:
                     self._persist(run)
                     continue
                 run.state.wave += 1
-                run.state.current_rank = min(c.rank for _, c in run.waiting.values())
-                run.state.waiting_employee_ids = [e.id for e, _ in run.waiting.values()]
+                self._sync_waiting(run)
                 self._persist(run)
                 for phone, (_, c) in list(run.waiting.items()):
                     self._start_auto(run, phone, c)
 
-                winner, others = await self._await_wave(run, config)
+                queue, accepted_any = await self._await_wave(run, config, queue)
                 self._stop_auto(run)
-                run.waiting = {}
-                run.state.waiting_employee_ids = []
-                for e, c in others:  # group wave: everyone else offered this round
-                    if winner is not None:
-                        await self._send(run, e, FILLED_TEXT, c.rank)
+                for _, c in run.waiting.values():  # no answer before the timeout
                     run.declined.append(c.employee_id)
-                if winner is not None:
-                    cand = winner[1]
-                    run.state.accepted_employee_ids.append(cand.employee_id)
-                    run.schedule, report = await asyncio.to_thread(self._commit_shift, config, run.schedule, cand)
-                    run.state.schedule = run.schedule
-                    self.db.save_schedule(run.store_id, run.schedule, report)
-                    queue = await self._refix(run, config)
-                    if not queue:
-                        run.state.status, run.state.current_rank = "filled", None
-                        break
-                else:
+                run.waiting = {}
+                self._sync_waiting(run)
+                if accepted_any and not queue:
+                    run.state.status, run.state.current_rank = "filled", None
+                    break
+                if not accepted_any:
                     queue = await self._refix(run, config)
                 self._persist(run)
         except asyncio.CancelledError:
@@ -300,13 +295,25 @@ class OutreachManager:
         finally:
             self._persist(run)
 
-    async def _await_wave(self, run: Run, config: StoreConfig):
-        """-> (winner (employee, candidate) | None, [(employee, candidate)] offered but not the winner and
-        not declined). Declines are recorded as they arrive."""
+    @staticmethod
+    def _sync_waiting(run: Run) -> None:
+        run.state.waiting_employee_ids = [e.id for e, _ in run.waiting.values()]
+        run.state.current_rank = min((c.rank for _, c in run.waiting.values()), default=None)
+
+    async def _accept(self, run: Run, config: StoreConfig, cand: OutreachCandidate) -> list[OutreachCandidate]:
+        run.state.accepted_employee_ids.append(cand.employee_id)
+        run.schedule, report = await asyncio.to_thread(self._commit_shift, config, run.schedule, cand)
+        run.state.schedule = run.schedule
+        self.db.save_schedule(run.store_id, run.schedule, report)
+        return await self._refix(run, config)
+
+    async def _await_wave(self, run: Run, config: StoreConfig, queue: list[OutreachCandidate]):
+        """Collect replies for the current wave (run.waiting) until everyone answered or the timeout.
+        -> (latest queue, whether anyone accepted)."""
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.timeout_s
-        pending = dict(run.waiting)
-        while pending:
+        accepted_any = False
+        while run.waiting:
             remaining = deadline - loop.time()
             if remaining <= 0:
                 break
@@ -314,23 +321,50 @@ class OutreachManager:
                 msg: InboundMessage = await asyncio.wait_for(run.replies.get(), timeout=remaining)
             except asyncio.TimeoutError:
                 break
-            key = next((k for k in pending if _same_phone(k, msg.from_phone)), None)
+            key = _waiting_key(run, msg.from_phone)
             if key is None:
                 continue
-            emp, cand = pending[key]
+            emp, cand = run.waiting[key]
             if msg.interpreted_as == "accept":
-                pending.pop(key)
-                return (emp, cand), list(pending.values())
-            if msg.interpreted_as == "decline":
-                pending.pop(key)
-                run.declined.append(cand.employee_id)
-                run.waiting.pop(key, None)
-                run.state.waiting_employee_ids = [e.id for e, _ in run.waiting.values()]
+                run.waiting.pop(key)
                 self._stop_auto(run, key)
+                queue = await self._accept(run, config, cand)
+                accepted_any = True
+                still = {(c.employee_id, _shift_key(c)): c for c in queue}
+                by_emp = {c.employee_id: c for c in queue}
+                for k, (e, c) in list(run.waiting.items()):
+                    match = still.get((c.employee_id, _shift_key(c)))
+                    if match is not None:  # their shift is still needed: keep waiting on them
+                        run.waiting[k] = (e, match)
+                        continue
+                    moved = by_emp.get(c.employee_id)
+                    self._stop_auto(run, k)
+                    if moved is not None:  # still needed, but the engine moved their shift: re-offer, ask again
+                        extra = list((run.policy or predictive.Policy()).sentences)
+                        await self._send(run, e, "Update: " + offer_text(config, moved, extra), moved.rank)
+                        _drop_queued(run, k)  # a YES to the old times doesn't count for the new ones
+                        run.waiting[k] = (e, moved)
+                        self._start_auto(run, k, moved)
+                        continue
+                    run.waiting.pop(k)  # the shift they were offered is covered now
+                    await self._send(run, e, FILLED_TEXT, c.rank)
+                self._sync_waiting(run)
+                self._persist(run)
+                if not queue:
+                    for k, (e, c) in list(run.waiting.items()):
+                        await self._send(run, e, FILLED_TEXT, c.rank)
+                    run.waiting = {}
+                    break
+            elif msg.interpreted_as == "decline":
+                run.waiting.pop(key)
+                run.declined.append(cand.employee_id)
+                self._stop_auto(run, key)
+                self._sync_waiting(run)
+                self._persist(run)
             elif msg.interpreted_as == "question":
                 await self._answer(run, config, emp, cand)
             # question / unknown: also in the leader's view (state.messages); keep waiting
-        return None, list(pending.values())
+        return queue, accepted_any
 
     # ---------------------------------------------------------------- simulated replies (mock only)
     def _script(self, run: Run, cand: OutreachCandidate) -> list[str]:
@@ -409,6 +443,22 @@ def with_law_pack(config: StoreConfig) -> StoreConfig:
     cfg = config.model_copy(deep=True)
     cfg.law_pack = integrations.resolve_law(cfg.store.jurisdiction)
     return cfg
+
+
+def _drop_queued(run: Run, phone: str) -> None:
+    """Forget replies from `phone` that arrived before its latest offer."""
+    keep = []
+    while not run.replies.empty():
+        m = run.replies.get_nowait()
+        if not _same_phone(m.from_phone, phone):
+            keep.append(m)
+    for m in keep:
+        run.replies.put_nowait(m)
+
+
+def _shift_key(c: OutreachCandidate) -> tuple:
+    sh = c.proposed_shift
+    return (sh.day, sh.start, sh.end, tuple((g.role_id, g.start, g.end) for g in sh.segments))
 
 
 def _waiting_key(run: Run, phone: str) -> Optional[str]:

@@ -220,11 +220,22 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             raise HTTPException(422, f"Required fields not mapped: {missing}")
         warnings: list[str] = []
         extra: dict = {}
+        if kind in imports.STORED_KINDS:
+            existing = db().get(store_id, kind, "rows") or []
+            db().put(store_id, kind, "rows", imports.stored_rows(kind, mapping, rows, existing, warnings))
+            db().put(store_id, "import_warnings", kind, warnings)
+            response.headers["X-Import-Warning-Count"] = str(len(warnings))
+            return load(store_id)
+        stored = {k: db().get(store_id, k, "rows") or [] for k in imports.STORED_KINDS}
+        if kind == "sales_forecast" and not stored["labor_standards"]:
+            raise HTTPException(422, "Import labor standards first.")
+        if kind == "workload" and not any(x["driver"] in ("cases", "pieces") for x in stored["labor_standards"]):
+            raise HTTPException(422, "Import labor standards (with a cases or pieces driver) first.")
 
         review = equipment.state(db(), store_id)
 
         def fn(d):
-            extra["out"] = imports.apply_rows(kind, d, mapping, rows, warnings)
+            extra["out"] = imports.apply_rows(kind, d, mapping, rows, warnings, stored)
             extra["tagged"] = equipment.tag_in_dict(d, review)
         try:
             cfg = db().mutate(store_id, fn, f"import:{kind}", {"rows": len(rows), "mapping": mapping}, "leader")

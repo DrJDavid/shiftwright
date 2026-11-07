@@ -168,6 +168,7 @@ def test_solve_windowed_per_day():
     assert out["validator_passed"], out
 
 
+@pytest.mark.skip(reason="superseded by Spec 2 (WS6 implemented day ranges)")
 def test_windowed_day_ranges_today():
     """Today: `Days` isn't proposed for day (commit 422). Mapped by hand, 'Mon-Thu' / 'Daily' /
     'Tue/Thu/Sat' can't be read -> every row skipped with a warning, no demand."""
@@ -180,13 +181,13 @@ def test_windowed_day_ranges_today():
     assert len([w for w in r.warnings if "skipped" in w]) == 17 and s.config()["demand"] == []
 
 
-@spec
 def test_windowed_day_ranges_expand():
     s = base_session("normal")
     commit_kind(s, "forecast", HERE / "windowed_roles" / "staffing_plan_ranges.csv")
     assert slot_map(s) == ref.windows_to_slots(_plan_rows(HERE / "windowed_roles" / "staffing_plan_ranges.csv"), 30)
 
 
+@pytest.mark.skip(reason="superseded by Spec 0 (WS6: replace per role-day)")
 def test_second_forecast_import_replaces_all_corporate_demand_today():
     s = base_session("normal")
     commit_kind(s, "forecast", HERE / "windowed_roles" / "staffing_plan_per_day.csv")
@@ -194,7 +195,6 @@ def test_second_forecast_import_replaces_all_corporate_demand_today():
     assert {k[0] for k in slot_map(s)} == {"truck_unload"}
 
 
-@spec
 def test_forecast_import_replaces_only_its_role_days():
     """Spec 0: a demand import replaces corporate demand only for the (role, day) pairs it contains."""
     s = base_session("normal")
@@ -241,7 +241,6 @@ def test_dept_hours_unsupported_today(variant):
     assert m.preview["proposed_mapping"]["Window Start"] == "start" and m.commit_status == 422
 
 
-@spec
 @pytest.mark.parametrize("variant", ["normal", "holiday", "promo", "light_january"])
 def test_dept_hours_convert(variant):
     s = base_session(variant)
@@ -299,7 +298,6 @@ def test_spec_expectations_read_from_the_csvs(variant):
     assert ref.labor_hours_to_slots(_dept_hours(variant), _model(), open_hours(variant), 30)
 
 
-@spec
 @pytest.mark.parametrize("variant", ["normal", "holiday", "promo", "light_january"])
 def test_sales_convert(variant):
     s = base_session(variant)
@@ -327,7 +325,6 @@ def test_workload_forced_mapping_today():
     assert 2880 in hcs and any("dc_0553" in w for w in r.warnings)
 
 
-@bug
 def test_bug_absurd_headcount_flagged():
     s = base_session("normal")
     r = s.import_file("forecast", HERE / "workload_units" / "trucks_normal.csv",
@@ -335,7 +332,6 @@ def test_bug_absurd_headcount_flagged():
     assert r.commit_status != 200 or any("headcount" in w.lower() for w in r.warnings)
 
 
-@spec
 @pytest.mark.parametrize("variant", ["normal", "holiday"])
 def test_workload_convert(variant):
     s = base_session(variant)
@@ -344,7 +340,6 @@ def test_workload_convert(variant):
     assert slot_map(s) == ref.workload_to_slots(bd.trucks(bd.VARIANTS[variant]), bd.UNLOAD, 30)
 
 
-@spec
 def test_full_week_from_mixed_styles():
     """standards + sales + windowed plan (softlines/hardlines) + trucks == the 30-min per-slot file."""
     s = base_session("normal")

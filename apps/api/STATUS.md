@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~06:30 CT (rebased on main 0145de2, contracts v1.4)_
+_Last updated: 2026-11-07 ~07:40 CT (rebased on main fb4dadf)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -44,7 +44,7 @@ _Last updated: 2026-11-07 ~06:30 CT (rebased on main 0145de2, contracts v1.4)_
   `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
 - Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
   `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
-- Tests: 63 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
+- Tests: 69 in `apps/api/tests` (+2 live-LLM skipped without a key, +1 demo e2e skipped until fix_day), green against real `tiny_store.json` + WS3 resolver. Outreach test uses faked `fix_day`/`validate`.
 
 **Done (v1.1 + hardening, this slice):**
 - `/fix` returns a plain `FixPlan` with `plan_id` filled by the API (no extra top-level key).
@@ -228,6 +228,36 @@ _Last updated: 2026-11-07 ~06:30 CT (rebased on main 0145de2, contracts v1.4)_
   filled in 11.7 s (1 s delay). Seattle: the API asked for `group_offer` but **the engine returned
   `outreach_mode: one_to_one`** and $0 premiums (WS1's fix_day doesn't read `FixRequest.outreach_mode` or price
   Seattle yet), so outreach went one-to-one with premium status owed ($0 priced); filled in 65 s (fix 6.9 s).
+
+**Done (group-offer fix + corporate demand conversions):**
+- **Group waves offer each person their own proposed shift; a YES fills only that shift.** After an accept the
+  API re-runs fix_day: others in the wave whose exact offer is still in the new queue keep waiting; if the engine
+  moved their shift they get `"Update: <new offer>"` and must answer again (replies to the old offer are dropped);
+  only people whose offer is no longer needed get "Thanks! This shift has been filled". A wave with fewer than
+  `exemption_min_recipients` people never says "mass communication" (only the voluntary sentence; premium owed).
+  Tests: different-shift recipients both accept and both are booked; moved shift re-offered, old YES ignored;
+  single-candidate wave wording. Seattle e2e (`--template=demo_seattle`, 1 s delay): solve 22–29 s, fix
+  (group_offer) 2.6 s, filled in ~32 s; every booked shift equals the offer that person said YES to.
+- **Demand imports** (packages/scenarios/import_packs/demand/README.md; `demand.py`; all 14 spec/bug xfails pass,
+  markers removed; the two "today" tests the specs supersede are marked skip with the reason):
+  - Spec 0: every demand import replaces corporate demand only for the (role, day) pairs it produces.
+  - Spec 2: forecast `Days` maps to `day`; `Mon-Thu`, `Fri-Sun`/`Fri-Mon` (wrap), `Tue/Thu/Sat`, `Sat,Sun`,
+    `Mon & Wed`, `Daily`/`All`/`Every day` expand to one requirement per day. Dated rows outside the week:
+    warn and **skip** (was: use the weekday).
+  - Spec 3: kinds `labor_model` (dept, role, share, window_start, window_end; stored per store, upserted by
+    dept+role) and `labor_hours` (wide Mon..Sun columns or long dept/day/hours, optional Week Total, TOTAL row);
+    round-half-up units, cumulative-rounding spread, exact Fractions; closed-day hours dropped (warned);
+    "Need a labor model for <dept>" unless the dept has exactly one role; TOTAL sets the hours cap only if it is 0;
+    payroll-vs-headcount caveat in the warnings.
+  - Spec 4: kinds `labor_standards` (role, driver, units_per_staff_hour, min_hc, max_hc, max_duration_hours;
+    stored, upserted by role) and `sales_forecast` (day/date, hour, transactions | sales | online_orders):
+    clamp(ceil(driver / standard)), fixed → min; 422 "Import labor standards first." without standards.
+  - Spec 5: kind `workload` (day/date, arrival, cases | pieces, truck_id): crew/duration per spec, adds/replaces
+    a `truck` Event per truck day, warns when arrival is before the pre-open window.
+  - Plausibility: warning when a requirement's headcount exceeds the people trained for the role (50 if none).
+  - Commit of `labor_model` / `labor_standards` stores rows and returns the unchanged StoreConfig.
+  - **For API.md (ImportKind):** add `labor_model`, `labor_standards`, `labor_hours`, `sales_forecast`, `workload`;
+    WS7's csv_import kind list needs them. Agent `ask_csv_import` enum + onboarding prompt v3.2 include them.
 
 **Next:** re-run the Seattle what-if once WS1 honours `FixRequest.outreach_mode` (expect a group_offer thread).
 

@@ -88,3 +88,14 @@ def test_commit_with_unmapped_required_rejected(client):
     assert "employee_id" in pv.unmapped_required
     r = client.post(f"/api/stores/{sid}/import/roster/commit", json={"mapping": pv.proposed_mapping, "rows": pv.rows_preview})
     assert r.status_code == 422
+
+
+def test_sales_needs_standards_first(client):
+    sid = make_store(client, template="bigbox_mid")["store"]["id"]
+    csv_ = "Date,Hour,Transactions\n2026-11-09,08:00,40\n"
+    r = client.post(f"/api/stores/{sid}/import/sales_forecast", files={"file": ("s.csv", csv_.encode(), "text/csv")})
+    pv = r.json()
+    assert pv["unmapped_required"] == []
+    r = client.post(f"/api/stores/{sid}/import/sales_forecast/commit", json={"mapping": pv["proposed_mapping"],
+                                                                            "rows": pv["rows_preview"]})
+    assert r.status_code == 422 and "labor standards" in r.json()["detail"]
