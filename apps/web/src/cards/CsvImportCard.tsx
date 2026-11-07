@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { CsvImportKind, CsvImportProps, CsvImportResult, ImportPreview } from '../api/protocol'
 import { CardFrame, inputCls, type CardProps } from './CardFrame'
 import { useCardEnv } from './context'
+import { missingFields } from './csvKind'
 
 const KIND_LABEL: Record<CsvImportKind, string> = {
   roster: 'Roster',
@@ -11,7 +12,7 @@ const KIND_LABEL: Record<CsvImportKind, string> = {
   history: 'Past schedules',
 }
 
-/** Field names apps/api accepts per kind (imports.TARGETS). Shown as mapping choices. */
+/** Fallback for servers older than API v1.2 (no `target_fields` in the preview). Mirrors imports.TARGETS. */
 const TARGETS: Record<CsvImportKind, string[]> = {
   roster: ['employee_id', 'name', 'first_name', 'last_name', 'phone', 'age', 'birth_date', 'home_department', 'status', 'wage_per_hour', 'hire_date', 'min_hours_week', 'max_hours_week', 'trained_roles'],
   training: ['employee_id', 'role'],
@@ -59,8 +60,7 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once for a dropped file
   }, [initialFile])
 
-  const mapped = new Set(Object.values(mapping).filter(Boolean))
-  const missing = preview ? preview.unmapped_required.filter((f) => !mapped.has(f)) : []
+  const missing = preview ? missingFields(kind, preview, mapping) : []
   const canCommit = !!preview && !busy && missing.length === 0
 
   const commit = async (e: React.FormEvent) => {
@@ -81,7 +81,8 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
 
   const summary = status === 'submitted' && result ? `${KIND_LABEL[kind]}: imported ${result.rows} rows${file ? ` from ${file.name}` : ''}.` : null
   const cols = preview?.columns ?? []
-  const options = [...new Set([...TARGETS[kind], ...Object.values(mapping).filter((v): v is string => !!v)])]
+  const targets = preview?.target_fields?.length ? preview.target_fields : TARGETS[kind]
+  const options = [...new Set([...targets, ...Object.values(mapping).filter((v): v is string => !!v)])]
 
   return (
     <CardFrame title={`Import ${KIND_LABEL[kind].toLowerCase()} CSV`} status={status} summary={summary} onCancel={onCancel} submitLabel="Import" canSubmit={canCommit} formId={formId}>
@@ -156,7 +157,11 @@ export function CsvImportCard({ props, status, result, onSubmit, onCancel, initi
                 </tbody>
               </table>
             </div>
-            {missing.length > 0 && <p className="text-sm text-gap">Still needed: {missing.map((m) => m.replace(/_/g, ' ')).join(', ')}.</p>}
+            {missing.length > 0 && (
+              <p className="text-sm text-gap">
+                Still needed: {missing.map((m) => (m === 'age' ? 'age or birth date' : m === 'name' ? 'name (or first + last name)' : m.replace(/_/g, ' '))).join(', ')}.
+              </p>
+            )}
             {preview.warnings.map((w, i) => (
               <p key={i} className="text-xs text-warn">
                 {w}

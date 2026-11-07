@@ -3,14 +3,16 @@ import type { Api } from '../api/client'
 import { ApiError } from '../api/client'
 import { apiMode } from '../api'
 import type { OutreachState, SolveResponse } from '../api/protocol'
-import type { FixAction, FixPlan, InboundMessage, OutboundMessage, Schedule, StoreConfig } from '../contracts'
+import type { FixAction, FixPlan, InboundMessage, LawPack, LawRule, OutboundMessage, Schedule, StoreConfig } from '../contracts'
 import { fmtMoney, fmtPct, fmtRange, fmtTime, WEEKDAY_NAMES } from '../lib/format'
 import { roleColors } from '../lib/roles'
+import { EmployeeApp } from './EmployeeApp'
 
 type Props = {
   api: Api
   config: StoreConfig
   result: SolveResponse | null
+  lawPack: LawPack | null
   /** Outreach accepted someone: show the updated schedule (not re-validated yet). */
   onSchedule: (s: Schedule) => void
 }
@@ -28,7 +30,7 @@ const LEVER: Record<FixAction['lever'], string> = {
 type Msg = OutboundMessage | InboundMessage
 const isOut = (m: Msg): m is OutboundMessage => 'to_employee_id' in m
 
-export function FixTab({ api, config, result, onSchedule }: Props) {
+export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
   const storeId = config.store.id
   const hasDemo = DEMO.ids.every((id) => config.employees.some((e) => e.id === id))
   const [day, setDay] = useState(hasDemo ? DEMO.day : 0)
@@ -38,6 +40,7 @@ export function FixTab({ api, config, result, onSchedule }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ status?: number; message: string } | null>(null)
   const [outreach, setOutreach] = useState<OutreachState | null>(null)
+  const [phoneOf, setPhoneOf] = useState<string | null>(null)
   const emp = useMemo(() => new Map(config.employees.map((e) => [e.id, e])), [config.employees])
   const roleName = useMemo(() => new Map(config.roles.map((r) => [r.id, r.name])), [config.roles])
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
@@ -262,9 +265,33 @@ export function FixTab({ api, config, result, onSchedule }: Props) {
           </div>
         )}
 
-        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} />}
+        {plan && <PlanView plan={plan} config={config} roleName={roleName} outreach={outreach} lawPack={lawPack} />}
       </div>
 
+      {phoneOf && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => setPhoneOf(null)}>
+          <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-3 text-sm text-white">
+              {apiMode === 'live' && (
+                <a
+                  className="underline"
+                  href={`?employee=${encodeURIComponent(phoneOf)}&store=${encodeURIComponent(storeId)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in a new window
+                </a>
+              )}
+              <button type="button" onClick={() => setPhoneOf(null)} className="font-semibold">
+                Close
+              </button>
+            </div>
+            <div className="h-[min(844px,90vh)] w-[390px] overflow-hidden rounded-[2rem] border-8 border-ink bg-paper shadow-2xl">
+              <EmployeeApp employeeId={phoneOf} storeId={storeId} />
+            </div>
+          </div>
+        </div>
+      )}
       {plan && (
         <Phone
           plan={plan}
@@ -273,6 +300,7 @@ export function FixTab({ api, config, result, onSchedule }: Props) {
           onStart={() => void startTexting()}
           onStop={() => void stop()}
           nameOf={(id) => emp.get(id)?.name ?? id}
+          onOpenPhone={setPhoneOf}
           byPhone={byPhone}
           onReply={async (phone, body) => {
             try {
@@ -294,12 +322,16 @@ function PlanView({
   config,
   roleName,
   outreach,
+  lawPack,
 }: {
   plan: FixPlan
   config: StoreConfig
   roleName: Map<string, string>
   outreach: OutreachState | null
+  lawPack: LawPack | null
 }) {
+  const lawById = new Map((lawPack?.rules ?? []).map((r) => [r.id, r]))
+  const hasScheduleLaw = (lawPack?.rules ?? []).some((r) => r.type === 'predictive_scheduling')
   const emp = new Map(config.employees.map((e) => [e.id, e]))
   const texted = new Set((outreach?.messages ?? []).filter(isOut).map((m) => m.to_employee_id))
   const accepted = new Set(outreach?.accepted_employee_ids ?? [])
@@ -341,9 +373,7 @@ function PlanView({
                   {fmtRange(a.start, a.end)}
                 </span>
                 <span className="block text-ink-2">{a.rationale}</span>
-                {(a.law_rule_ids ?? []).length > 0 && (
-                  <span className="block text-xs text-muted">Law: {(a.law_rule_ids ?? []).join(', ')}</span>
-                )}
+                <PremiumLine action={a} lawById={lawById} hasScheduleLaw={hasScheduleLaw} lawLoaded={!!lawPack} />
               </span>
               <span className="shrink-0 text-right tabular-nums">
                 {a.added_cost_dollars ? `+${fmtMoney(a.added_cost_dollars)}` : '—'}
@@ -404,6 +434,62 @@ function PlanView({
   )
 }
 
+function lawLabel(r: LawRule | undefined, id: string): string {
+  if (!r) return id
+  const place =
+    r.level === 'city' && r.jurisdiction.city
+      ? r.jurisdiction.city.replace(/\b\w/g, (c) => c.toUpperCase())
+      : r.level === 'federal'
+        ? 'Federal'
+        : r.jurisdiction.state
+  const kind = r.type === 'predictive_scheduling' ? 'predictability pay' : r.type.replace(/_/g, ' ')
+  return `${place} ${kind}`
+}
+
+/** Premium per action (SEMANTICS #17): the engine's amount and law, or why there is none. Never computed here. */
+function PremiumLine({
+  action: a,
+  lawById,
+  hasScheduleLaw,
+  lawLoaded,
+}: {
+  action: FixAction
+  lawById: Map<string, LawRule>
+  hasScheduleLaw: boolean
+  lawLoaded: boolean
+}) {
+  const ids = a.law_rule_ids ?? []
+  const premium = a.premium_pay_dollars ?? 0
+  if (premium > 0)
+    return (
+      <span className="mt-1 flex flex-wrap gap-1">
+        {(ids.length ? ids : ['']).map((id) => {
+          const r = lawById.get(id)
+          return (
+            <span key={id} className="rounded bg-warn-wash px-1.5 py-0.5 text-xs font-semibold text-warn" title={r?.summary}>
+              +{fmtMoney(premium, { cents: true })} {id ? lawLabel(r, id) : 'premium pay'}
+              {r && (
+                <a href={r.citation.url} target="_blank" rel="noreferrer" className="ml-1 font-normal underline">
+                  source
+                </a>
+              )}
+            </span>
+          )
+        })}
+      </span>
+    )
+  if (ids.length > 0)
+    return (
+      <span className="mt-1 block text-xs">
+        <span className="rounded bg-pine-wash px-1.5 py-0.5 font-semibold text-pine-dark">No premium</span>{' '}
+        <span className="text-muted">{ids.map((id) => lawLabel(lawById.get(id), id)).join(', ')} checked</span>
+      </span>
+    )
+  if (lawLoaded && !hasScheduleLaw && a.lever !== 'drop_coverage')
+    return <span className="mt-1 block text-xs text-muted">No predictive-scheduling law in this location's law pack.</span>
+  return null
+}
+
 function Big({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
     <div className="bg-panel px-4 py-3">
@@ -445,6 +531,7 @@ function Phone({
   onReply,
   nameOf,
   byPhone,
+  onOpenPhone,
 }: {
   plan: FixPlan
   outreach: OutreachState | null
@@ -453,6 +540,7 @@ function Phone({
   onStop: () => void
   onReply: (phone: string, body: string) => Promise<void>
   nameOf: (id: string) => string
+  onOpenPhone: (employeeId: string) => void
   byPhone: (p: string) => { id: string; name: string } | undefined
 }) {
   const status = outreach?.status ?? 'idle'
@@ -499,7 +587,10 @@ function Phone({
               <div key={m.id} className="ml-8">
                 <div className="mb-0.5 text-right text-[10px] text-muted">
                   To {nameOf(m.to_employee_id)}
-                  {m.outreach_rank ? ` · #${m.outreach_rank}` : ''} · {fmtClock(m.sent_at)}
+                  {m.outreach_rank ? ` · #${m.outreach_rank}` : ''} · {fmtClock(m.sent_at)} ·{' '}
+                  <button type="button" onClick={() => onOpenPhone(m.to_employee_id)} className="font-semibold text-pine-dark hover:underline">
+                    Open {nameOf(m.to_employee_id).split(' ')[0]}'s phone
+                  </button>
                 </div>
                 <div className="rounded-2xl rounded-br-sm bg-pine px-3 py-2 text-sm text-white">{m.body}</div>
               </div>

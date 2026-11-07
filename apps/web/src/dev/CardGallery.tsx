@@ -6,6 +6,7 @@ import type { CardStatus } from '../cards/CardFrame'
 import { CardEnvContext } from '../cards/context'
 import { api } from '../api'
 import { mockStoreConfig } from '../mock/fixture'
+import { mockStaffingProps } from '../mock/staffing'
 
 const cfg = mockStoreConfig('gallery', 'bigbox_mid', 'Store #0417', 'TX', 'austin')
 const weekdayDemand = (roleId: string) => {
@@ -32,6 +33,19 @@ const SAMPLES: { type: CardType; props: unknown }[] = [
       slot_minutes: 30,
       start_minute: 420,
       prefill: Object.fromEntries(cfg.roles.map((r) => [r.id, weekdayDemand(r.id)])),
+    },
+  },
+  { type: 'department_staffing', props: mockStaffingProps(cfg, 'front_of_store') },
+  {
+    type: 'coverage_grid',
+    props: {
+      day_type: 'saturday',
+      days: [5],
+      roles: cfg.roles.slice(0, 4),
+      slot_minutes: 30,
+      start_minute: 420,
+      readonly: true,
+      prefill: Object.fromEntries(cfg.roles.slice(0, 4).map((r) => [r.id, weekdayDemand(r.id)])),
     },
   },
   { type: 'events', props: { events: cfg.events ?? [] } },

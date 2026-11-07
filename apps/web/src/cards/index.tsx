@@ -3,6 +3,7 @@ import type { CardType } from '../api/protocol'
 import { CardFrame, type CardProps } from './CardFrame'
 import { CoverageGridCard } from './CoverageGridCard'
 import { CsvImportCard } from './CsvImportCard'
+import { DepartmentStaffingCard } from './DepartmentStaffingCard'
 import { EmployeeAvailabilityCard } from './EmployeeAvailabilityCard'
 import { EventsCard } from './EventsCard'
 import { ConflictMenuCard, TradeoffCard } from './OptionCards'
@@ -21,6 +22,7 @@ const REGISTRY: Partial<Record<CardType, ComponentType<CardProps<any, any> & { i
   roles: RolesCard,
   training_matrix: TrainingMatrixCard,
   coverage_grid: CoverageGridCard,
+  department_staffing: DepartmentStaffingCard,
   events: EventsCard,
   csv_import: CsvImportCard,
   propose_rule: ProposeRuleCard,

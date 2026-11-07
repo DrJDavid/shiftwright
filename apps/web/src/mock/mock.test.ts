@@ -44,7 +44,12 @@ describe('mock API follows contracts/API.md', () => {
     await a.chat(cfg.store.id, { mode: 'onboard', messages: [{ role: 'user', content: 'set up my store' }] }, (ev) => {
       events.push(ev)
       if (ev.event === 'card') {
-        const result = ev.data.card_type === 'store_basics' ? { name: 'Store #0417' } : { weekly_hours_cap: 300 }
+        const result =
+          ev.data.card_type === 'store_basics'
+            ? { name: 'Store #0417' }
+            : ev.data.card_type === 'payroll'
+              ? { weekly_hours_cap: 300 }
+              : { staffing: (ev.data.props as { suggested: object }).suggested }
         void a.submitCard(cfg.store.id, { card_id: ev.data.card_id, result }).then(() => (submitted = true))
       }
     })
@@ -54,7 +59,7 @@ describe('mock API follows contracts/API.md', () => {
     expect(types.at(-1)).toBe('done')
     expect(submitted).toBe(true)
     const cards = events.flatMap((e) => (e.event === 'card' ? [e.data.card_type] : []))
-    expect(cards).toEqual(['store_basics', 'payroll'])
+    expect(cards).toEqual(['store_basics', 'payroll', 'department_staffing'])
     const after = await a.getConfig(cfg.store.id)
     expect(after.store.name).toBe('Store #0417')
     expect(after.budget.weekly_hours_cap).toBe(300)

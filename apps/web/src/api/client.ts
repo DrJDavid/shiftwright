@@ -1,4 +1,4 @@
-import type { FixPlan, Gap, GapReason, Jurisdiction, LawPack, StoreConfig } from '../contracts'
+import type { FixPlan, Gap, GapReason, Jurisdiction, LawPack, Schedule, StoreConfig, ValidationReport } from '../contracts'
 import type {
   CardSubmission,
   ChatEvent,
@@ -73,6 +73,7 @@ export function createApi(fetchImpl: FetchLike, opts: { demoKey?: string | null 
     },
     importCommit: (id: string, kind: CsvImportKind, mapping: Record<string, string | null>, rows: object[]) =>
       post<StoreConfig>(`${s(id)}/import/${kind}/commit`, { mapping, rows }),
+    validate: (id: string, schedule: Schedule) => post<ValidationReport>(`${s(id)}/validate`, schedule),
     fix: (id: string, body: FixRequestBody) => post<FixPlan>(`${s(id)}/fix`, body),
     outreachStart: (id: string, planId: string) => post<OutreachState>(`${s(id)}/outreach/start`, { plan_id: planId }),
     outreachCancel: (id: string) => post<OutreachState>(`${s(id)}/outreach/cancel`, {}),

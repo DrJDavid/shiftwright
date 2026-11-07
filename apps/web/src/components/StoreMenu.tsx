@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { LOCALITIES, missingTemplates } from '../lib/stores'
 
-type Props = { onNew: (kind: 'demo' | 'empty') => Promise<void> }
+type Props = { onNew: (template: string) => Promise<void> }
 
-/** Header menu: start over with the demo store (Store #0417, 60 people) or an empty store. */
+/** Header menu: load a demo store for a locality, or start an empty store. Each choice creates a new store. */
 export function StoreMenu({ onNew }: Props) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [missing, setMissing] = useState(() => missingTemplates())
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -14,15 +17,21 @@ export function StoreMenu({ onNew }: Props) {
     return () => window.removeEventListener('mousedown', close)
   }, [open])
 
-  const pick = async (kind: 'demo' | 'empty') => {
-    setBusy(kind === 'demo' ? 'Loading demo store…' : 'Creating store…')
+  const pick = async (template: string, label: string) => {
+    setBusy(template === 'empty' ? 'Creating store…' : `Loading ${label}…`)
+    setError(null)
     try {
-      await onNew(kind)
+      await onNew(template)
       setOpen(false)
+    } catch (e) {
+      setError(`${label}: ${(e as Error).message}`)
+      setMissing(missingTemplates())
     } finally {
       setBusy(null)
     }
   }
+
+  const shown = LOCALITIES.filter((l) => !missing.has(l.template))
 
   return (
     <div ref={ref} className="relative">
@@ -35,10 +44,20 @@ export function StoreMenu({ onNew }: Props) {
         {busy ?? 'Store ▾'}
       </button>
       {open && (
-        <div className="absolute top-full right-0 z-50 mt-1.5 w-72 rounded-lg border border-rule bg-panel p-1.5 text-ink shadow-xl">
-          <MenuItem title="Load the demo store" detail="Store #0417, Austin TX: 60 people, 14 roles, trucks Tue/Thu/Sat." onClick={() => void pick('demo')} disabled={!!busy} />
-          <MenuItem title="Start an empty store" detail="Default departments and roles; set up the rest in the chat." onClick={() => void pick('empty')} disabled={!!busy} />
-          <p className="px-2.5 pt-1.5 pb-1 text-xs text-muted">Both create a new store. The current one stays on the server.</p>
+        <div className="absolute top-full right-0 z-50 mt-1.5 w-80 rounded-lg border border-rule bg-panel p-1.5 text-ink shadow-xl">
+          <div className="px-2.5 pt-1 pb-0.5 text-xs font-semibold tracking-wide text-muted uppercase">Load a demo store</div>
+          {shown.map((l) => (
+            <MenuItem key={l.id} title={l.label} detail="Big-box demo store with its local law pack" onClick={() => void pick(l.template, l.label)} disabled={!!busy} />
+          ))}
+          <div className="my-1 border-t border-rule-soft" />
+          <MenuItem
+            title="Start an empty store"
+            detail="Default departments and roles; set up the rest in the chat."
+            onClick={() => void pick('empty', 'Empty store')}
+            disabled={!!busy}
+          />
+          {error && <p className="px-2.5 py-1 text-xs text-gap">{error}</p>}
+          <p className="px-2.5 pt-1.5 pb-1 text-xs text-muted">Each choice creates a new store. The current one stays on the server.</p>
         </div>
       )}
     </div>

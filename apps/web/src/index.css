@@ -64,3 +64,19 @@ body {
   background: var(--color-pine);
   animation: sw-indeterminate 1.2s ease-in-out infinite;
 }
+
+/* Compliance receipt: printed from a portal so the app shell (and its scroll containers) never clip it. */
+.sw-print-only {
+  display: none;
+}
+@media print {
+  #root {
+    display: none;
+  }
+  .sw-print-only {
+    display: block;
+  }
+  @page {
+    margin: 12mm;
+  }
+}

@@ -16,18 +16,20 @@ export function CoverageGridCard({ props, status, onSubmit, onCancel }: CardProp
   const [grid, setGrid] = useState<Record<string, number[]>>(() => structuredClone(p?.prefill ?? {}))
   const [brush, setBrush] = useState(1)
   const [painting, setPainting] = useState(false)
+  const readonly = p?.readonly === true
   const n = Math.max(0, ...Object.values(grid).map((v) => v.length))
   const days = (p?.days ?? []).map((d) => WEEKDAY_NAMES[d]).join(', ')
   const label = DAY_TYPE[p?.day_type ?? 'weekday'] ?? p?.day_type
 
   const paint = (rid: string, i: number) =>
+    !readonly &&
     setGrid((g) => ({ ...g, [rid]: (g[rid] ?? []).map((v, j) => (j === i ? brush : v)) }))
 
   const hours = Object.values(grid).reduce((h, v) => h + v.reduce((a, b) => a + b, 0), 0) * (slot / 60)
   const summary = `${label} (${days || 'no days'}): ${Math.round(hours * 10) / 10} staff-hours per day.`
 
   return (
-    <CardFrame title={`Coverage needs, ${label}`} status={status} summary={summary} onCancel={onCancel} submitLabel="Save coverage" formId={formId}>
+    <CardFrame title={`Coverage needs, ${label}`} status={status} summary={summary} onCancel={onCancel} submitLabel={readonly ? 'Looks right' : 'Save coverage'} formId={formId}>
       <form
         id={formId}
         onSubmit={(e) => {
@@ -39,10 +41,10 @@ export function CoverageGridCard({ props, status, onSubmit, onCancel }: CardProp
         onMouseLeave={() => setPainting(false)}
       >
         <p className="text-sm text-ink-2">
-          Applies to {days || 'no open days'}. How many people each role needs, {fmtRange(start, start + n * slot)}. Pick a number, then
-          click or drag across cells.
+          Applies to {days || 'no open days'}. How many people each role needs, {fmtRange(start, start + n * slot)}.
+          {readonly ? ' Preview only.' : ' Pick a number, then click or drag across cells.'}
         </p>
-        <div className="flex items-center gap-1 text-sm">
+        <div className={`flex items-center gap-1 text-sm ${readonly ? 'hidden' : ''}`}>
           <span className="mr-1 text-muted">Brush</span>
           {BRUSHES.map((b) => (
             <button
@@ -82,7 +84,7 @@ export function CoverageGridCard({ props, status, onSubmit, onCancel }: CardProp
                       key={i}
                       role="gridcell"
                       aria-label={`${r.name} ${fmtTime(start + i * slot)}: ${v}`}
-                      className={`h-5 w-4 cursor-pointer text-center leading-5 ${v === 0 ? 'bg-rule-soft' : 'text-white'}`}
+                      className={`h-5 w-4 text-center ${readonly ? '' : 'cursor-pointer'} leading-5 ${v === 0 ? 'bg-rule-soft' : 'text-white'}`}
                       style={v > 0 ? { background: `rgb(11 93 79 / ${0.35 + Math.min(v, 5) * 0.13})` } : undefined}
                       onMouseDown={() => {
                         setPainting(true)

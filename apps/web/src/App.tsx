@@ -12,46 +12,28 @@ import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
 import { StoreMenu } from './components/StoreMenu'
 import { StoreTab } from './components/StoreTab'
+import { ReceiptTab } from './components/ReceiptTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
-import { demoFor } from './lib/demoStore'
+import { createStore, STORE_KEY, templateFromDemoParam } from './lib/stores'
 
-type Tab = 'schedule' | 'coverage' | 'store' | 'fix'
+type Tab = 'schedule' | 'coverage' | 'store' | 'fix' | 'receipt'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'schedule', label: 'Schedule', ready: true },
   { id: 'coverage', label: 'Coverage', ready: true },
   { id: 'store', label: 'Store', ready: true },
   { id: 'fix', label: 'Fix call-outs', ready: true },
+  { id: 'receipt', label: 'Compliance receipt', ready: true },
 ]
-
-const STORE_KEY = `sw.storeId.${apiMode}`
-const NEW_STORE = {
-  template: (import.meta.env.VITE_STORE_TEMPLATE as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid',
-  name: 'Store #0417',
-  jurisdiction: { state: 'TX', city: 'austin' },
-}
-
-export type NewStoreKind = 'demo' | 'empty'
-
-/** Creates a store. "demo" loads WS4's demo store (Store #0417, 60 people) into it with a full-config PUT. */
-async function createStore(kind: NewStoreKind): Promise<StoreConfig> {
-  let cfg = await api.createStore(NEW_STORE)
-  if (kind === 'demo') cfg = await api.putConfig(cfg.store.id, demoFor(cfg.store.id))
-  try {
-    localStorage.setItem(STORE_KEY, cfg.store.id)
-  } catch {
-    /* storage unavailable */
-  }
-  return cfg
-}
 
 async function loadOrCreateStore(): Promise<StoreConfig> {
   // ?demo in the URL: start from a fresh copy of the demo store.
   const url = new URL(window.location.href)
-  if (url.searchParams.has('demo')) {
+  const demo = url.searchParams.get('demo')
+  if (demo !== null) {
     url.searchParams.delete('demo')
     window.history.replaceState(null, '', url)
-    return createStore('demo')
+    return createStore(templateFromDemoParam(demo))
   }
   let saved: string | null = null
   try {
@@ -109,17 +91,14 @@ export default function App() {
     }
   }, [embeddedLaw, lawState, lawCity])
 
-  const switchStore = useCallback(async (kind: NewStoreKind) => {
-    try {
-      const cfg = await createStore(kind)
-      setResult(null)
-      setSolve({ status: 'idle' })
-      setOpenGap(null)
-      setReadiness(null)
-      setConfig(cfg)
-    } catch (e) {
-      setLoadError((e as Error).message)
-    }
+  // Errors (e.g. a locality template not on the server yet) surface in the Store menu.
+  const switchStore = useCallback(async (template: string) => {
+    const cfg = await createStore(template)
+    setResult(null)
+    setSolve({ status: 'idle' })
+    setOpenGap(null)
+    setReadiness(null)
+    setConfig(cfg)
   }, [])
 
   useEffect(() => {
@@ -305,6 +284,15 @@ export default function App() {
             <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
           )}
           {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
+          {tab === 'receipt' && (
+            <ReceiptTab
+              api={api}
+              config={config}
+              result={result}
+              lawPack={lawPack}
+              onValidated={(validation) => setResult((r) => (r ? { ...r, validation } : r))}
+            />
+          )}
           {/* Kept mounted so a running outreach survives tab switches. */}
           <div className={tab === 'fix' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
             <FixTab
@@ -312,6 +300,7 @@ export default function App() {
               api={api}
               config={config}
               result={result}
+              lawPack={lawPack}
               onSchedule={(schedule) => setResult({ schedule, validation: null })}
             />
           </div>

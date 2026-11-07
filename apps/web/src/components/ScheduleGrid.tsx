@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
@@ -61,9 +61,33 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick }: Props
   const gapsByDay = days.map((d) => gaps.filter((g) => g.day === d))
   const show = (ev: React.MouseEvent, content: ReactNode) => setHover({ x: ev.clientX, y: ev.clientY, content })
 
-  const shiftDetail = (e: Employee, s: Shift) => (
+  const [pinned, setPinned] = useState<{ x: number; y: number; e: Employee; s: Shift } | null>(null)
+  useEffect(() => {
+    if (!pinned) return
+    const close = (ev: KeyboardEvent) => ev.key === 'Escape' && setPinned(null)
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [pinned])
+
+  const shiftDetail = (e: Employee, s: Shift, full = false) => (
     <div className="space-y-1">
       <div className="font-semibold">{e.name}</div>
+      {/* v1.2 Shift.why: engine one-liners, headline first. Hover shows the headline; click shows all. */}
+      {(s.why ?? []).length > 0 &&
+        (full ? (
+          <ul className="space-y-0.5 rounded bg-pine-wash px-2 py-1.5 text-pine-dark">
+            {(s.why ?? []).map((w, i) => (
+              <li key={i} className={i === 0 ? 'font-semibold' : ''}>
+                {w}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="font-medium text-pine-dark">
+            {s.why![0]}
+            {s.why!.length > 1 && <span className="font-normal text-muted"> · click for {s.why!.length - 1} more</span>}
+          </div>
+        ))}
       <div className="text-ink-2">
         {fmtDayDate(schedule.week_start, s.day).weekday} {fmtRange(s.start, s.end)}, {fmtHours(paidHours(s))} paid,{' '}
         {fmtMoney(paidHours(s) * e.wage_per_hour)}
@@ -162,62 +186,67 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick }: Props
             <Fragment key={g.id}>
               {g.name && (
                 <tr>
-                  <th colSpan={8} className="border-b border-rule bg-paper px-3 py-1 text-left text-xs font-semibold tracking-wide text-ink-2 uppercase">
+                  <th
+                    colSpan={8}
+                    className="border-b border-rule bg-paper px-3 py-1 text-left text-xs font-semibold tracking-wide text-ink-2 uppercase"
+                  >
                     {g.name}
                     <span className="ml-2 font-normal normal-case text-muted">
-                      {g.rows.filter((r) => r.hours > 0).length} of {g.rows.length} scheduled · {fmtHours(g.rows.reduce((h, r) => h + r.hours, 0))}
+                      {g.rows.filter((r) => r.hours > 0).length} of {g.rows.length} scheduled ·{' '}
+                      {fmtHours(g.rows.reduce((h, r) => h + r.hours, 0))}
                     </span>
                   </th>
                 </tr>
               )}
               {g.rows.map(({ e, hours }) => (
-            <tr key={e.id} className="group">
-              <th
-                scope="row"
-                className="border-b border-rule-soft bg-panel px-3 py-1.5 text-left font-normal group-hover:bg-paper"
-              >
-                <div className="truncate font-medium text-ink">{e.name}</div>
-                <div className="text-xs text-muted">
-                  {hours > 0 ? fmtHours(hours) : 'Off all week'}
-                  {e.max_hours_week ? ` of ${fmtHours(e.max_hours_week)}` : ''}
-                </div>
-              </th>
-              {days.map((d) => {
-                const cell = byCell.get(`${e.id}|${d}`) ?? []
-                return (
-                  <td key={d} className="border-b border-l border-rule-soft px-1.5 py-1.5 align-middle group-hover:bg-paper">
-                    {cell.map((s) => (
-                      <div
-                        key={s.id}
-                        className="cursor-default"
-                        onMouseMove={(ev) => show(ev, shiftDetail(e, s))}
-                        onMouseLeave={() => setHover(null)}
-                      >
-                        <div className="relative h-3">
-                          {s.segments.map((g, i) => (
-                            <div
-                              key={i}
-                              className="absolute top-0 h-full first:rounded-l-sm last:rounded-r-sm"
-                              style={{ left: pct(g.start), width: width(g.start, g.end), background: colors.get(g.role_id) }}
-                            />
-                          ))}
-                          {/* v1.1: breaks may sit off the slot grid (5-minute steps); cut them out at minute precision. */}
-                          {(s.breaks ?? []).map((b, i) => (
-                            <div
-                              key={`b${i}`}
-                              className="absolute -top-px h-[calc(100%+2px)] bg-panel group-hover:bg-paper"
-                              style={{ left: pct(b.start), width: `max(2px, ${width(b.start, b.end)})` }}
-                            />
-                          ))}
-                        </div>
-                        <div className="mt-0.5 truncate text-xs text-ink-2">{fmtRange(s.start, s.end)}</div>
-                      </div>
-                    ))}
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
+                <tr key={e.id} className="group">
+                  <th scope="row" className="border-b border-rule-soft bg-panel px-3 py-1.5 text-left font-normal group-hover:bg-paper">
+                    <div className="truncate font-medium text-ink">{e.name}</div>
+                    <div className="text-xs text-muted">
+                      {hours > 0 ? fmtHours(hours) : 'Off all week'}
+                      {e.max_hours_week ? ` of ${fmtHours(e.max_hours_week)}` : ''}
+                    </div>
+                  </th>
+                  {days.map((d) => {
+                    const cell = byCell.get(`${e.id}|${d}`) ?? []
+                    return (
+                      <td key={d} className="border-b border-l border-rule-soft px-1.5 py-1.5 align-middle group-hover:bg-paper">
+                        {cell.map((s) => (
+                          <div
+                            key={s.id}
+                            className="cursor-pointer"
+                            onMouseMove={(ev) => !pinned && show(ev, shiftDetail(e, s))}
+                            onMouseLeave={() => setHover(null)}
+                            onClick={(ev) => {
+                              setHover(null)
+                              setPinned({ x: ev.clientX, y: ev.clientY, e, s })
+                            }}
+                          >
+                            <div className="relative h-3">
+                              {s.segments.map((g, i) => (
+                                <div
+                                  key={i}
+                                  className="absolute top-0 h-full first:rounded-l-sm last:rounded-r-sm"
+                                  style={{ left: pct(g.start), width: width(g.start, g.end), background: colors.get(g.role_id) }}
+                                />
+                              ))}
+                              {/* v1.1: breaks may sit off the slot grid (5-minute steps); cut them out at minute precision. */}
+                              {(s.breaks ?? []).map((b, i) => (
+                                <div
+                                  key={`b${i}`}
+                                  className="absolute -top-px h-[calc(100%+2px)] bg-panel group-hover:bg-paper"
+                                  style={{ left: pct(b.start), width: `max(2px, ${width(b.start, b.end)})` }}
+                                />
+                              ))}
+                            </div>
+                            <div className="mt-0.5 truncate text-xs text-ink-2">{fmtRange(s.start, s.end)}</div>
+                          </div>
+                        ))}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
             </Fragment>
           ))}
         </tbody>
@@ -248,6 +277,26 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick }: Props
           </tr>
         </tfoot>
       </table>
+
+      {pinned && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setPinned(null)} aria-hidden />
+          <div
+            role="dialog"
+            aria-label={`${pinned.e.name}'s shift`}
+            className="fixed z-50 w-80 rounded-md border border-rule bg-panel px-3 py-2.5 text-sm shadow-xl"
+            style={{ left: Math.min(pinned.x + 10, window.innerWidth - 340), top: Math.min(pinned.y + 10, window.innerHeight - 260) }}
+          >
+            {shiftDetail(pinned.e, pinned.s, true)}
+            {(pinned.s.why ?? []).length === 0 && (
+              <p className="mt-1 text-xs text-muted">The solver didn't record reasons for this shift.</p>
+            )}
+            <button type="button" onClick={() => setPinned(null)} className="mt-2 text-xs text-muted hover:text-ink">
+              Close
+            </button>
+          </div>
+        </>
+      )}
 
       {hover && (
         <div

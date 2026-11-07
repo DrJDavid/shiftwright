@@ -195,16 +195,6 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
             Drop a CSV to import it
           </div>
         )}
-        {onHide && (
-          <button
-            type="button"
-            onClick={onHide}
-            className="absolute top-2 right-2 z-10 rounded px-2 py-0.5 text-xs text-muted hover:bg-panel hover:text-ink"
-            title="Hide the chat"
-          >
-            Hide
-          </button>
-        )}
         <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {items.length === 0 && (
             <div className="pt-6">
@@ -267,8 +257,15 @@ export function ChatPane({ api, storeId, mode, onConfigChanged, onScheduleChange
         </div>
 
         <div className="border-t border-rule bg-panel px-3 pt-2 pb-3">
-          <div className="h-5 truncate text-xs text-muted" aria-live="polite">
-            {activity ?? ''}
+          <div className="flex h-5 items-center gap-2 text-xs text-muted">
+            <span className="min-w-0 flex-1 truncate" aria-live="polite">
+              {activity ?? ''}
+            </span>
+            {onHide && (
+              <button type="button" onClick={onHide} className="shrink-0 hover:text-ink" title="Hide the chat">
+                Hide chat
+              </button>
+            )}
           </div>
           <form
             className="flex gap-2"

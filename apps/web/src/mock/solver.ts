@@ -70,6 +70,12 @@ export function mockSolve(cfg: StoreConfig): { schedule: Schedule; validation: V
         } else {
           shift.segments = [{ role_id: req.role_id, start, end }]
         }
+        // Mock "why": facts about the mock's own greedy choice (cheapest trained person free that day).
+        shift.why = [
+          `Covers ${roleById.get(req.role_id)?.name ?? req.role_id} (needs ${req.headcount})`,
+          `Lowest wage among ${candidates.length} trained and free that day`,
+          `${(hoursUsed.get(emp.id) ?? 0) + paidH}h of ${emp.max_hours_week ?? 40}h max this week`,
+        ]
         shifts.push(shift)
         hoursUsed.set(emp.id, (hoursUsed.get(emp.id) ?? 0) + paidH)
         if (!daysWorked.has(emp.id)) daysWorked.set(emp.id, new Set())

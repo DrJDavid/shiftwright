@@ -5,14 +5,17 @@ import type { Budget, Schedule, Store, StoreConfig, ValidationReport } from '../
 import type { CardSubmission, ChatEvent, ChatRequest, CreateStoreRequest, FixRequestBody, Readiness } from '../api/protocol'
 import type { FetchLike } from '../api/client'
 import { mockStoreConfig } from './fixture'
-import { mockSolve } from './solver'
+import { mockScore, mockSolve } from './solver'
 import { MockOutreach, mockFix } from './fix'
+import { applyStaffing, mockStaffingProps } from './staffing'
+import type { DepartmentStaffingResult } from '../api/protocol'
 
 type StoreState = {
   config: StoreConfig
   latest: { schedule: Schedule; validation: ValidationReport } | null
   basicsDone: boolean
   payrollDone: boolean
+  staffingDone: boolean
   plans: Map<string, ReturnType<typeof mockFix>>
   outreach: MockOutreach
 }
@@ -49,14 +52,18 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     const body = new ReadableStream<Uint8Array>({
       async start(ctrl) {
         const emit = (e: ChatEvent) => ctrl.enqueue(enc.encode(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`))
+        let said = false
         const say = async (text: string) => {
-          for (const word of text.split(/(?<= )/)) {
+          // API v1.2: a later step's first delta starts with a blank line.
+          const full = said ? `\n\n${text}` : text
+          said = true
+          for (const word of full.split(/(?<= )/)) {
             if (signal?.aborted) return
             emit({ event: 'text', data: { delta: word } })
             await sleep(latency ? 18 : 0)
           }
         }
-        const card = <T,>(card_type: 'store_basics' | 'payroll', props: unknown) =>
+        const card = <T,>(card_type: 'store_basics' | 'payroll' | 'department_staffing', props: unknown) =>
           new Promise<T | { cancelled: true }>((resolve) => {
             const card_id = `card_${++cardSeq}`
             pendingCards.set(card_id, (r) => resolve(r as T | { cancelled: true }))
@@ -91,6 +98,21 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
               emit({ event: 'config', data: { config_version: st.config.config_version ?? 1, patch_summary: ['Set the weekly hours cap'] } })
             }
           }
+          if (st.basicsDone && st.payrollDone && !st.staffingDone && st.config.departments.length) {
+            const dept = st.config.departments[0]
+            await say(`Now staffing. I'll go one department at a time, starting with ${dept.name}. I suggested numbers from your past demand.`)
+            const props = mockStaffingProps(st.config, dept.id)
+            const r = await card<DepartmentStaffingResult>('department_staffing', props)
+            if (isCancelled(r)) {
+              await say('Skipped. Your existing demand stays as it is.')
+            } else {
+              st.config = applyStaffing(st.config, props, r.staffing)
+              bump(st)
+              emit({ event: 'config', data: { config_version: st.config.config_version ?? 1, patch_summary: [`demand for ${dept.name}`] } })
+              await say(`Saved ${dept.name}. (The mock only asks for one department.)`)
+            }
+            st.staffingDone = true
+          }
           if (st.basicsDone && st.payrollDone) {
             if (/build|solve|schedule/i.test(last)) {
               emit({ event: 'tool', data: { name: 'solve', status: 'start', summary: 'Building the week' } })
@@ -123,11 +145,19 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
     if (path === '/stores' && method === 'POST') {
       const req = body as CreateStoreRequest
       const id = `mock-${stores.size + 1}`
+      // The mock only has the Austin demo fixture.
+      if (req.template?.startsWith('demo_')) return ok({ detail: `Template ${req.template} not available in the mock` }, 422)
+      const fromFixture = req.template === 'demo' || req.template === 'tiny'
+      const name = req.name ?? 'Store #0417'
+      const jur = req.jurisdiction ?? { state: 'TX', city: 'austin' }
       const st: StoreState = {
-        config: mockStoreConfig(id, req.template ?? 'bigbox_mid', req.name, req.jurisdiction.state, req.jurisdiction.city ?? null),
+        config: fromFixture
+          ? mockStoreConfig(id, req.template === 'demo' ? 'bigbox_mid' : 'bigbox_small', name, jur.state, jur.city ?? null, true)
+          : mockStoreConfig(id, (req.template as 'bigbox_small' | 'bigbox_mid' | 'empty' | undefined) ?? 'bigbox_mid', name, jur.state, jur.city ?? null),
         latest: null,
         basicsDone: false,
         payrollDone: false,
+        staffingDone: false,
         plans: new Map(),
         outreach: new MockOutreach(),
       }
@@ -160,6 +190,11 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       if (latency) await sleep(latency * 3)
       st.latest = mockSolve(st.config)
       return ok(st.latest)
+    }
+    if (rest === '/validate' && method === 'POST') {
+      // Mock: no real validator; recompute the mock metrics only.
+      const m = mockScore(st.config, (body as Schedule).shifts ?? [], 'mock').metrics!
+      return ok({ passed: true, hard_count: 0, violations: [], recomputed_metrics: m })
     }
     if (rest === '/schedule') return st.latest ? ok(st.latest) : notFound('No schedule yet')
     if (rest === '/gaps/explain' && method === 'POST') {

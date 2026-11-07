@@ -82,6 +82,27 @@ export function mockFix(cfg: StoreConfig, schedule: Schedule, req: FixRequestBod
     return { lost, queue }
   })
 
+  // SEMANTICS #17, from the law pack's own params only (embedded config.law_pack; the mock has no resolver).
+  const ps = (cfg.law_pack?.rules ?? []).find((r) => r.type === 'predictive_scheduling')
+  const psParams = (ps?.params ?? {}) as Record<string, unknown>
+  const threshold = typeof psParams.applies_if_employees_over === 'number' ? psParams.applies_if_employees_over : null
+  const count = cfg.store.employer_employee_count ?? null
+  const applies = !!ps && (count == null || threshold == null || count > threshold)
+  const exempt = psParams.voluntary_additional_hours_exempt === true
+  const premiumFor = (c: OutreachCandidate): { dollars: number; note: string | null } => {
+    if (!ps || !applies) return { dollars: 0, note: null }
+    if (exempt) return { dollars: 0, note: `No predictability pay: voluntary call-in accepted in writing, exempt under ${ps.id}` }
+    const hrs = psParams.change_premium_hours
+    if (typeof hrs !== 'number') return { dollars: 0, note: `premium not computed: ${ps.id} lacks change_premium_hours` }
+    const wage = cfg.employees.find((e) => e.id === c.employee_id)?.wage_per_hour ?? 0
+    return { dollars: Math.round(hrs * wage * 100) / 100, note: `Predictability pay: +${hrs} h at $${wage.toFixed(2)} (new shift inside the ${psParams.notice_days ?? '?'}-day notice window)` }
+  }
+  for (const s of slots)
+    for (const c of s.queue) {
+      const p = premiumFor(c)
+      c.added_cost_dollars = Math.round((c.added_cost_dollars + p.dollars) * 100) / 100
+    }
+
   const actions: FixAction[] = slots.map(({ lost, queue }) => {
     const role = lost.segments[0]?.role_id ?? null
     const who = cfg.employees.find((e) => e.id === lost.employee_id)?.name ?? lost.employee_id
@@ -95,6 +116,7 @@ export function mockFix(cfg: StoreConfig, schedule: Schedule, req: FixRequestBod
         added_cost_dollars: 0,
         rationale: `Nobody trained and free can cover ${who}'s ${fmtRange(lost.start, lost.end)}; leave it as a gap.`,
       }
+    const p = premiumFor(queue[0])
     return {
       lever: 'call_in',
       employee_id: queue[0].employee_id,
@@ -102,7 +124,9 @@ export function mockFix(cfg: StoreConfig, schedule: Schedule, req: FixRequestBod
       start: queue[0].proposed_shift.start,
       end: queue[0].proposed_shift.end,
       added_cost_dollars: queue[0].added_cost_dollars,
-      rationale: `Cover ${who}'s ${roleName.get(role ?? '') ?? role} shift; text ${queue.length} people in order until one says yes.`,
+      premium_pay_dollars: p.dollars,
+      law_rule_ids: p.note && ps ? [ps.id] : [],
+      rationale: `Cover ${who}'s ${roleName.get(role ?? '') ?? role} shift; text ${queue.length} people in order until one says yes.${p.note ? ` ${p.note}.` : ''}`,
     }
   })
 
