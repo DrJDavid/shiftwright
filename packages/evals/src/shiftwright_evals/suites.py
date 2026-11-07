@@ -12,11 +12,9 @@ REPAIR_NOW = 6 * 60 + 4  # 06:04, as in the demo script
 
 # Scenarios whose `expected` flag is known to be wrong (decided by David, Sat Nov 7). A system that says
 # "infeasible" on one of these is not scored as a false "infeasible"; the report lists them.
-SUSPECT_EXPECTED = {
-    "weekly-S-legal_trap-CA-s1": (
-        "expected says feasible, but the engine proved it infeasible: leader_on_duty always_staffed + CA "
-        "meal/rest breaks (breaks don't count as leader coverage) + no overtime needs 21 leader shifts, "
-        "only 20 are possible. WS4 is adding a leader."),
+SUSPECT_EXPECTED: dict[str, str] = {
+    # weekly-S-legal_trap-CA-s1 was listed here until WS4 set max_shifts_per_day=2 for CA legal_trap
+    # (David, Sat Nov 7): it is feasible (a baseline found a clean schedule), so "infeasible" there is an FP.
 }
 
 

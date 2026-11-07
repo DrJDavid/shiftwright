@@ -43,6 +43,7 @@ def _tag(text: str, name: str):
 QUICK_ORDER = ["s-easy", "s-tight", "s-legal_trap", "m-easy", "m-tight", "m-legal_trap"]
 MODEL_OFFSET = {"mock-a": 0, "mock-b": 1}
 CHAT_ORDER = ["Austin, Texas", "California", "Texas", "Chicago, Illinois"]
+CHAT_OFFSET = {"mock-a": 0, "mock-b": 2}  # the 3 retail stores x 2 mocks cover all 5 chat kinds
 
 
 def _pick(model: str, store_id: str, kinds: list[str], suite: str = "weekly") -> str:
@@ -56,7 +57,7 @@ def _pick(model: str, store_id: str, kinds: list[str], suite: str = "weekly") ->
             i = QUICK_ORDER.index(key) + int(m.group(3)) - 1 + MODEL_OFFSET.get(model, 0)
             return kinds[i % len(kinds)]
     if suite == "chat" and store_id in CHAT_ORDER:  # realistic quick stores, keyed on the stated location
-        return kinds[(CHAT_ORDER.index(store_id) + MODEL_OFFSET.get(model, 0)) % len(kinds)]
+        return kinds[(CHAT_ORDER.index(store_id) + CHAT_OFFSET.get(model, 0)) % len(kinds)]
     h = int(hashlib.sha256(f"{model}|{suite}|{store_id}".encode()).hexdigest(), 16)
     return kinds[h % len(kinds)]
 

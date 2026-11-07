@@ -480,6 +480,17 @@ def build(run_dir: Path, report_dir: Path, manifest: dict) -> Path:
          f'<p class="note">Run <code>{esc(manifest["run_id"])}</code> · {n_scen} scenarios · suites: {esc(suites)}'
          f'{" (quick)" if manifest["quick"] else ""} · every number below is recounted from the run folder '
          f'<a href="{esc(rel)}/">{esc(rel)}/</a> and scored only by the independent validator.</p>']
+    eng, mach = manifest.get("engine"), manifest.get("machine")
+    if eng or mach:
+        tl = eng.get("time_limit_s") if eng else None
+        tl_text = (", ".join(f"{k} {v:g} s" for k, v in tl.items()) if isinstance(tl, dict) else f"{tl:g} s") if tl else "–"
+        p.append('<div class="banner" style="background:#f4f4f4;border-color:#999;font-weight:400;font-size:18px">'
+                 '<b>Method.</b> Shiftwright engine: time limit per solve ' + esc(tl_text)
+                 + (f', {eng["cpsat_workers"]} CP-SAT workers per solve, {eng["concurrent_solves"]} solve(s) at a time'
+                    if eng else "")
+                 + (f'. Machine: {esc(mach["cpu"])}, {mach["cores"]} cores, {esc(mach["os"])}' if mach else "")
+                 + '. The deployed service has 8 vCPU. Baseline times are the OpenRouter round trip for each reply.'
+                 '</div>')
     spend = sum(r.get("cost_usd") or 0 for r in rows)
     if spend:
         p.append(f'<p class="note">OpenRouter cost of the baseline responses in this report (sum of '

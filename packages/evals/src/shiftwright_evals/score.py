@@ -13,6 +13,8 @@ from pathlib import Path
 from shiftwright_contracts.models import CallOut, Schedule, StoreConfig
 from shiftwright_validator import recompute_metrics
 
+from .suites import SUSPECT_EXPECTED
+
 SCORED = ("ok", "unparseable", "truncated")  # outcomes that count toward rates (errors/unavailable don't)
 BUDGET_CODES = {"budget_hours", "budget_dollars"}
 
@@ -98,7 +100,7 @@ def score_run(run_dir: Path, folder: Path, inputs_cache: dict) -> dict:
         "latency_s": meta["latency_s"], "note": meta.get("note", ""),
         "path": folder.relative_to(run_dir).as_posix(),
         "expected_infeasible": meta["expected_infeasible"],
-        "expected_suspect": meta.get("expected_suspect"),
+        "expected_suspect": SUSPECT_EXPECTED.get(sid),  # the current decision, not the one at run time
         "reused_from": meta.get("reused_from"),
         "cost_usd": round(sum(float((a.get("usage") or {}).get("cost") or 0) for a in meta.get("attempts", [])), 4),
     }

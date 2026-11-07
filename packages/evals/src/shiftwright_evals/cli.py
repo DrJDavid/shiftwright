@@ -32,10 +32,13 @@ def parse_args(argv):
     p.add_argument("--suites", default="weekly,honesty,repair,realistic", help=f"comma list from {SUITES}")
     p.add_argument("--models", default=None, help="override BASELINE_MODELS (comma list)")
     p.add_argument("--no-engine", action="store_true", help="skip the Shiftwright engine (reported unavailable)")
-    p.add_argument("--engine-time-limit", default="S=120,M=120,L=120",
+    p.add_argument("--engine-time-limit", default="S=30,M=30,L=60",
                    help="seconds per solve: a number, or per size like S=30,M=30,L=60")
+    p.add_argument("--cpsat-workers", type=int, default=8,
+                   help="CP-SAT workers per solve (sets ENGINE_WORKERS; the deployed service has 8 vCPU)")
     p.add_argument("--fix-time-limit", type=float, default=10.0)
-    p.add_argument("--engine-workers", type=int, default=2, help="concurrent engine solves")
+    p.add_argument("--engine-workers", type=int, default=1,
+                   help="engine solves run at the same time (1 = each solve gets the whole machine, like production)")
     p.add_argument("--max-output-tokens", type=int, default=None,
                    help="cap baseline max_tokens (default: as high as each model allows)")
     p.add_argument("--budget-usd", type=float, default=None,
@@ -60,8 +63,22 @@ def parse_limits(text: str) -> float | dict:
     return {k.strip(): float(v) for k, v in (part.split("=") for part in text.split(",") if part.strip())}
 
 
+def machine_info() -> dict:
+    import platform
+    import subprocess
+    cpu = platform.processor() or platform.machine()
+    try:
+        cpu = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True,
+                             timeout=5).stdout.strip() or cpu
+    except Exception:  # noqa: BLE001 - not macOS
+        pass
+    return {"cpu": cpu, "cores": os.cpu_count(), "os": f"{platform.system()} {platform.release()}",
+            "python": platform.python_version()}
+
+
 async def _amain(args) -> int:
     t0 = time.perf_counter()
+    os.environ["ENGINE_WORKERS"] = str(args.cpsat_workers)
     run_id = args.run_id or datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = args.out_dir / run_id
     report_dir = args.reports_dir / run_id
@@ -143,6 +160,9 @@ async def _amain(args) -> int:
         "budget_stopped": guard.stopped if guard else None,
         "notes": notes,
         "rescored_from": args.rescore_from,
+        "engine": {"time_limit_s": parse_limits(args.engine_time_limit), "cpsat_workers": args.cpsat_workers,
+                   "concurrent_solves": args.engine_workers},
+        "machine": machine_info(),
         "not_rescored": {s.name: s.missing for s in systems if getattr(s, "replay", False) and s.missing},
         "started": datetime.now().isoformat(timespec="seconds"),
         "wall_s": round(time.perf_counter() - t0, 1),

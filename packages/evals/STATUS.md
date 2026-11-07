@@ -34,10 +34,28 @@
 - Mocks (`mock.py`, `baseline:mock-a`, `baseline:mock-b`): read the config from the prompt, sloppy greedy schedule +
   one of hallucinated_employee / minor_on_forklift / over_budget / truncated / unparseable / sloppy /
   claims_infeasible; never detect infeasibility (false "feasible"). Repair: ignored_callout / changed_past / careful.
-- Tests (20, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
+- Tests (21, `uv run pytest packages/evals`, ~2 s): the 3 brief acceptance tests (CLI subprocess with no key;
   cached re-run identical; 2 sampled runs recounted from validation.json against report.json and the HTML row)
   plus OpenRouter request shape/retry/cache/truncation/HTTP error via `httpx.MockTransport`, prompt completeness,
   mock kinds → intended validator codes.
+
+**Production engine configuration: `rescore-30s-8w` and `rescore-120s-8w`, Sat Nov 7 ~02:40 CT, main 1125c6e (no spend).**
+Defaults are now `--engine-workers 1` (one solve at a time) and `--cpsat-workers 8` (sets `ENGINE_WORKERS`, = the
+deployed 8-vCPU service), `--engine-time-limit S=30,M=30,L=60`; the engine cache key includes the worker count.
+The report's Method box states time limit, CP-SAT workers, concurrent solves and machine (Apple M4 Pro, 14 cores).
+`SUSPECT_EXPECTED` is now empty (WS4 set max_shifts_per_day=2 for CA legal_trap; David: expected feasible), and is
+read at scoring time, so `--report-only` applies the current decision.
+
+| Weekly build (6) | 0 hard | Hard | Legal coverage | Cost vs SW, 30 s | Cost vs SW, 120 s | Time / schedule |
+|---|---|---|---|---|---|---|
+| Shiftwright (8 workers) | 5/6 | 7 (all: "infeasible" on S legal_trap CA) | 90.0% | 1.00× | 1.00× | 17 s (30 s) / 104 s (120 s) |
+| grok-4.7 | 5/6 | 4 | 90.0% | 1.04× | 1.05× | 1,299 s |
+| claude-opus-5.5 | 5/6 | 3 | 90.2% | 1.02× | 1.02× | 425 s |
+| gpt-6.1-terra-pro | 2/6 | 14 | 91.1% | 1.07× | 1.07× | 216 s |
+
+Every legal baseline schedule now costs at least as much as Shiftwright's (per scenario 1.003–1.13× at 30 s).
+Shiftwright still answers "infeasible" on S legal_trap CA (no split shifts in the engine yet; Grok and Opus found
+clean schedules), counted as a false "infeasible" (1/6). Honesty 2/2 for all; repair Shiftwright 2/2 in < 1 s.
 
 **Realistic suite (briefs/WS5-realistic-eval.md), slice 7, Sat Nov 7 ~02:00 CT. Mock mode done; no real calls yet.**
 - `shiftwright_evals/realistic.py`; in the default suites (`weekly,honesty,repair,realistic`), so `make eval-quick`

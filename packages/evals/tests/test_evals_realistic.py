@@ -66,3 +66,10 @@ def test_shiftwright_intake_runs_with_fake_agent_and_no_key(monkeypatch):
     if out.outcome == "ok":  # mapped back to the scenario's true ids
         ids = {e.id for e in case.config.employees}
         assert all(s["employee_id"] in ids for s in out.schedule_input["shifts"])
+
+
+def test_mock_chat_kinds_all_covered_on_quick_retail_stores():
+    from shiftwright_evals import mock
+    picked = {mock._pick(m, loc, mock.CHAT_KINDS, suite="chat") for m in mock.MOCK_MODELS
+              for loc in mock.CHAT_ORDER[:3]}
+    assert picked == set(mock.CHAT_KINDS)
