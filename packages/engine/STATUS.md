@@ -45,6 +45,12 @@ shared with other agents, load noted; CP-SAT is non-deterministic, ±1 pt covera
 | SF | 92.38% · $32,952 · 0 hard · 25.3 s · 1439 cheaper | 92.52% · $34,666 · 0 hard · main 27.1 s · 0 cheaper · 3 budget_gap |
 | Harbor Grill | 97.16% · $14,010 · 0 hard · 24.8 s · 14 cheaper | 97.10% · $14,189 · 0 hard · main 23.1 s · 0 cheaper · 3 budget_gap |
 
+Final run after merging main (07:57, load 7.6–8.3): demo 95.22% · $24,921 · main 15.6 s; Chicago
+96.05% · $29,512 · 24.0 s; Seattle 93.45% · $37,915 · 28.8 s; SF 93.42% · $34,772 · 28.5 s; Harbor
+Grill 97.92% · $14,153 · 22.6 s — all 0 hard, 0 metrics_mismatch, 0 cheaper_to_leave_gap, within
+budget, each with real budget_gap tradeoffs (what-ifs 3.7–13.7 s after the main solve).
+Full `uv run pytest`: 960 passed, 16 skipped. `audit_engine.py`: 23 cases, 0 disagreements.
+
 Coverage is load-sensitive for both versions. At load 5–10 (06:48–07:03) the branch gave Chicago
 96.29–96.99, Seattle 93.78–93.86, SF 92.81–92.89, Harbor Grill 97.53–98.05, demo 95.22. Paired
 same-load runs (main vs branch, alternating, tradeoffs off, 07:25–07:30): Chicago 96.20/95.60,
