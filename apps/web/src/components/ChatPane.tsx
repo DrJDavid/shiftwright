@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Api } from '../api/client'
+import { ApiError } from '../api/client'
 import type { CardType, ChatEvent, ChatMode, CsvImportKind, Kickoff, KickoffAttachment } from '../api/protocol'
 import { ChatCard } from '../cards'
 import type { CardStatus } from '../cards/CardFrame'
@@ -150,7 +151,8 @@ export function ChatPane({
   const canSend = !busy || openAgentCard
   const turn = useRef(0)
 
-  const send = async (text: string, files?: KickoffAttachment[]) => {
+  /** `shown`: what the user's bubble says when it differs from what the agent gets (an expired card's answers). */
+  const send = async (text: string, files?: KickoffAttachment[], shown?: string) => {
     const content = text.trim()
     if (!content || !canSend) return
     if (busy) {
@@ -159,7 +161,7 @@ export function ChatPane({
     }
     const myTurn = ++turn.current
     setDraft('')
-    push({ kind: 'user', text: content, files })
+    push({ kind: 'user', text: shown ?? content, files })
     newBubble.current = true
     setBusy(true)
     setActivity(null)
@@ -188,7 +190,7 @@ export function ChatPane({
       if (!ctrl.signal.aborted)
         push({
           kind: 'error',
-          text: `Chat connection failed: ${(err as Error).message}`,
+          text: `The connection dropped (${(err as Error).message}). Anything you fill in on an open card will still be sent; or just type to pick up where we left off.`,
         })
     } finally {
       if (turn.current === myTurn) setBusy(false)
@@ -270,6 +272,20 @@ export function ChatPane({
         result,
       })
     } catch (err) {
+      // The card outlived its chat turn (connection dropped while it was open). Don't dead-end: hand the
+      // answers to the agent as a message; it reopens the same card prefilled with them.
+      if (err instanceof ApiError && err.status === 404 && item?.kind === 'card') {
+        setCard(cardId, { status: cancelled ? 'cancelled' : 'submitted', result })
+        if (!cancelled) {
+          const label = item.cardType.replace(/_/g, ' ')
+          void send(
+            `[Answers from the ${item.cardType} card, which expired before it was sent: ${JSON.stringify(result)}]`,
+            undefined,
+            `(Resending my ${label} answers; the connection dropped while the card was open.)`,
+          )
+        }
+        return
+      }
       setCard(cardId, { status: 'open' })
       push({
         kind: 'error',
