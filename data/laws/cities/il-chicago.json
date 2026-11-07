@@ -15,7 +15,8 @@
     "Tipped minimum wage: max_tip_credit_per_hour 4.09 = $17.05 \u2212 $12.96 (chicago.gov, read 2026-11-07). Chicago's One Fair Wage ordinance phases the tip credit out by July 1, 2028 (not encoded; future steps need their published amounts).",
     "applies_to='both': Covered Industries include Retail and Restaurants (MCC 6-110-020); Restaurants also need 30+ locations and 250+ employees globally.",
     "excludes_same_day_split=true: MCC 6-110-070 applies to 'a shift that begins less than 10 hours after the end of the previous day's shift' (previous day only).",
-    "exemption_applies_to: MCC 6-110-050(d)(3) exempts any 'Work Schedule change that is mutually agreed to ... and is confirmed in writing' \u2014 call-ins and extensions alike."
+    "exemption_applies_to: MCC 6-110-050(d)(3) exempts any 'Work Schedule change that is mutually agreed to ... and is confirmed in writing' \u2014 call-ins and extensions alike.",
+    "alcohol_service ages (MCC 4-60-140(a), 4-60-143): IL.chicago.minor_prohibited_roles.1 bans under-21 conservatively (the validator cannot check training); a restaurant may lawfully let a trained 18-20-year-old serve drinks prepared/opened by a 21+ employee (not under tavern or late-hour licenses) \u2014 if the store confirms training, rule .2 (under 18, no exception) is the floor. Under-21s may work as hosts/hostesses in restaurants but not handle alcohol. At premises whose principal business is alcohol sales (taverns), under-21s may not work at all while open."
   ],
   "rules": [
     {
@@ -129,6 +130,56 @@
         "url": "https://www.chicago.gov/city/en/depts/bacp/supp_info/minimumwageinformation.html",
         "title": "City of Chicago BACP \u2014 Minimum Wage (tipped workers)",
         "excerpt": "Tipped workers ... have a minimum wage of $12.96 for employers with 4 or more employees. If a tipped worker's wages plus tips do not equal at least the full minimum wage, the employer must make up the difference.",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.chicago.minor_prohibited_roles.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": "chicago"
+      },
+      "level": "city",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 21,
+        "role_tags": [
+          "alcohol_service"
+        ],
+        "exception_age_min": 18,
+        "exception_note": "Restaurants (not tavern or late-hour licenses): employees 18+ who completed Illinois Liquor Commission responsible alcohol service training may serve drinks prepared, mixed or opened by a manager or employee 21+; supermarkets: trained 18+ may stock and sell (MCC 4-60-143(a)(5), (b))."
+      },
+      "summary": "In Chicago no one under 21 may handle, sell, serve or deliver alcohol at a liquor licensee, except trained servers 18+ in restaurants serving drinks a 21+ employee prepared or opened (and trained 18+ supermarket staff).",
+      "citation": {
+        "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2632104",
+        "title": "Chicago Mun. Code \u00a7 4-60-140(a) \u2014 Liquor dealers, prohibited activities",
+        "excerpt": "a person under the age of 21 years ... where the sale of alcoholic liquor is not the main or principal business may not work ... in connection with the handling, selling, serving or delivering of alcoholic liquor",
+        "last_verified": "2026-11-07"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.chicago.minor_prohibited_roles.2",
+      "jurisdiction": {
+        "state": "IL",
+        "city": "chicago"
+      },
+      "level": "city",
+      "type": "minor_prohibited_roles",
+      "params": {
+        "age_below": 18,
+        "role_tags": [
+          "alcohol_service"
+        ]
+      },
+      "summary": "In Chicago no one under 18 may serve or sell alcohol under any exception (the restaurant and supermarket exceptions start at 18).",
+      "citation": {
+        "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2632138",
+        "title": "Chicago Mun. Code \u00a7 4-60-143(a)(5), (b) \u2014 Hiring of persons under 21",
+        "excerpt": "If the licensed premises is a restaurant, an employee of the licensee who: (i) is at least 18 years of age: and (ii) obtained and completed training in basic responsible alcohol service",
         "last_verified": "2026-11-07"
       },
       "confidence": "high",
