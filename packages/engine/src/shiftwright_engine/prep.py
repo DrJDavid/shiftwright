@@ -164,23 +164,30 @@ def _round_down(v: int, s: int) -> int:
 MEAL_SHIFTS = (0, -60, -120)  # meal-position variants (minutes earlier than the default position)
 
 
-def break_variants(p: Prep, start: int, length: int) -> list[list[Break]]:
+REST_MODES = ("even", "early", "late")
+
+
+def break_variants(p: Prep, start: int, length: int, flexible: bool = False) -> list[list[Break]]:
     """Break layouts for a shift: the default plus meals moved earlier, so overlapping shifts
-    can cover each other's meals. Deduplicated; empty list if nothing fits."""
+    can cover each other's meals. With `flexible` (employees in a hard always_staffed role), rest
+    breaks are also tried packed early or late, so two leaders can cover each other's breaks.
+    Deduplicated; empty list if nothing fits."""
     out, seen = [], set()
     needs_meal = any(length > int(m.params["after_minutes"]) for m in p.meal_rules)
-    for sh in (MEAL_SHIFTS if needs_meal else (0,)):
-        b = place_breaks(p, start, length, sh)
-        if b is None:
-            continue
-        key = tuple((x.start, x.end) for x in b)
-        if key not in seen:
-            seen.add(key)
-            out.append(b)
+    for mode in (REST_MODES if flexible and p.rest_rule is not None else ("even",)):
+        for sh in (MEAL_SHIFTS if needs_meal else (0,)):
+            b = place_breaks(p, start, length, sh, mode)
+            if b is None:
+                continue
+            key = tuple((x.start, x.end) for x in b)
+            if key not in seen:
+                seen.add(key)
+                out.append(b)
     return out
 
 
-def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0) -> Optional[list[Break]]:
+def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0,
+                 rest_mode: str = "even") -> Optional[list[Break]]:
     """Deterministic breaks for a shift [start, start+length). None if they cannot fit."""
     s = p.slot
     end = start + length
@@ -221,6 +228,10 @@ def place_breaks(p: Prep, start: int, length: int, meal_shift: int = 0) -> Optio
         dur = _round_up(int(r.params["duration"]), s)
         for k in range(1, n + 1):
             target = start + _round_down(k * length // (n + 1), s)
+            if rest_mode == "early":
+                target = start + s
+            elif rest_mode == "late":
+                target = end - s - dur
             placed = False
             for off in range(0, length, s):
                 for bs in (target + off, target - off):
@@ -314,7 +325,8 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
     # Slots where an employee's work can matter: demand or always_staffed for a role they may work,
     # or a preferred_on window. With `prune`, a candidate longer than the minimum whose first or last
     # worked slot is not useful is dropped (the trimmed shift is never worse), and so is one with no
-    # useful slot. Employees under a hard min_hours_week keep every candidate.
+    # useful slot. Employees under a hard min_hours_week or in a hard always_staffed role keep every
+    # candidate (break layouts differ, so trimming is not a dominance there).
     useful_by_role: dict[str, set[int]] = {}
     for (rid, a) in p.demand:
         useful_by_role.setdefault(rid, set()).add(a)
@@ -325,6 +337,8 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
             for d, (lo_, hi_) in (store_open if which == "store_hours" else windows).items():
                 useful_by_role.setdefault(rid, set()).update(
                     d * DAY + t for t in range(_round_down(lo_, slot), hi_, slot))
+    always_roles = {c.params.get("role_id") for c in constraints
+                    if c.kind == ConstraintKind.always_staffed and c.strength == Strength.hard}
     hard_min_hours = [c for c in constraints
                       if c.kind == ConstraintKind.min_hours_week and c.strength == Strength.hard]
 
@@ -332,8 +346,9 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
     for e in (cfg.employees if with_cands else []):
         if not p.allowed_roles[e.id]:
             continue
+        flexible = bool(always_roles & set(p.allowed_roles[e.id]))
         useful: Optional[set[int]] = None
-        if prune and not any(p.applies(c, e.id) and e.min_hours_week > 0 for c in hard_min_hours):
+        if prune and not flexible and not any(p.applies(c, e.id) and e.min_hours_week > 0 for c in hard_min_hours):
             useful = set().union(*(useful_by_role.get(r, set()) for r in p.allowed_roles[e.id]))
             for a in e.availability:
                 if a.kind == AvailabilityKind.preferred_on:
@@ -364,7 +379,7 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                         break
                     if any(a < end and start < b for a, b in unavail):
                         continue
-                    for brks in break_variants(p, start, length):
+                    for brks in break_variants(p, start, length, flexible):
                         unpaid = sum(b.end - b.start for b in brks if not b.paid)
                         paid = length - unpaid
                         if paid > week_cap:

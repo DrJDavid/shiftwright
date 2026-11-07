@@ -1,6 +1,7 @@
 """CP-SAT model for one week (or a restricted part of it, for the fixer)."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -371,11 +372,20 @@ class Builder:
         return built
 
 
-def solve(built: Built, time_limit_s: float, workers: int = 8, hint: Optional[dict] = None,
+def default_workers() -> int:
+    """CP-SAT workers: env ENGINE_WORKERS, else min(8, cpu count). Memory grows with workers."""
+    env = os.environ.get("ENGINE_WORKERS", "").strip()
+    if env.isdigit() and int(env) > 0:
+        return int(env)
+    return min(8, os.cpu_count() or 1)
+
+
+def solve(built: Built, time_limit_s: float, workers: Optional[int] = None, hint: Optional[dict] = None,
           light_presolve: bool = True):
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = float(time_limit_s)
-    solver.parameters.num_workers = workers
+    solver.parameters.num_workers = workers or default_workers()
+    solver.parameters.log_search_progress = os.environ.get("ENGINE_LOG") == "1"
     if light_presolve:  # full presolve costs ~15 s on the demo store and barely shrinks it
         solver.parameters.max_presolve_iterations = 1
         solver.parameters.cp_model_probing_level = 0
