@@ -19,7 +19,7 @@ from .mock import MOCK_MODELS
 from .report import build
 from .runner import run_all
 from .suites import SUITES, build_cases
-from .realistic import SKIPPED, ChatBaseline, ShiftwrightIntake
+from .realistic import SKIPPED, ChatBaseline, ChatReplay, ShiftwrightIntake
 from .systems import BaselineSystem, ReplaySystem, ShiftwrightSystem
 
 PKG_ROOT = Path(__file__).resolve().parents[2]  # packages/evals
@@ -99,6 +99,9 @@ async def _amain(args) -> int:
         old_manifest = json.loads((old_dir / "manifest.json").read_text())
         systems += [ReplaySystem(s["name"], old_dir) for s in old_manifest["systems"]
                     if s["name"].startswith("baseline:")]
+        if "realistic" in suites:
+            systems += [ChatReplay(s["name"], old_dir) for s in old_manifest["systems"]
+                        if s["name"].startswith("chat:")]
         reuse_inputs = old_dir / "_inputs"
         client = CachedClient(MockClient(), None)
     elif args.mock_baselines:
