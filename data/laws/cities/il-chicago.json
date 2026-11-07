@@ -6,9 +6,12 @@
   "level": "city",
   "notes": [
     "Fair Workweek (MCC ch. 6-110) covers employees in retail and six other industries earning <= $33.85/hour or <= $64,945.55/year, at employers with 100+ employees globally (chicago.gov, read 2026-11-06).",
-    "Predictability pay: 1 hour per shift where hours are added, time changed, or (with >24 h notice) hours cut; >=50% of pay for hours cut with <24 h notice (extra key reduced_hours_fraction).",
     "Right to rest premium is 1.25x for the entire shift that begins <10 h after the previous day's shift (extra key premium_applies_to='shift').",
-    "Minimum wage applies to employers with 4+ employees; rises every July 1."
+    "Minimum wage applies to employers with 4+ employees; rises every July 1.",
+    "Predictability pay (MCC 6-110-050(b)): per changed shift inside the 14-day window \u2014 added hours (incl. new shift or extension) = 1 h; date/time moved with no loss of hours = 1 h; cut/cancelled with >24 h notice = 1 h; cut/cancelled with <24 h notice = >=50% of the regular rate for the scheduled hours not worked. 'Predictability Pay' is paid hourly at the employee's regular rate (6-110-020).",
+    "Exemptions (6-110-050(d)): (2) mutually agreed shift trade or coverage arrangement between covered employees; (3) change mutually agreed by employee and employer and confirmed in writing; (4) employee-requested change confirmed in writing (incl. sick leave). A call-in to cover an absent coworker that the employee accepts by text is exempt under (3); the employee who called out is exempt under (4) if the request is in writing. Employees may decline hours added with <14 days' notice (6-110-050(a)).",
+    "'Writing' or 'written' = printed or printable communication incl. email, text message or computer system (MCC 6-110-020, https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2639928).",
+    "Coverage (MCC 6-110-020): 'Employer' = 100+ employees globally (250+ for not-for-profits), 50 of whom are Covered Employees, primarily engaged in a Covered Industry (Retail is one); Restaurants need 30+ locations and 250+ employees globally. Covered Employee: majority of work time in Chicago, in a covered industry, and pay <= the indexed threshold ($26.00/h or $50,000/yr in the code; $33.85/h or $64,945.55/yr per chicago.gov for 2026)."
   ],
   "rules": [
     {
@@ -21,17 +24,32 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
-        "reduced_hours_fraction": 0.5,
+        "applies_to": "both",
         "applies_if_employees_over": 99,
-        "applies_to": "both"
+        "employee_count_scope": "global",
+        "min_covered_employees": 50,
+        "covered_wage_max_hourly": 33.85,
+        "covered_salary_max_annual": 64945.55,
+        "premium_basis": "regular_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "reduced_premium_hours": 1,
+        "reduced_hours_fraction": 0.5,
+        "reduced_fraction_notice_hours": 24,
+        "voluntary_additional_hours_exempt": true,
+        "consent_must_be_written": true,
+        "text_message_counts_as_written": true,
+        "coworker_coverage_exempt": true,
+        "exemption_requires_group_message": false,
+        "exemption_note": "Exempt: \"A Work Schedule change that is mutually agreed to by the Covered Employee and Employer and is confirmed in writing\"; \"writing\" includes \"text message\" (MCC 6-110-050(d)(3), 6-110-020)."
       },
-      "summary": "Covered retail employers (100+ employees) must post schedules 14 days ahead and pay 1 hour of predictability pay per changed shift.",
+      "summary": "Inside 14 days, Chicago Fair Workweek pays 1 hour at the regular rate per shift where the employer adds hours, moves the shift, or cuts it with >24 h notice; cuts with <24 h notice pay 50% of the lost hours. Changes the employee agrees to in writing (text counts) are exempt.",
       "citation": {
         "url": "https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2639980",
-        "title": "Chicago Mun. Code \u00a7 6-110-040(b)(1), \u00a7 6-110-050 \u2014 Fair Workweek",
-        "excerpt": "shall post the Work Schedule no later than 14 days before the first day of any new Work Schedule beginning July 1, 2022",
-        "last_verified": "2026-11-06"
+        "title": "Chicago Mun. Code \u00a7 6-110-050(b), (d) \u2014 Fair Workweek schedule changes",
+        "excerpt": "One hour of Predictability Pay for each shift in which the Employer: (A) adds hours of work. (B) changes the date or time ... (C) with more than 24 hours' notice, cancels or subtracts hours",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
