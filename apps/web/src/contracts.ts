@@ -165,6 +165,7 @@ export type PremiumPayDollars = number;
 export type LawRuleIds = string[];
 export type Rationale = string;
 export type PlanId = string | null;
+export type OutreachMode = "one_to_one" | "group_offer";
 export type Actions = FixAction[];
 export type Rank = number;
 export type EmployeeId2 = string;
@@ -188,6 +189,9 @@ export type Why = string[];
 export type AddedCostDollars1 = number;
 export type EstAcceptProb = number;
 export type Why1 = string;
+export type PremiumPayDollars1 = number;
+export type LawRuleIds1 = string[];
+export type PremiumNote = string;
 export type OutreachQueue = OutreachCandidate[];
 export type StoreId = string;
 export type WeekStart = string;
@@ -233,7 +237,7 @@ export type SoftViolations = SoftViolation[];
 export type TotalHours = number;
 export type TotalWageCost = number;
 export type OvertimeHours = number;
-export type PremiumPayDollars1 = number;
+export type PremiumPayDollars2 = number;
 export type CoveragePct = number;
 export type GapPenaltyDollars = number;
 export type SoftPenaltyDollars = number;
@@ -344,6 +348,7 @@ export type Day6 = number;
 export type Now = number;
 export type AllowedLevers = Lever[];
 export type DeclinedEmployeeIds = string[];
+export type OutreachMode1 = ("one_to_one" | "group_offer") | null;
 export type Id11 = string;
 export type FromPhone = string;
 export type Body = string;
@@ -609,6 +614,7 @@ export interface FixAction {
  */
 export interface FixPlan {
   plan_id?: PlanId;
+  outreach_mode?: OutreachMode;
   actions: Actions;
   outreach_queue: OutreachQueue;
   schedule_if_all_accept: Schedule;
@@ -629,6 +635,9 @@ export interface OutreachCandidate {
   added_cost_dollars: AddedCostDollars1;
   est_accept_prob: EstAcceptProb;
   why: Why1;
+  premium_pay_dollars?: PremiumPayDollars1;
+  law_rule_ids?: LawRuleIds1;
+  premium_note?: PremiumNote;
   [k: string]: unknown;
 }
 /**
@@ -720,7 +729,7 @@ export interface ScheduleMetrics {
   total_hours: TotalHours;
   total_wage_cost: TotalWageCost;
   overtime_hours: OvertimeHours;
-  premium_pay_dollars?: PremiumPayDollars1;
+  premium_pay_dollars?: PremiumPayDollars2;
   coverage_pct: CoveragePct;
   gap_penalty_dollars: GapPenaltyDollars;
   soft_penalty_dollars: SoftPenaltyDollars;
@@ -757,6 +766,7 @@ export interface FixRequest {
   now: Now;
   allowed_levers?: AllowedLevers;
   declined_employee_ids?: DeclinedEmployeeIds;
+  outreach_mode?: OutreachMode1;
   [k: string]: unknown;
 }
 /**

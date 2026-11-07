@@ -1,4 +1,4 @@
-# Shiftwright contract semantics — v1.3
+# Shiftwright contract semantics — v1.4
 
 Owner: David. These rules are part of the contract. The engine (WS1) and the validator (WS2)
 must both follow them, so that a disagreement means a bug, not a different reading.
@@ -7,6 +7,10 @@ with the v1.1 changes below folded in.
 
 ## Changelog
 
+- **1.4.0** (Sat Nov 7, ~02:30): outreach modes for predictive-scheduling exemptions (#17, proposal from WS1):
+  `FixRequest.outreach_mode`, `FixPlan.outreach_mode`, `OutreachCandidate.premium_pay_dollars`,
+  `law_rule_ids`, `premium_note`. Decision (David): `always_staffed` is NOT satisfied by an employee on a
+  break (#18).
 - **1.3.0** (Sat Nov 7, ~01:30): predictive-scheduling premiums in call-out repair (#17);
   `Store.employer_employee_count`, `Store.schedule_posted_on`; new `predictive_scheduling` param keys
   that WS3 fills from primary sources (#17). No other schema change.
@@ -112,6 +116,16 @@ with the v1.1 changes below folded in.
       `schedule_if_*_accept.metrics.premium_pay_dollars` include these premiums.
     - The validator checks this via a fix-plan check that recomputes premiums from the same params
       (WS2), not by reading engine code.
+
+    - *v1.4 outreach modes:* `one_to_one` texts candidates in rank order; `group_offer` sends one written
+      message to the top N (N ≥ the rule's `exemption_min_recipients`) carrying every statement in
+      `exemption_message_must_state`; first accept wins. The engine prices call-ins for the mode in
+      `FixRequest.outreach_mode`, or picks the cheaper legal mode when it is None, and reports it in
+      `FixPlan.outreach_mode`. The API must send outreach in the plan's mode.
+
+18. **`always_staffed` excludes breaks** (*v1.4, David*): an employee on a meal or rest break is not
+    covering any role, including an `always_staffed` one; another employee must cover the break.
+    (Retail practice: the leader on duty hands off LOD before a break.)
 
 ## Minimum wage (*v1.1*)
 

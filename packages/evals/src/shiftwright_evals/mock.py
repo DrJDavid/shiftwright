@@ -38,7 +38,9 @@ def _tag(text: str, name: str):
 
 
 def _pick(model: str, text: str, kinds: list[str]) -> str:
-    h = int(hashlib.sha256((model + "|" + text).encode()).hexdigest(), 16)
+    # Ignore contract_version so a contract bump doesn't reshuffle which canned failure each scenario gets.
+    key = re.sub(r'"contract_version":\s*"[^"]*"', '"contract_version":"1.3.0"', text)
+    h = int(hashlib.sha256((model + "|" + key).encode()).hexdigest(), 16)
     return kinds[h % len(kinds)]
 
 
