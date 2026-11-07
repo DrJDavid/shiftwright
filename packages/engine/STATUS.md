@@ -1,5 +1,64 @@
 # WS1 status
 
+## C3 — rules and coverage first, real dollars only for real money (branch `cursor/C3-coverage-first`)
+
+Brief: `briefs/C3-coverage-first.md` (revised 07:30); contract text: `contracts/SEMANTICS.md` #25.
+This supersedes the "priced gaps" objective described in the M1 notes below.
+
+**Order** (`model.solve`, each stage hinted with the last and locked before the next):
+1. hard rules / law (unchanged); 2. coverage by tier (`lex.py`: roles ranked by
+`gap_penalty_per_hour`; strict weights if they fit int64, else geometric ratio R — 12–16 on the demo
+stores — logged as `cover_stats.tier_ratio`; paid minutes as a floor term below the lowest tier);
+3. preferences by tier (`pref_tiers`: soft-rule terms ranked by `weight_dollars`, units within a tier
+∝ the rule's own amount; always locked, even when the stage is skipped because nothing is broken);
+4. cost (`cost_obj`: wages + OT + availability prefs + soft + churn). An unproven result is
+**polished** (`_polish`: shifts/roles fixed, cost minimized) so soft values match the schedule
+(fixed a `soft_penalty_dollars` metrics_mismatch seen on SF fix_day).
+Modes: `full` (guide → cover → prefs → cost; fix_day), `lex` (cover → prefs → cost; phase 2,
+what-ifs), `guide` (one priced run: day LNS). `ENGINE_LEX=0` restores the pre-C3 priced objective.
+
+**Pipeline** (`solve_week`): coverage-first greedy (`MIN_UTILIZATION` 0.7) → day LNS on the guided
+objective with an hours allotment per day (`_open_by_day`) → up to 6 rounds of `greedy.repair`
+(net tier-weighted gain: extensions incl. moved breaks, split days, new shifts; never gives up a hard
+always_staffed slot) + phase 2 (`lex`, re-checks every hard rule; a failed repair is dropped).
+Reserve for those rounds: 22% of the limit (≤ 6.5 s). Then **tradeoffs** (`tradeoffs.py`, ≤ 5
+what-if solves of ≤ min(5, 0.1×limit) s; `ENGINE_TRADEOFFS=0` disables): `budget_gap` (gap's day
+re-solved for the role's trained staff with the cap + the gap's hours, ≥ one minimum shift; kept
+only if that gap gets covered) and `preference_cost` (kept soft rule naming ≤ 3 employees, re-solved
+with and without it, coworkers sharing a role may drop shifts). Shape in SEMANTICS #25.
+`solver_stats`: `phase1_objective_dollars` is now cost-only; `cover_stats`, `repair` stages,
+`repair_dropped`, `tradeoffs`, `tradeoffs_s`.
+
+**Explain** (`explain.py`): reasons use the least added paid time (extension at the day's shift
+limit, else the shortest new shift that reaches the gap), checked against weekly caps, max shift
+length, minor/daily-OT caps and budget; an extension that only adds an unpaid meal, or whose moved
+breaks uncover as much tier-weighted demand as it adds (`_net_gain`), is `law_rule` (the break rule).
+
+**Before / after** (`uv run python packages/engine/scripts/tiers.py`, 30 s, validated; 14-core Mac
+shared with other agents, load noted; CP-SAT is non-deterministic, ±1 pt coverage between runs):
+
+| store | before (main 3ca575c, load 9–14) | after (load 14–19, 07:23) |
+|---|---|---|
+| demo (Austin) | 94.94% · $24,906 · 0 hard · 15.9 s · 100 cheaper | 95.22% · $24,929 · 0 hard · main 20.3 s · 0 cheaper · 3 budget_gap |
+| Chicago | 96.02% · $29,087 · 0 hard · 25.5 s · 378 cheaper | 95.16% · $29,380 · 0 hard · main 25.2 s · 0 cheaper · 3 budget_gap |
+| Seattle | 92.49% · $36,461 · 0 hard · 25.4 s · 1237 cheaper | 93.06% · $37,862 · 0 hard · main 28.8 s · 0 cheaper · 3 budget_gap |
+| SF | 92.38% · $32,952 · 0 hard · 25.3 s · 1439 cheaper | 92.52% · $34,666 · 0 hard · main 27.1 s · 0 cheaper · 3 budget_gap |
+| Harbor Grill | 97.16% · $14,010 · 0 hard · 24.8 s · 14 cheaper | 97.10% · $14,189 · 0 hard · main 23.1 s · 0 cheaper · 3 budget_gap |
+
+Coverage is load-sensitive for both versions. At load 5–10 (06:48–07:03) the branch gave Chicago
+96.29–96.99, Seattle 93.78–93.86, SF 92.81–92.89, Harbor Grill 97.53–98.05, demo 95.22. Paired
+same-load runs (main vs branch, alternating, tradeoffs off, 07:25–07:30): Chicago 96.20/95.60,
+96.00/96.34; Harbor Grill 96.61/97.74, 96.98/98.09; SF 91.93/93.45, 94.38/93.10. Earlier Chicago
+pairs (06:40–06:50, load 12–27): main mean ≈ 95.2, branch ≈ 95.0–95.2. So Chicago and SF are at
+parity within noise, the others above. The branch always spends the hours budget (main left 10–80 h
+unused). fix_day (30 s week, then fix, load 15–23): Austin 1.7 s, Chicago 4.5 s, Seattle 5.4 s,
+SF 5.6 s, 0 hard in both plans.
+
+**Caveats:** day LNS is guided by a priced objective (tier $/h scaled to ≥ 2× the top wage) under
+the time limit; strict tier order is enforced in phase 2 / repair / fix_day stages, not proven for
+the week. Tradeoff what-ifs add ~4–11 s after the main solve on the demo stores. Explain via
+`explain_gap` (no candidates) skips the net-gain check.
+
 **Done (M1):**
 - `solve_week(config, time_limit_s=20, previous=None)` — CP-SAT, two phases:
   1. choose shifts (one bool `y` per candidate (start, length, break layout) per employee-day) +
