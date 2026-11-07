@@ -5,9 +5,11 @@
   },
   "level": "city",
   "notes": [
-    "Berkeley Fair Workweek Ordinance, operational Jan. 12, 2024 (city FAQ rev. 08/23/24): covers retail employers with 56+ employees globally (franchisees and nonprofits: 100+); employees working 2+ hours/week in Berkeley.",
-    "Predictability pay: 1 hour for any change with <14 days but >=24 h notice; for cuts/cancellations with <24 h notice, 4 hours or the hours cut, whichever is less (extra key change_premium_hours_under_24h=4); additions with <24 h notice 1 hour.",
-    "Right to rest: may decline hours <11 h after the previous shift; 1.5x for each such hour worked."
+    "Right to rest: may decline hours <11 h after the previous shift; 1.5x for each such hour worked.",
+    "Predictability pay (FAQ Q12-14): with <14 days but >=24 h notice, 1 h for any change; with <24 h notice, 1 h for adding a shift, adding hours or moving a shift, and min(4, hours cut) for cuts/cancellations (15 min cut = 0.25 h). Paid at the regular rate (29 U.S.C. 207(e)). Grace: 10 min before/after a shift (up to 30 min after to finish serving a customer).",
+    "Exemptions (FAQ Q15-16): employee-initiated changes only \u2014 shift swaps, coverage arrangements between employees, employee requests to leave early or take sick/vacation days. The FAQ lists no exemption for employer-requested hours the employee voluntarily accepts (voluntary_additional_hours_exempt=false).",
+    "Coverage (FAQ Q6): employers with 10+ employees in Berkeley primarily in retail (and other listed industries) with 56+ employees globally; restaurants, retail/restaurant franchisees and nonprofits need 100+ globally. Extra key min_local_employees.",
+    "Offers of additional hours to existing part-time employees must be made and accepted in writing, with 24 h to respond (FAQ Q20)."
   ],
   "rules": [
     {
@@ -20,17 +22,31 @@
       "type": "predictive_scheduling",
       "params": {
         "notice_days": 14,
-        "change_premium_hours": 1,
-        "change_premium_hours_under_24h": 4,
+        "applies_to": "both",
         "applies_if_employees_over": 55,
-        "applies_to": "both"
+        "employee_count_scope": "global",
+        "min_local_employees": 10,
+        "premium_basis": "regular_rate",
+        "change_premium_hours": 1,
+        "change_premium_hours_under_24h": 1,
+        "moved_premium_hours": 1,
+        "reduced_premium_hours": 1,
+        "reduced_hours_fraction": 1.0,
+        "reduced_premium_hours_cap": 4,
+        "reduced_fraction_notice_hours": 24,
+        "grace_minutes": 10,
+        "voluntary_additional_hours_exempt": false,
+        "consent_must_be_written": false,
+        "coworker_coverage_exempt": true,
+        "exemption_requires_group_message": false,
+        "exemption_note": "Only employee-initiated changes are exempt: \"Employee-initiated changes like shift swaps or coverage arrangements do not require the employer to pay predictability pay.\" An employer-requested call-in owes 1 hour even if accepted."
       },
-      "summary": "Retail employers with 56+ employees globally must give 14 days' schedule notice and pay predictability pay for later changes.",
+      "summary": "Berkeley (10+ local and 56+ global employees in retail): inside 14 days, 1 hour at the regular rate for any change with 24 h+ notice and for added/moved shifts with less; cuts/cancellations with <24 h notice pay the hours cut, up to 4.",
       "citation": {
         "url": "https://berkeleyca.gov/sites/default/files/documents/Fair%20Workweek%20FAQ_Rev.08.23.24.pdf",
-        "title": "City of Berkeley \u2014 Fair Workweek FAQ (Rev. 08.23.24)",
-        "excerpt": "Covered Employers should provide Covered Employees with at least two weeks (14 days) of advanced notice of their work schedules.",
-        "last_verified": "2026-11-06"
+        "title": "City of Berkeley \u2014 Fair Workweek FAQ (rev. 08/23/24), Predictability Pay Q12-17",
+        "excerpt": "If the employer cancels an employee's shift or reduces the hours in a shift with less than 24 hours' notice, the employer owes the employee 4 hours of predictability pay or the number of hours reduced",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
