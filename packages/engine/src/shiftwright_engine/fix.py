@@ -14,6 +14,7 @@ Ranking (SEMANTICS #16): gap hours the shift can cover per added dollar × est_a
 """
 from __future__ import annotations
 
+import os
 import time
 from typing import Optional
 
@@ -55,6 +56,9 @@ from .prep import DAY, SCALE, Cand, Prep, _avail_for_day, _round_down, _round_up
 CALL_IN_DISRUPTION_DOLLARS = 15.0  # per call-in, ranking/objective only (not a wage)
 ELASTIC_ALWAYS_DOLLARS_PER_HOUR = 1000.0  # always_staffed during a fix: priced, so a fix always exists
 MAX_ALTERNATES = 5
+# Keep a called-out shift's already-worked part even when it is shorter than the minimum shift.
+# Off until the validator exempts such stubs from shift_length (it reports them as hard today).
+KEEP_SHORT_CALLOUT_STUBS = os.environ.get("ENGINE_KEEP_SHORT_CALLOUT_STUBS", "0") == "1"
 
 
 def _prob(e) -> float:
@@ -104,14 +108,21 @@ class _Fix:
                 lo, _ = p.shift_bounds(sh.employee_id)
                 when = min(self.now, self.reported_at.get(sh.employee_id, self.now))
                 cut = _round_down(when, self.slot)  # never past the call-out (they left)
-                if sh.start < cut:
+                short = cut - sh.start < lo
+                if sh.start < cut and short and not KEEP_SHORT_CALLOUT_STUBS:
+                    self.callout_notes.append((sh, None, (
+                        f"{sh.employee_id} called out at {when // 60:02d}:{when % 60:02d}; the "
+                        f"{sh.start // 60:02d}:{sh.start % 60:02d}–{cut // 60:02d}:{cut % 60:02d} already worked "
+                        f"is shorter than the {lo / 60:g} h minimum shift, so the whole "
+                        f"{sh.start // 60:02d}:{sh.start % 60:02d}–{sh.end // 60:02d}:{sh.end % 60:02d} shift is "
+                        f"removed from this plan; pay the time actually worked outside it.")))
+                elif sh.start < cut:
                     kept = _clip(sh, cut)
                     self.base.append(kept)
-                    short = cut - sh.start < lo
                     self.callout_notes.append((sh, kept, (
                         f"{sh.employee_id} called out at {when // 60:02d}:{when % 60:02d}; keeps "
                         f"{sh.start // 60:02d}:{sh.start % 60:02d}–{cut // 60:02d}:{cut % 60:02d} already worked"
-                        + (f" (shorter than the {lo // 60:g} h minimum shift: it already happened)." if short else ".")
+                        + (f" (shorter than the {lo / 60:g} h minimum shift: it already happened)." if short else ".")
                         + f" The rest of the shift to {sh.end // 60:02d}:{sh.end % 60:02d} is uncovered.")))
                 else:
                     self.callout_notes.append((sh, None, (

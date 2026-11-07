@@ -143,14 +143,35 @@ $43.7k. Much of the Seattle/SF shortfall is priced: e.g. fitting_room ($20/h gap
 minimum wage. fix_day: Chicago 1.1 s, Seattle 5.7 s, SF 4.2 s; validator clean except the known
 premium `metrics_mismatch` (#17 fix-plan check pending in WS2) and the fixtures' below_minimum_wage.
 
-**Next steps (in order, coordinator 01:00):**
-1. Quality push at 30 s on eval stores (S/M easy/tight/legal_trap, demo stores): greedy repair /
-   local search, LNS neighborhoods (days, employees), solver params; LLMs found 5–6% cheaper.
-2. Split shifts (SEMANTICS #23, `Store.max_shifts_per_day`), proofs valid under that max.
-3. v1.5: tipped pay (#20), age_min, sector applicability (#19).
-4. fix_day re-fix candidates priced for the plan's mode (WS6 note).
+**Quality push (done, e5a3412):** day-by-day LNS (`solve._day_lns`) now runs for every model above
+8k candidates (`ENGINE_FULL_MODEL_MAX`, default 0 ⇒ always): elastic always_staffed ($1000/h) inside
+the day models, hourly grid for day models above 150k candidates, hard restricted week model only if
+holes remain. 30 s / 8 workers, seed 1: S easy $12,177 (Opus $12,211), S tight $13,179–13,201
+($13,220), M easy $27,090–27,191 ($27,969), M tight $28,323–28,711 ($29,026). Austin demo $27.4k / 94.8%,
+Chicago $32.3k / 95.1%, Seattle $43.8k / 91.2%, SF $41.2k / 91.2%. With 2 workers it's 1.5–10% worse.
+`ENGINE_CPSAT_PARAMS="k=v,..."` sets CP-SAT params for experiments (linearization_level=2 helped the
+plain week model on S tight; not used by default).
 
-**Blocked on:** nothing. Rebased onto main 94567f6 (contracts v1.5).
+**fix_day call-out stubs:** a called-out shift that started before the call-out keeps
+[start, round_down(min(now, reported_at))) when that is ≥ the minimum shift; a `drop_coverage` action
+for the call-out says what was kept/removed. Shorter stubs are dropped whole (noted) unless
+`ENGINE_KEEP_SHORT_CALLOUT_STUBS=1` — the validator reports such stubs as hard `shift_length`
+(WS2 needs to exempt them before this can default on). Fix tests run `validate_fix`.
+
+**v1.5 (done):** tipped pay #20 (`Prep.tipped_capable/base_rate/shift_rate`; wage_units at the tipped
+rate + `untipped_extra_units` via `nontip[e,d]` ≥ any untipped-role x; OT premium on the full wage;
+metrics by `shift_rate`); sector applicability #19 (`prep.sector_applies`, laws filtered in build_prep);
+`minor_prohibited_roles.age_min` #21 (Chicago under-21 alcohol_service honored). Restaurant demo:
+93.3% at 24 s, no metrics_mismatch, no under-21 bartender, e008 (15) only server. Tests `tests/test_v15.py`.
+
+**Next steps (in order):**
+1. WS2 validate_fix findings: G1 (changes only in schedule_if_all_accept without action/candidate:
+   Seattle e011, e058), G2 grace = only changes SHORTER than grace_minutes are free, G3 Seattle group
+   offer exempts only the absent coworker's hours; SEMANTICS #24 (actions apply to both schedules).
+2. Split shifts (SEMANTICS #23, `Store.max_shifts_per_day`); proofs valid under that max.
+3. Re-fix candidates priced for the plan's mode (WS6 note).
+
+**Blocked on:** nothing. Rebased onto main 3720fea+ (contracts v1.5).
 
 **Interpretations / shortcuts (please review — validator WS2 should agree):**
 - Hours = paid hours: shift length minus unpaid breaks. Budget hours and `max_hours_week` use paid hours.

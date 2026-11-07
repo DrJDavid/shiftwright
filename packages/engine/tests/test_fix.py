@@ -177,7 +177,9 @@ def test_callout_after_start_keeps_worked_part(tiny_week):
     assert _fix_report(req, plan) == []
 
 
-def test_callout_after_start_short_part_is_kept_and_noted(tiny_week):
+def test_callout_after_start_short_part_is_kept_and_noted(tiny_week, monkeypatch):
+    import shiftwright_engine.fix as fixmod
+    monkeypatch.setattr(fixmod, "KEEP_SHORT_CALLOUT_STUBS", True)
     cfg, week = tiny_week
     day = 5
     started = sorted((s for s in week.shifts if s.day == day), key=lambda s: s.start)[0]
@@ -189,3 +191,17 @@ def test_callout_after_start_short_part_is_kept_and_noted(tiny_week):
     assert [(s.start, s.end) for s in mine] == [(started.start, started.start + 60)]
     note = next(a for a in plan.actions if a.employee_id == started.employee_id)
     assert "minimum shift" in note.rationale
+
+
+def test_callout_after_start_short_part_dropped_by_default(tiny_week):
+    cfg, week = tiny_week
+    day = 5
+    started = sorted((s for s in week.shifts if s.day == day), key=lambda s: s.start)[0]
+    now = started.start + 70
+    req = FixRequest(config=cfg, schedule=week, day=day, now=now,
+                     callouts=[CallOut(employee_id=started.employee_id, day=day, reported_at=now)])
+    plan = fix_day(req)
+    assert not [s for s in plan.schedule_if_none_accept.shifts if s.employee_id == started.employee_id and s.day == day]
+    note = next(a for a in plan.actions if a.employee_id == started.employee_id)
+    assert "minimum shift" in note.rationale
+    assert _fix_report(req, plan) == []

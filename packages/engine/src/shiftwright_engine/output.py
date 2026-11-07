@@ -184,7 +184,8 @@ def compute_metrics(p: Prep, shifts: list[Shift], soft: list[SoftViolation], gap
                     premium_pay: float = 0.0) -> ScheduleMetrics:
     cfg: StoreConfig = p.cfg
     total_min = sum(paid_minutes(s) for s in shifts)
-    wage = sum(paid_minutes(s) / 60 * p.emps[s.employee_id].wage_per_hour for s in shifts)
+    wage = sum(paid_minutes(s) / 60 * p.shift_rate(p.emps[s.employee_id], [g.role_id for g in s.segments])
+               for s in shifts)
     ot_h, ot_prem = ot_breakdown(p, shifts)
     wage += ot_prem
     cov = coverage_map(p, shifts)
