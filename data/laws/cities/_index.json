@@ -2,6 +2,13 @@
   "description": "Cities with their own retail scheduling, break, or minimum-wage rules covered by this dataset. Each entry names its file and the source used to identify it.",
   "cities": [
     {
+      "file": "ca-san-francisco.json",
+      "state": "CA",
+      "city": "san francisco",
+      "reason": "Formula Retail Employee Rights Ordinances; city minimum wage",
+      "source": "https://www.sf.gov/information--formula-retail-employee-rights-ordinance"
+    },
+    {
       "file": "il-chicago.json",
       "state": "IL",
       "city": "chicago",

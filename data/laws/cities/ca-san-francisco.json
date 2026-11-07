@@ -1,0 +1,64 @@
+{
+  "jurisdiction": {
+    "state": "CA",
+    "city": "san francisco"
+  },
+  "level": "city",
+  "notes": [
+    "Formula Retail Employee Rights Ordinances (FRERO) cover chains with 40+ formula retail establishments worldwide and 20+ employees in San Francisco.",
+    "Predictability pay for employer changes with <7 days' notice is 1 to 4 hours of pay depending on notice and shift length; encoded as change_premium_hours=1 (minimum) with extra key change_premium_hours_max=4. Exact tiers are in the OLSE FRERO Rules (not yet encoded).",
+    "On-call employees not called in are owed 2 to 4 hours of pay.",
+    "No SF rest-between-shifts rule recorded; California state meal/rest/OT rules apply."
+  ],
+  "rules": [
+    {
+      "id": "CA.san_francisco.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "san francisco"
+      },
+      "level": "city",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "change_premium_hours_max": 4,
+        "change_premium_window_days": 7,
+        "applies_if_employees_over": 19,
+        "min_locations": 40,
+        "applies_to": "retail"
+      },
+      "summary": "Formula retail chains (40+ stores worldwide, 20+ SF employees) must post schedules two weeks ahead and pay 1-4 hours of predictability pay for changes with under 7 days' notice.",
+      "citation": {
+        "url": "https://www.sf.gov/information--formula-retail-employee-rights-ordinance",
+        "title": "San Francisco OLSE \u2014 Formula Retail Employee Rights Ordinance",
+        "excerpt": "Employers must provide employees with their schedules two weeks in advance ... a premium of 1 to 4 hours of pay",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "CA.san_francisco.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CA",
+        "city": "san francisco"
+      },
+      "level": "city",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 19.61,
+        "effective": "2026-07-01"
+      },
+      "summary": "San Francisco's minimum wage is $19.61 an hour from July 1, 2026.",
+      "citation": {
+        "url": "https://www.sf.gov/information/minimum-wage-ordinance",
+        "title": "San Francisco OLSE \u2014 Minimum Wage Ordinance",
+        "excerpt": "currently $19.61 as of July 1, 2026",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}
