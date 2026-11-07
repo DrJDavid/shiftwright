@@ -110,8 +110,11 @@ def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
     rep["callouts"] = morning
     rep["callouts_ok"] = all(v["scheduled_morning"] for v in morning.values())
     if not rep["callouts_ok"]:
-        repick = pick_callouts(cfg, schedule, SATURDAY, n=3, now=DEFAULT_REPORTED_AT, seed=417)
-        rep["repick"] = [c.employee_id for c in repick if c.employee_id not in phones]
+        keep_out = set(phones) | {demo["jordan_id"], demo["casey_id"], demo["minor_pit_id"]}
+        repick = pick_callouts(cfg, schedule.model_copy(update={"shifts": [
+            s for s in schedule.shifts if s.employee_id not in keep_out]}), SATURDAY, n=3,
+            now=DEFAULT_REPORTED_AT, seed=417)
+        rep["repick"] = [c.employee_id for c in repick]
 
     rep["demo_phones_scheduled_saturday"] = sorted({s.employee_id for s in schedule.shifts
                                                     if s.day == SATURDAY and s.employee_id in phones})
