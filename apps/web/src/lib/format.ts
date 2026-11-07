@@ -20,6 +20,13 @@ export function fmtMoney(dollars: number, opts: { cents?: boolean } = {}): strin
   return (opts.cents ? usd2 : usd0).format(dollars)
 }
 
+/** Real money only (wages, premiums): what an option adds to or saves on this week's pay. */
+export function costLabel(dollars: unknown): string {
+  if (typeof dollars !== 'number' || !Number.isFinite(dollars)) return ''
+  if (Math.round(dollars) === 0) return 'No extra cost'
+  return dollars > 0 ? `+${fmtMoney(dollars)}` : `saves ${fmtMoney(-dollars)}`
+}
+
 /** Compact money for tight spaces: $950, $8.8k. */
 export function fmtMoneyShort(dollars: number): string {
   return Math.abs(dollars) >= 1000 ? `$${(dollars / 1000).toFixed(1)}k` : usd0.format(dollars)
@@ -32,6 +39,11 @@ export function fmtHours(hours: number): string {
 
 export function fmtPct(pct: number): string {
   return `${(Math.round(pct * 10) / 10).toFixed(pct >= 99.95 || pct === 0 ? 0 : 1)}%`
+}
+
+/** Staff-hours left uncovered by gaps: how short, in hours, never priced (SEMANTICS #25: gap penalties are ranks). */
+export function gapHours(gaps: { start: number; end: number; missing_headcount: number }[]): number {
+  return gaps.reduce((h, g) => h + (g.missing_headcount * (g.end - g.start)) / 60, 0)
 }
 
 /** Coverage with nothing to cover is "—", not the engine's vacuous 100%. */

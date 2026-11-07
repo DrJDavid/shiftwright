@@ -16,9 +16,11 @@ type Props = {
   onDayClick?: (day: number) => void
   callouts?: { employee_id: string; day: number }[]
   lawRules?: LawRule[]
+  /** Opens the chat, where the agent asks about the solver's tradeoffs. */
+  onOpenChat?: () => void
 }
 
-export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules }: Props) {
+export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayClick, callouts, lawRules, onOpenChat }: Props) {
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
   const names = useMemo(() => new Map(config.employees.map((e) => [e.id, e.name])), [config.employees])
 
@@ -42,6 +44,8 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
 
   const { schedule, validation } = result
   const stale = (schedule.config_version ?? 0) < (config.config_version ?? 0)
+  // SEMANTICS #25: the solver's what-if tradeoffs; the agent brings them to the chat as cards.
+  const tradeoffs = Array.isArray(schedule.solver_stats?.tradeoffs) ? schedule.solver_stats.tradeoffs.length : 0
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -60,6 +64,11 @@ export function ScheduleTab({ config, result, solve, onSolve, onGapClick, onDayC
           Gap in a bar is a break
         </span>
         <span className="ml-auto flex items-center gap-3">
+          {tradeoffs > 0 && onOpenChat && (
+            <button type="button" onClick={onOpenChat} className="font-semibold text-pine-dark underline">
+              {tradeoffs} {tradeoffs === 1 ? 'decision' : 'decisions'} waiting
+            </button>
+          )}
           {stale && <span className="font-medium text-warn">Settings changed since this was built</span>}
           <SolveButton state={solve} onSolve={onSolve} compact label="Rebuild" />
         </span>

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Employee, Gap, LawRule, Schedule, Shift, StoreConfig } from '../contracts'
-import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
+import { fmtDayDate, fmtHours, fmtMoney, fmtRange, gapHours } from '../lib/format'
 import { roleColors } from '../lib/roles'
 import { shiftWage } from '../lib/vocab'
 import { humanizer } from '../lib/humanize'
@@ -153,7 +153,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
         {roleName.get(g.role_id) ?? g.role_id} uncovered, {fmtRange(g.start, g.end)}
       </div>
       <div className="text-ink-2">
-        {g.missing_headcount} {g.missing_headcount === 1 ? 'person' : 'people'} short, {fmtMoney(g.penalty_dollars)} penalty
+        {g.missing_headcount} {g.missing_headcount === 1 ? 'person' : 'people'} short
       </div>
       {g.reasons && g.reasons.length > 0 && (
         <div className="text-muted">
@@ -195,7 +195,7 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
               const { weekday, date } = fmtDayDate(schedule.week_start, d)
               const dayGaps = gapsByDay[d]
               const closed = !config.store.hours.some((h) => h.day === d)
-              const cost = dayGaps.reduce((c, g) => c + g.penalty_dollars, 0)
+              const short = gapHours(dayGaps)
               return (
                 <th key={d} className="border-b border-l border-rule px-2 py-2 text-left align-bottom font-normal">
                   <div className="truncate">
@@ -206,13 +206,13 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callout
                       type="button"
                       onClick={() => onDayClick(d)}
                       className="block max-w-full truncate text-xs font-medium text-gap hover:underline"
-                      title={`${dayGaps.length} uncovered stretches, ${fmtMoney(cost)} gap cost. See by role.`}
+                      title={`${dayGaps.length} uncovered stretches, ${fmtHours(short)} short. See by role.`}
                     >
-                      {fmtMoneyShort(cost)} gaps
+                      {fmtHours(short)} short
                     </button>
                   ) : (
                     <div className={`truncate text-xs ${dayGaps.length ? 'font-medium text-gap' : 'text-muted'}`}>
-                      {dayGaps.length ? `${fmtMoneyShort(cost)} gaps` : closed ? 'Closed' : 'Covered'}
+                      {dayGaps.length ? `${fmtHours(short)} short` : closed ? 'Closed' : 'Covered'}
                     </div>
                   )}
                 </th>

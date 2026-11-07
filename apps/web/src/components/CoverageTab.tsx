@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { SolveResponse } from '../api/protocol'
 import type { Gap, StoreConfig } from '../contracts'
-import { fmtDayDate, fmtMoney, fmtMoneyShort, fmtRange, fmtTime } from '../lib/format'
+import { fmtDayDate, fmtHours, fmtRange, fmtTime, gapHours } from '../lib/format'
 import { roleColors } from '../lib/roles'
 
 type Props = {
@@ -56,8 +56,7 @@ export function CoverageTab({ config, result, onGapClick, day, onDayChange: setD
         }),
       )
     }
-    const dayCost = gaps.reduce((c, g) => c + g.penalty_dollars, 0)
-    return { times, roleIds, grid, gapCount: gaps.length, dayCost }
+    return { times, roleIds, grid, gapCount: gaps.length, dayShort: gapHours(gaps) }
   }, [config, schedule, day, slot])
 
   const roleName = (id: string) => config.roles.find((r) => r.id === id)?.name ?? id
@@ -68,7 +67,7 @@ export function CoverageTab({ config, result, onGapClick, day, onDayChange: setD
       <div className="flex flex-wrap items-center gap-1 border-b border-rule px-3 py-2">
         {[0, 1, 2, 3, 4, 5, 6].map((d) => {
           const { weekday, date } = fmtDayDate(weekStart, d)
-          const cost = (schedule?.gaps ?? []).filter((g) => g.day === d).reduce((c, g) => c + g.penalty_dollars, 0)
+          const short = gapHours((schedule?.gaps ?? []).filter((g) => g.day === d))
           return (
             <button
               key={d}
@@ -81,8 +80,8 @@ export function CoverageTab({ config, result, onGapClick, day, onDayChange: setD
             >
               <span className="font-semibold">{weekday}</span> <span className={day === d ? 'text-white/70' : 'text-muted'}>{date.split(' ')[1]}</span>
               {schedule && (
-                <span className={`block text-xs ${cost > 0 ? (day === d ? 'text-red-200' : 'text-gap') : day === d ? 'text-white/70' : 'text-muted'}`}>
-                  {cost > 0 ? `${fmtMoneyShort(cost)} gaps` : 'Covered'}
+                <span className={`block text-xs ${short > 0 ? (day === d ? 'text-red-200' : 'text-gap') : day === d ? 'text-white/70' : 'text-muted'}`}>
+                  {short > 0 ? `${fmtHours(short)} short` : 'Covered'}
                 </span>
               )}
             </button>
@@ -102,7 +101,7 @@ export function CoverageTab({ config, result, onGapClick, day, onDayChange: setD
         <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
           {view.gapCount > 0 && (
             <p className="mb-2 text-sm text-ink-2">
-              {view.gapCount} uncovered {view.gapCount === 1 ? 'stretch' : 'stretches'}, {fmtMoney(view.dayCost)} gap cost. Click a red cell to see why.
+              {view.gapCount} uncovered {view.gapCount === 1 ? 'stretch' : 'stretches'}, {fmtHours(view.dayShort)} short. Click a red cell to see why.
             </p>
           )}
           <table className="w-full table-fixed border-separate border-spacing-px text-xs">
@@ -170,7 +169,7 @@ export function CoverageTab({ config, result, onGapClick, day, onDayChange: setD
           </div>
           {hover.cell.gaps.map((g, i) => (
             <div key={i} className="text-gap">
-              Gap {fmtRange(g.start, g.end)}: {g.missing_headcount} short, {fmtMoney(g.penalty_dollars)}
+              Gap {fmtRange(g.start, g.end)}: {g.missing_headcount} short
             </div>
           ))}
         </div>

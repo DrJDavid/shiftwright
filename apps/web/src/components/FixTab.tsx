@@ -464,18 +464,16 @@ function PlanView({
           <details className="mt-1.5 rounded-md border border-rule px-3 py-2 text-sm">
             <summary className="cursor-pointer">
               <span className="mr-2 rounded bg-gap-wash px-1.5 py-0.5 text-xs font-semibold text-gap">Still uncovered</span>
-              {drops.length} {drops.length === 1 ? 'stretch' : 'stretches'} unless someone says yes ·{' '}
-              {fmtMoney(drops.reduce((c, a) => c + a.added_cost_dollars, 0))} gap cost
+              {drops.length} {drops.length === 1 ? 'stretch' : 'stretches'} unless someone says yes
             </summary>
             <ul className="mt-1.5 space-y-0.5 text-xs text-ink-2">
               {[...drops]
-                .sort((a, b) => b.added_cost_dollars - a.added_cost_dollars)
+                .sort((a, b) => a.start - b.start)
                 .map((a, i) => (
                   <li key={i} className="flex justify-between gap-3">
                     <span>
                       {a.role_id ? (roleName.get(a.role_id) ?? a.role_id) : ''} {fmtRange(a.start, a.end)}
                     </span>
-                    <span className="tabular-nums">{fmtMoney(a.added_cost_dollars)}</span>
                   </li>
                 ))}
             </ul>
