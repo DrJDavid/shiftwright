@@ -1,4 +1,12 @@
 {
   "description": "Cities with their own retail scheduling, break, or minimum-wage rules covered by this dataset. Each entry names its file and the source used to identify it.",
-  "cities": []
+  "cities": [
+    {
+      "file": "tx-austin.json",
+      "state": "TX",
+      "city": "austin",
+      "reason": "Demo store location; file records that no city rules apply (state preemption).",
+      "source": "https://capitol.texas.gov/tlodocs/88R/billtext/html/HB02127F.HTM"
+    }
+  ]
 }

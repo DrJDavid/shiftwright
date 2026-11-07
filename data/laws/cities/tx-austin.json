@@ -1,0 +1,11 @@
+{
+  "jurisdiction": {"state": "TX", "city": "austin"},
+  "level": "city",
+  "notes": [
+    "No Austin city rules apply to private retail scheduling. Researched 2026-11-06.",
+    "Tex. Lab. Code § 1.005 (HB 2127, 88th Leg., eff. Sept. 1, 2023) bars cities from adopting or enforcing ordinances in fields occupied by the Labor Code, which 'includes employment leave, hiring practices, breaks, employment benefits, scheduling practices'. Source: https://capitol.texas.gov/tlodocs/88R/billtext/html/HB02127F.HTM",
+    "Tex. Lab. Code § 62.0515(a): state minimum wage supersedes city wage ordinances for private employment. Source: https://statutes.capitol.texas.gov/Docs/LA/htm/LA.62.htm#62.0515",
+    "HB 2127 has been challenged in court (City of Houston v. State of Texas); current litigation status not verified here."
+  ],
+  "rules": []
+}
