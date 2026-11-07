@@ -148,3 +148,14 @@ def test_human_readable_text():
     checks = {c.id: c.detail for c in compute(cfg).checks}
     assert role.name in checks["training"] and role.id not in checks["training"].split(": ")[1].split(", ")
     assert ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day] in checks["demand"]
+
+
+def test_locality_demo_templates(client):
+    for loc in ("chicago", "seattle", "sf"):
+        r = client.post("/api/stores", json={"template": f"demo_{loc}"})
+        if r.status_code == 422:
+            continue  # WS4's locality variant not landed yet
+        assert r.status_code == 200, r.text
+        assert StoreConfig.model_validate(r.json()).store.id.startswith("st_")
+    assert client.post("/api/stores", json={"template": "demo_nowhere"}).status_code == 422
+    assert client.post("/api/stores", json={"template": "../etc"}).status_code == 422

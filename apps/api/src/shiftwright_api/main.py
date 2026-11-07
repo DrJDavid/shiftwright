@@ -117,8 +117,11 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
     # ---------------------------------------------------------------- stores
     @app.post("/api/stores", response_model=StoreConfig)
     def create_store(req: CreateStoreRequest) -> StoreConfig:
-        if req.template in templates.FIXTURE_TEMPLATES:
-            cfg = templates.from_fixture(req.template)
+        if templates.is_fixture(req.template):
+            try:
+                cfg = templates.from_fixture(req.template)
+            except templates.TemplateUnavailable as e:
+                raise HTTPException(422, str(e))
         elif not req.name or req.jurisdiction is None:
             raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
         else:

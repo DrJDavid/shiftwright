@@ -12,7 +12,7 @@ ImportKind = Literal["roster", "training", "availability", "forecast", "history"
 
 
 class CreateStoreRequest(BaseModel):
-    template: Template = "bigbox_small"
+    template: str = Field("bigbox_small", pattern=r"^(bigbox_small|bigbox_mid|empty|demo|tiny|demo_[a-z0-9_]+)$")
     name: Optional[str] = None  # required except for fixture templates (demo, tiny), which keep their own
     jurisdiction: Optional[Jurisdiction] = None
 
