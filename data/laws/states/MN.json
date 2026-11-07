@@ -1,0 +1,61 @@
+{
+  "jurisdiction": {
+    "state": "MN",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Minnesota requires sufficient unpaid meal time for 8+ consecutive hours and an adequate paid rest period within each 4 consecutive hours (DOL tables); durations not specified, so not encoded.",
+    "Minneapolis and St. Paul set higher local minimum wages; no city files yet.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "MN.minimum_wage.1",
+      "jurisdiction": {
+        "state": "MN",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 11.41,
+        "effective": "2026-11-05"
+      },
+      "summary": "Minnesota's basic minimum wage is $11.41 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $11.41",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "MN.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "MN",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 48,
+        "multiplier": 1.5
+      },
+      "summary": "Minnesota requires 1.5x pay after 48 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 48",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

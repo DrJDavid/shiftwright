@@ -1,0 +1,17 @@
+{
+  "jurisdiction": {
+    "state": "SC",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "No state minimum wage law; employers subject to the FLSA pay the federal $7.25 (DOL state minimum wage table).",
+    "No state meal-period requirement for adults in the DOL table; federal law does not require one.",
+    "No state paid rest-period requirement in the DOL table; federal law does not require one.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": []
+}

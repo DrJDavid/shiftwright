@@ -1,0 +1,84 @@
+{
+  "jurisdiction": {
+    "state": "AK",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Alaska daily/weekly overtime does not apply to employers of fewer than 4 employees; a DOL-approved flexible plan may use 10-hour days (DOL table).",
+    "No state meal-period requirement for adults in the DOL table; federal law does not require one.",
+    "No state paid rest-period requirement in the DOL table; federal law does not require one.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "AK.minimum_wage.1",
+      "jurisdiction": {
+        "state": "AK",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 14.0,
+        "effective": "2026-11-05"
+      },
+      "summary": "Alaska's basic minimum wage is $14.00 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $14.00",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "AK.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "AK",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Alaska requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "AK.daily_overtime.1",
+      "jurisdiction": {
+        "state": "AK",
+        "city": null
+      },
+      "level": "state",
+      "type": "daily_overtime",
+      "params": {
+        "threshold_hours": 8,
+        "multiplier": 1.5,
+        "double_threshold_hours": null
+      },
+      "summary": "Alaska requires 1.5x pay after 8 hours in a day.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Daily - 8, Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

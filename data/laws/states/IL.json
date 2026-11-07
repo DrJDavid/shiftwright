@@ -1,0 +1,87 @@
+{
+  "jurisdiction": {
+    "state": "IL",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Illinois minimum wage applies to employers of 4+ employees (DOL table).",
+    "Illinois rest-break rule in the DOL table covers only hotel room attendants (Cook County); not encoded.",
+    "Chicago and Evanston have city files.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "IL.minimum_wage.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.0,
+        "effective": "2026-11-05"
+      },
+      "summary": "Illinois's basic minimum wage is $15.00 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $15.00",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "IL.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Illinois requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "IL.meal_break.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 450,
+        "duration": 20,
+        "paid": false,
+        "latest_start_minute_of_shift": 300,
+        "waivable_under_minutes": null
+      },
+      "summary": "Illinois requires a 20-minute meal period for work over 7.5 hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "At least 20 minutes, no later than 5 hours after the start of the work period, to employees who work 7 \u00bd continuous hours or more",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

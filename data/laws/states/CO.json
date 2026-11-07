@@ -1,0 +1,130 @@
+{
+  "jurisdiction": {
+    "state": "CO",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Denver and some other Colorado cities set higher local minimum wages; no city files yet.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "CO.minimum_wage.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.16,
+        "effective": "2026-11-05"
+      },
+      "summary": "Colorado's basic minimum wage is $15.16 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $15.16",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CO.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Colorado requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CO.daily_overtime.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "daily_overtime",
+      "params": {
+        "threshold_hours": 12,
+        "multiplier": 1.5,
+        "double_threshold_hours": null
+      },
+      "summary": "Colorado requires 1.5x pay after 12 hours in a day.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Daily - 12, Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CO.meal_break.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 300,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": null,
+        "waivable_under_minutes": null
+      },
+      "summary": "Colorado requires a 30-minute meal period for work over 5 hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "\u00bd hour if work shift exceeds 5 consecutive hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "CO.rest_break.1",
+      "jurisdiction": {
+        "state": "CO",
+        "city": null
+      },
+      "level": "state",
+      "type": "rest_break",
+      "params": {
+        "per_minutes_worked": 240,
+        "duration": 10,
+        "paid": true
+      },
+      "summary": "Colorado requires a paid 10-minute rest period per 4 hours worked.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/rest-periods",
+        "title": "US DOL WHD \u2014 State paid rest-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "Paid 10-minute rest period for each 4 hours of work, or major fractions thereof",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

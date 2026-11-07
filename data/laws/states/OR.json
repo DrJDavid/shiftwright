@@ -1,0 +1,160 @@
+{
+  "jurisdiction": {
+    "state": "OR",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "$15.55 standard rate; $16.80 Portland metro; $14.55 non-urban counties (DOL table).",
+    "Oregon meal period for work periods over 7 hours falls between the 3rd and 6th hour (DOL table).",
+    "Oregon has a statewide predictive-scheduling law for large retail employers \u2014 encoded from Oregon BOLI (confidence=high).",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Oregon predictability pay: 1 hour for >30 min added, a moved shift without lost hours, or an added shift; 0.5x regular rate per lost scheduled hour for cuts, cancellations or unused on-call shifts (BOLI)."
+  ],
+  "rules": [
+    {
+      "id": "OR.minimum_wage.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.55,
+        "effective": "2026-11-05"
+      },
+      "summary": "Oregon's basic minimum wage is $15.55 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $15.55",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "OR.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "Oregon requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "OR.meal_break.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 360,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": 300,
+        "waivable_under_minutes": null,
+        "earliest_start_minute_of_shift": 120
+      },
+      "summary": "Oregon requires a 30-minute meal period for work over 6 hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "\u00bd hour, with relief from all duty, for each work period of 6 to 8 hours, between 2nd and 5th hour for work period of 7 hours or less",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "OR.rest_break.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "rest_break",
+      "params": {
+        "per_minutes_worked": 240,
+        "duration": 10,
+        "paid": true
+      },
+      "summary": "Oregon requires a paid 10-minute rest period per 4 hours worked.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/rest-periods",
+        "title": "US DOL WHD \u2014 State paid rest-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "Paid 10-minute rest period for every 4-hours worked or major portion thereof in one work period",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "OR.predictive_scheduling.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "predictive_scheduling",
+      "params": {
+        "notice_days": 14,
+        "change_premium_hours": 1,
+        "reduced_hours_fraction": 0.5,
+        "applies_if_employees_over": 499,
+        "applies_to": "both"
+      },
+      "summary": "Oregon retail, hospitality and food-service employers with 500+ employees worldwide must give schedules 14 days ahead and pay predictability pay for later changes.",
+      "citation": {
+        "url": "https://www.oregon.gov/boli/workers/pages/predictive-scheduling.aspx",
+        "title": "Oregon BOLI \u2014 Predictive Scheduling (ORS 653.412-653.490, OAR 839-026)",
+        "excerpt": "at least 500 employees worldwide ... at least 14 calendar days in advance for the first day on the schedule",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "OR.min_rest_between_shifts.1",
+      "jurisdiction": {
+        "state": "OR",
+        "city": null
+      },
+      "level": "state",
+      "type": "min_rest_between_shifts",
+      "params": {
+        "minutes": 600,
+        "premium_multiplier": 1.5,
+        "waivable": true
+      },
+      "summary": "Covered employees may not be scheduled within 10 hours after the previous day's shift unless they request or agree; hours worked in that window are paid at 1.5x.",
+      "citation": {
+        "url": "https://www.oregon.gov/boli/workers/pages/predictive-scheduling.aspx",
+        "title": "Oregon BOLI \u2014 Predictive Scheduling (ORS 653.412-653.490, OAR 839-026)",
+        "excerpt": "can't be scheduled during the 10 hours after a previous day's shift ends ... the employer pays time-and-a-half",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "jurisdiction": {
+    "state": "NE",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "Nebraska minimum wage applies to employers of 4+ employees (DOL table).",
+    "Nebraska meal rule covers assembly plants, workshops and mechanical establishments only, not retail (DOL table).",
+    "No state paid rest-period requirement in the DOL table; federal law does not require one.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "NE.minimum_wage.1",
+      "jurisdiction": {
+        "state": "NE",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 15.0,
+        "effective": "2026-11-05"
+      },
+      "summary": "Nebraska's basic minimum wage is $15.00 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $15.00",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}

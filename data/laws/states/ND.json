@@ -1,0 +1,87 @@
+{
+  "jurisdiction": {
+    "state": "ND",
+    "city": null
+  },
+  "level": "state",
+  "notes": [
+    "No state paid rest-period requirement in the DOL table; federal law does not require one.",
+    "No state daily overtime listed in the DOL table.",
+    "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
+    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+  ],
+  "rules": [
+    {
+      "id": "ND.minimum_wage.1",
+      "jurisdiction": {
+        "state": "ND",
+        "city": null
+      },
+      "level": "state",
+      "type": "minimum_wage",
+      "params": {
+        "dollars_per_hour": 7.25,
+        "effective": "2026-11-05"
+      },
+      "summary": "North Dakota's basic minimum wage is $7.25 an hour (DOL table, Nov. 2026).",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Basic Minimum Rate (per hour): $7.25",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "ND.weekly_overtime.1",
+      "jurisdiction": {
+        "state": "ND",
+        "city": null
+      },
+      "level": "state",
+      "type": "weekly_overtime",
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
+      "summary": "North Dakota requires 1.5x pay after 40 hours in a workweek.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/minimum-wage/state",
+        "title": "US DOL WHD \u2014 State Minimum Wage Laws (updated Nov. 5, 2026)",
+        "excerpt": "Premium Pay After Designated Hours: Weekly - 40",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "ND.meal_break.1",
+      "jurisdiction": {
+        "state": "ND",
+        "city": null
+      },
+      "level": "state",
+      "type": "meal_break",
+      "params": {
+        "after_minutes": 300,
+        "duration": 30,
+        "paid": false,
+        "latest_start_minute_of_shift": null,
+        "waivable_under_minutes": null,
+        "employee_optional": true,
+        "applies_if_employees_on_duty_over": 1
+      },
+      "summary": "North Dakota requires a 30-minute meal period for work over 5 hours.",
+      "citation": {
+        "url": "https://www.dol.gov/agencies/whd/state/meal-breaks",
+        "title": "US DOL WHD \u2014 State meal-period requirements (rev. Jan. 1, 2023)",
+        "excerpt": "\u00bd hour, if desired, on each shift exceeding 5 hours",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "medium",
+      "verified": false
+    }
+  ]
+}
