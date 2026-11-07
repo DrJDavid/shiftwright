@@ -289,6 +289,18 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             raise HTTPException(503, str(e))
         return app.state.outreach.save_plan(store_id, plan, callouts, req.day, req.now, sched)
 
+    @app.post("/api/stores/{store_id}/fix/apply")
+    def fix_apply(store_id: str, body: dict = Body(...)) -> dict:
+        """Apply a plan's immediate actions without texting anyone (also done by /outreach/start):
+        saves schedule_if_none_accept (call-outs removed, actions applied) with a fresh validation."""
+        load(store_id)
+        try:
+            app.state.outreach.apply_plan(store_id, str(body.get("plan_id", "")))
+        except KeyError:
+            raise HTTPException(404, f"No fix plan {body.get('plan_id')!r}")
+        sched, val = db().latest_schedule(store_id)
+        return {"schedule": sched.model_dump(mode="json"), "validation": val.model_dump(mode="json") if val else None}
+
     @app.post("/api/stores/{store_id}/outreach/start", response_model=OutreachState)
     async def outreach_start(store_id: str, body: dict = Body(...)) -> OutreachState:
         load(store_id)

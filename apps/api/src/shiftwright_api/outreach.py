@@ -134,6 +134,22 @@ class OutreachManager:
             "day": day, "now": now, "schedule": schedule.model_dump(mode="json")})
         return plan
 
+    def apply_plan(self, store_id: str, plan_id: str) -> Schedule:
+        """Save the plan's schedule_if_none_accept: the called-out employees' remaining shifts removed and the
+        immediate actions (extend/reassign/drop) applied, with recomputed metrics and a fresh validation.
+        Idempotent per plan."""
+        saved = self.db.get(store_id, "fix_plan", plan_id)
+        if not saved:
+            raise KeyError(plan_id)
+        if saved.get("applied"):
+            return Schedule.model_validate(saved["applied"])
+        plan = FixPlan.model_validate(saved["plan"])
+        sched, report = validated(self.db.get_config(store_id), plan.schedule_if_none_accept)
+        self.db.save_schedule(store_id, sched, report)
+        saved["applied"] = sched.model_dump(mode="json")
+        self.db.put(store_id, "fix_plan", plan_id, saved)
+        return sched
+
     def state(self, store_id: str) -> OutreachState:
         run = self.runs.get(store_id)
         if run:
@@ -154,7 +170,7 @@ class OutreachManager:
         if old and old.task and not old.task.done():
             raise OutreachBusy("An outreach is already running for this store; cancel it first.")
         plan = FixPlan.model_validate(saved["plan"])
-        schedule = Schedule.model_validate(saved["schedule"])
+        schedule = await asyncio.to_thread(self.apply_plan, store_id, plan_id)
         run = Run(store_id=store_id, plan_id=plan_id, plan=plan,
                   callouts=[CallOut.model_validate(c) for c in saved["callouts"]], day=saved["day"],
                   now=saved["now"], schedule=schedule,
@@ -413,22 +429,36 @@ class OutreachManager:
         """Add the accepted shift, re-validate (with the law pack) and return (schedule, report | None)."""
         sched = schedule.model_copy(deep=True)
         sched.shifts.append(cand.proposed_shift)
-        report = None
-        try:
-            cfg = config.model_copy(deep=True)
-            cfg.law_pack = integrations.resolve_law(cfg.store.jurisdiction)
-            report = integrations.validate(cfg, sched)
-            sched.metrics = report.recomputed_metrics
-        except integrations.StubUnavailable:
-            pass  # validator not merged: keep previous metrics rather than invent new ones
-        return sched, report
+        return validated(config, sched)
 
     async def _refix(self, run: Run, config: StoreConfig) -> list[OutreachCandidate]:
         req = FixRequest(config=with_law_pack(config), schedule=run.schedule, callouts=run.callouts, day=run.day,
                          now=run.now, declined_employee_ids=list(run.declined),
                          outreach_mode=(run.policy.mode if run.policy else None))
         plan = await asyncio.to_thread(integrations.fix_day, req)
-        return [c for c in plan.outreach_queue if c.employee_id not in run.state.accepted_employee_ids]
+        accepted = set(run.state.accepted_employee_ids)
+        if run.state.premium is not None:  # latest pricing for people not yet booked; booked keep theirs
+            by_emp = {b["employee_id"]: b for b in run.state.premium.get("by_employee", [])}
+            for b in premium_breakdown(plan):
+                if b["employee_id"] not in accepted:
+                    by_emp[b["employee_id"]] = b
+            run.state.premium["by_employee"] = list(by_emp.values())
+        return [c for c in plan.outreach_queue if c.employee_id not in accepted]
+
+
+def validated(config: StoreConfig, sched: Schedule):
+    """Validate, adopt the validator's recomputed metrics, and validate again so the saved report doesn't
+    flag the stale metrics. -> (schedule, report | None)."""
+    sched = sched.model_copy(deep=True)
+    try:
+        cfg = with_law_pack(config)
+        report = integrations.validate(cfg, sched)
+        if report.recomputed_metrics is not None:
+            sched.metrics = report.recomputed_metrics
+            report = integrations.validate(cfg, sched)
+        return sched, report
+    except integrations.StubUnavailable:
+        return sched, None  # validator not merged: keep previous metrics rather than invent new ones
 
 
 def premium_breakdown(plan: FixPlan) -> list[dict]:

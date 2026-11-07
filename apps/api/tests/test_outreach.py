@@ -532,3 +532,23 @@ def test_moved_shift_is_reoffered_and_old_yes_ignored(settings, fake_engine, mon
         assert sorted((s.employee_id, s.start) for s in st.schedule.shifts) == sorted([(rank1, 600), (rank2, 960)])
     finally:
         c.__exit__(None, None, None)
+
+
+def test_fix_apply_saves_none_accept_schedule_with_recomputed_metrics(oclient, monkeypatch):
+    c, sid, cfg = oclient
+    real = integrations.fix_day
+    marker = Shift(id="a_extend", employee_id=_cashiers(cfg)[0], day=5, start=600, end=840,
+                   segments=[RoleSegment(role_id="cashier", start=600, end=840)])
+
+    def fix_day(req, time_limit_s=8):
+        plan = real(req, time_limit_s)
+        none = plan.schedule_if_none_accept.model_copy(deep=True)
+        none.shifts = [s for s in none.shifts if s.employee_id != "e9"] + [marker]
+        return plan.model_copy(update={"schedule_if_none_accept": none})
+    monkeypatch.setattr(integrations, "fix_day", fix_day)
+    plan = c.post(f"/api/stores/{sid}/fix", json={"callouts": [], "day": 5, "now": 364}).json()
+    body = c.post(f"/api/stores/{sid}/fix/apply", json={"plan_id": plan["plan_id"]}).json()
+    assert [s["id"] for s in body["schedule"]["shifts"]] == ["a_extend"]
+    assert body["schedule"]["metrics"]["total_hours"] == 4.0 and body["validation"]["passed"]
+    st = OutreachState.model_validate(c.post(f"/api/stores/{sid}/outreach/start", json={"plan_id": plan["plan_id"]}).json())
+    assert [s.id for s in st.schedule.shifts] == ["a_extend"]  # outreach builds on the applied plan
