@@ -16,7 +16,7 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
   push `main`; tell the other workers to rebase. Never force-push. Update the status board below.
 - No one edits files in the main checkout's working tree except the coordinator.
 
-## Status board (09:00, Cursor coordinator)
+## Status board (10:30, Cursor coordinator)
 
 | Task | State |
 |---|---|
@@ -30,6 +30,7 @@ week, and handle call-outs** on the deployed URL, and it feels like a product, n
 | C3 UI (rule strengths in words, no $ on rules/priorities, preferences not met, decisions waiting) | **merged** 08:45 |
 | C3b API tiers + rule words + build tradeoff cards, C3c evals wage-cost rescore (real-quick-3) | **merged** 08:55 |
 | C3 prod fix (20 s API limit: day search solves the highest-demand days that fit; tradeoffs ≤ half the limit) | **merged** 08:51, verified on prod (Chicago 92.5% 29 s, Harbor Grill 95.6% 23 s, 0 hard) |
+| C4 stop when it stops improving (proven 1% / 8 s plateau / 90 s cap) + build progress UI | **merged** 10:30 (David chose the 90 s cap) |
 | E3 real realistic eval | not started (needs David's OK) |
 
 ## How to run these with Cursor
