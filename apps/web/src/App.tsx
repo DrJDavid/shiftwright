@@ -12,16 +12,18 @@ import { Rulebook } from './components/Rulebook'
 import { ScheduleTab } from './components/ScheduleTab'
 import { StoreMenu } from './components/StoreMenu'
 import { StoreTab } from './components/StoreTab'
+import { ReceiptTab } from './components/ReceiptTab'
 import type { SolveState } from './components/SolveButton'
 import { fmtDayDate } from './lib/format'
 import { createStore, STORE_KEY, templateFromDemoParam } from './lib/stores'
 
-type Tab = 'schedule' | 'coverage' | 'store' | 'fix'
+type Tab = 'schedule' | 'coverage' | 'store' | 'fix' | 'receipt'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'schedule', label: 'Schedule', ready: true },
   { id: 'coverage', label: 'Coverage', ready: true },
   { id: 'store', label: 'Store', ready: true },
   { id: 'fix', label: 'Fix call-outs', ready: true },
+  { id: 'receipt', label: 'Compliance receipt', ready: true },
 ]
 
 async function loadOrCreateStore(): Promise<StoreConfig> {
@@ -282,6 +284,15 @@ export default function App() {
             <CoverageTab config={config} result={result} onGapClick={setOpenGap} day={coverageDay} onDayChange={setCoverageDay} />
           )}
           {tab === 'store' && <StoreTab config={config} onOpenRulebook={() => setRailOpen(true)} />}
+          {tab === 'receipt' && (
+            <ReceiptTab
+              api={api}
+              config={config}
+              result={result}
+              lawPack={lawPack}
+              onValidated={(validation) => setResult((r) => (r ? { ...r, validation } : r))}
+            />
+          )}
           {/* Kept mounted so a running outreach survives tab switches. */}
           <div className={tab === 'fix' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
             <FixTab

@@ -5,7 +5,7 @@ import type { Budget, Schedule, Store, StoreConfig, ValidationReport } from '../
 import type { CardSubmission, ChatEvent, ChatRequest, CreateStoreRequest, FixRequestBody, Readiness } from '../api/protocol'
 import type { FetchLike } from '../api/client'
 import { mockStoreConfig } from './fixture'
-import { mockSolve } from './solver'
+import { mockScore, mockSolve } from './solver'
 import { MockOutreach, mockFix } from './fix'
 import { applyStaffing, mockStaffingProps } from './staffing'
 import type { DepartmentStaffingResult } from '../api/protocol'
@@ -190,6 +190,11 @@ export function createMockFetch(opts: { latencyMs?: number } = {}): FetchLike {
       if (latency) await sleep(latency * 3)
       st.latest = mockSolve(st.config)
       return ok(st.latest)
+    }
+    if (rest === '/validate' && method === 'POST') {
+      // Mock: no real validator; recompute the mock metrics only.
+      const m = mockScore(st.config, (body as Schedule).shifts ?? [], 'mock').metrics!
+      return ok({ passed: true, hard_count: 0, violations: [], recomputed_metrics: m })
     }
     if (rest === '/schedule') return st.latest ? ok(st.latest) : notFound('No schedule yet')
     if (rest === '/gaps/explain' && method === 'POST') {
