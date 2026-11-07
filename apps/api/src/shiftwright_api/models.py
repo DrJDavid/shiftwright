@@ -84,10 +84,15 @@ class SolveRequest(BaseModel):
     time_limit_s: Optional[float] = Field(None, gt=0, le=120)
 
 
+class ChatAttachment(BaseModel):
+    kind: ImportKind  # an import preview already cached for this store (POST /import/{kind} or /workplaces/generated)
+
+
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
     card: Optional[dict[str, Any]] = None
+    attachments: list[ChatAttachment] = []
 
 
 class ChatRequest(BaseModel):

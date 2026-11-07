@@ -55,7 +55,8 @@ TARGETS: dict[str, dict[str, tuple[bool, list[str]]]] = {
         "start": (True, ["start", "start time", "from", "time", "interval", "interval start", "begin"]),
         "end": (False, ["end", "end time", "to", "interval end", "finish"]),
         "duration": (False, ["duration", "length", "minutes", "mins", "interval length", "duration minutes"]),
-        "headcount": (True, ["headcount", "hc", "staff", "required", "need", "needed", "required staff", "fte", "count"]),
+        "headcount": (True, ["headcount", "hc", "staff", "required", "need", "needed", "required staff", "fte", "count",
+                             "req hc", "required hc", "req headcount"]),
     },
     # corporate labor-model kinds (demand/README.md Specs 3-5)
     "labor_model": {
@@ -236,7 +237,7 @@ async def preview(kind: str, data: bytes, llm: Optional[LLMClient]) -> tuple[Imp
 # --------------------------------------------------------------------------- #
 def parse_time(s: str) -> int:
     s = s.strip().lower().replace(".", "")
-    m = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?", s)
+    m = re.fullmatch(r"(\d{1,2})(?::?(\d{2}))?\s*(am|pm|a|p)?", s)  # 3pm, 3:00 pm, 15:00, 1500, 2400
     if not m:
         raise ValueError(f"bad time {s!r}")
     h, mi, ap = int(m.group(1)), int(m.group(2) or 0), m.group(3)
