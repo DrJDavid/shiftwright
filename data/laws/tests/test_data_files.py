@@ -20,6 +20,7 @@ REQUIRED_PARAMS = {
     LawRuleType.predictive_scheduling: {"notice_days", "change_premium_hours", "applies_to"},
     LawRuleType.reporting_time_pay: set(),
     LawRuleType.minimum_wage: {"dollars_per_hour", "effective"},
+    LawRuleType.tipped_minimum_wage: {"cash_wage_per_hour", "max_tip_credit_per_hour", "effective"},
 }
 
 

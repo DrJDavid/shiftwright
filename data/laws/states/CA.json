@@ -9,7 +9,8 @@
     "No statewide minimum-rest-between-shifts or predictive-scheduling law for retail; see city files (e.g. San Francisco, Los Angeles, Berkeley, Emeryville) for local ordinances.",
     "16-17 school-week weekly cap: Lab. Code \u00a7 1391 sets 48 h/week; a lower school-week cap may exist in the Education Code work-permit rules \u2014 not yet verified, so not encoded.",
     "Extra param keys: rest_break.not_required_under_minutes, reporting_time_pay.max_paid_hours, minor_limits.max_hours_non_school_day, minor_limits.latest_end_before_non_school_day.",
-    "Wage Order 7 meal/rest premium: one hour of pay per workday a required rest (or meal) period is not provided."
+    "Wage Order 7 meal/rest premium: one hour of pay per workday a required rest (or meal) period is not provided.",
+    "No tip credit: 'An employer may not use an employee's tips as a credit toward its obligation to pay the minimum wage' (DIR/DLSE Minimum Wage FAQ Q8, https://www.dir.ca.gov/dlse/faq_minimumwage.htm; Lab. Code \u00a7 351). No tipped_minimum_wage rule: tipped employees get the full minimum wage."
   ],
   "rules": [
     {

@@ -10,7 +10,8 @@
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
     "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
     "Minors (WAC 296-125-101, eff. 2026-07-01): the school-day cap applies to school days preceding another school day, so Friday is 8 h; the validator treats Friday as a school day (stricter). Minors working past 8 p.m. in service jobs need an adult supervisor on site. Extra param key max_days_week.",
-    "Minors: separate meal/rest-break rules for minors (WAC 296-125-111, -121) and prohibited jobs (WAC 296-125-131, -141) not yet encoded; federal HO 7 applies."
+    "Minors: separate meal/rest-break rules for minors (WAC 296-125-111, -121) and prohibited jobs (WAC 296-125-131, -141) not yet encoded; federal HO 7 applies.",
+    "No tip credit: 'Tips and service charges paid to an employee are in addition to, and may not count towards, the employee's hourly minimum wage' (RCW 49.46.020(3), https://app.leg.wa.gov/RCW/default.aspx?cite=49.46.020). No tipped_minimum_wage rule."
   ],
   "rules": [
     {

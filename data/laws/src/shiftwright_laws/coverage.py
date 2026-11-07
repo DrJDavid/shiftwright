@@ -7,7 +7,7 @@ from shiftwright_laws.resolver import LAWS_DIR
 
 ABBR = {"weekly_overtime": "wOT", "daily_overtime": "dOT", "meal_break": "meal", "rest_break": "rest",
         "minor_limits": "minor", "minor_prohibited_roles": "minRole", "min_rest_between_shifts": "clopen",
-        "predictive_scheduling": "predict", "reporting_time_pay": "report", "minimum_wage": "wage"}
+        "predictive_scheduling": "predict", "reporting_time_pay": "report", "minimum_wage": "wage", "tipped_minimum_wage": "tipW"}
 
 
 def table() -> str:

@@ -13,7 +13,8 @@
     "Minimum wage: employers may pay up to 50 cents less during an adult employee's first 90 days (820 ILCS 105/4(a)(2)); not encoded. Under-18 rate differs; not encoded.",
     "Minors: the Child Labor Law of 2024 defines 'minor' as under 16, so Illinois sets no hour limits for 16-17 (federal has none either).",
     "Minors: under-16 may work 8 h on Saturday and Sunday of a school week only if no more than 24 h/week outside school and 6 consecutive days (820 ILCS 206/30(a)); encoded weekly cap 18 h (Sec. 25).",
-    "Minors: under-16 need a 30-minute meal period after 5 continuous hours (820 ILCS 206/35(d)), and must be supervised on site by an adult 21+ (206/35(c)); not encoded (no rule type)."
+    "Minors: under-16 need a 30-minute meal period after 5 continuous hours (820 ILCS 206/35(d)), and must be supervised on site by an adult 21+ (206/35(c)); not encoded (no rule type).",
+    "Tipped minimum wage: cash wage $9.00 = $15.00 \u2212 40% ($6.00) (820 ILCS 105/4(c)); the employer must show the tips were actually received."
   ],
   "rules": [
     {
@@ -163,6 +164,29 @@
         "title": "820 ILCS 206/25 \u2014 Child Labor Law of 2024, Allowable work hours",
         "excerpt": "more than 40 hours during a week when school is not in session; (3) more than 8 hours in any single 24-hour period; (4) between 7 p.m. and 7 a.m.",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "IL.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "IL",
+        "city": null
+      },
+      "level": "state",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 9.0,
+        "max_tip_credit_per_hour": 6.0,
+        "effective": "2025-01-01"
+      },
+      "summary": "Illinois employers may credit tips up to 40% of the $15.00 minimum wage, so the tipped cash wage is $9.00 an hour from January 1, 2025.",
+      "citation": {
+        "url": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=2400&ChapterID=68",
+        "title": "820 ILCS 105/4(c) \u2014 Minimum Wage Law, allowance for gratuities",
+        "excerpt": "is entitled to an allowance for gratuities as part of the hourly wage rate provided in Section 4, subsection (a) in an amount not to exceed 40% of the applicable minimum wage rate",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false

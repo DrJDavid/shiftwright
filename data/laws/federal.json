@@ -1,22 +1,32 @@
 {
-  "jurisdiction": {"state": "US", "city": null},
+  "jurisdiction": {
+    "state": "US",
+    "city": null
+  },
   "level": "federal",
   "notes": [
     "FLSA has no daily overtime, meal-break, rest-break, minimum-rest-between-shifts, predictive-scheduling, or reporting-time-pay requirement for adults.",
     "FLSA sets no hours or time-of-day limits for 16- and 17-year-olds in non-agricultural work; only hazardous-occupation orders apply to them.",
-    "minor_limits school_week=true: 'max_hours_day' is for days school is in session; 'max_hours_non_school_day' (extra key) is the cap on a non-school day within a school week (29 CFR 570.35(a)(1),(3))."
+    "minor_limits school_week=true: 'max_hours_day' is for days school is in session; 'max_hours_non_school_day' (extra key) is the cap on a non-school day within a school week (29 CFR 570.35(a)(1),(3)).",
+    "Tipped minimum wage: max_tip_credit_per_hour 5.12 = $7.25 federal minimum wage \u2212 $2.13 cash wage (29 CFR 531.50(a)(2)); tip credit only for employees who customarily receive more than $30/month in tips and only after notice to the employee."
   ],
   "rules": [
     {
       "id": "US.weekly_overtime.1",
-      "jurisdiction": {"state": "US", "city": null},
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
       "level": "federal",
       "type": "weekly_overtime",
-      "params": {"threshold_hours": 40, "multiplier": 1.5},
+      "params": {
+        "threshold_hours": 40,
+        "multiplier": 1.5
+      },
       "summary": "Non-exempt employees get 1.5x their regular rate for hours over 40 in a workweek.",
       "citation": {
         "url": "https://www.law.cornell.edu/uscode/text/29/207",
-        "title": "29 U.S.C. § 207(a)(1) — Maximum hours",
+        "title": "29 U.S.C. \u00a7 207(a)(1) \u2014 Maximum hours",
         "excerpt": "for a workweek longer than forty hours ... at a rate not less than one and one-half times the regular rate",
         "last_verified": "2026-11-06"
       },
@@ -25,14 +35,20 @@
     },
     {
       "id": "US.minimum_wage.1",
-      "jurisdiction": {"state": "US", "city": null},
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
       "level": "federal",
       "type": "minimum_wage",
-      "params": {"dollars_per_hour": 7.25, "effective": "2009-07-24"},
+      "params": {
+        "dollars_per_hour": 7.25,
+        "effective": "2009-07-24"
+      },
       "summary": "The federal minimum wage is $7.25 an hour.",
       "citation": {
         "url": "https://www.law.cornell.edu/uscode/text/29/206",
-        "title": "29 U.S.C. § 206(a)(1)(C) — Minimum wage",
+        "title": "29 U.S.C. \u00a7 206(a)(1)(C) \u2014 Minimum wage",
         "excerpt": "$7.25 an hour, beginning 24 months after that 60th day (i.e. July 24, 2009)",
         "last_verified": "2026-11-06"
       },
@@ -41,14 +57,27 @@
     },
     {
       "id": "US.minor_limits.1",
-      "jurisdiction": {"state": "US", "city": null},
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
       "level": "federal",
       "type": "minor_limits",
-      "params": {"age_min": 14, "age_max": 15, "school_week": true, "max_hours_day": 3, "max_hours_non_school_day": 8, "max_hours_week": 18, "earliest_start": 420, "latest_end": 1140, "latest_end_summer": 1260},
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 3,
+        "max_hours_non_school_day": 8,
+        "max_hours_week": 18,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
       "summary": "In a school week, 14- and 15-year-olds may work at most 3 hours on a school day (8 on a non-school day), 18 hours total, between 7 a.m. and 7 p.m.",
       "citation": {
         "url": "https://www.law.cornell.edu/cfr/text/29/570.35",
-        "title": "29 CFR § 570.35(a) — Hours of work for minors 14 and 15",
+        "title": "29 CFR \u00a7 570.35(a) \u2014 Hours of work for minors 14 and 15",
         "excerpt": "Not more than 3 hours in any 1 day when school is in session ... Not more than 18 hours in any 1 week when school is in session",
         "last_verified": "2026-11-06"
       },
@@ -57,14 +86,26 @@
     },
     {
       "id": "US.minor_limits.2",
-      "jurisdiction": {"state": "US", "city": null},
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
       "level": "federal",
       "type": "minor_limits",
-      "params": {"age_min": 14, "age_max": 15, "school_week": false, "max_hours_day": 8, "max_hours_week": 40, "earliest_start": 420, "latest_end": 1140, "latest_end_summer": 1260},
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 8,
+        "max_hours_week": 40,
+        "earliest_start": 420,
+        "latest_end": 1140,
+        "latest_end_summer": 1260
+      },
       "summary": "When school is not in session, 14- and 15-year-olds may work up to 8 hours a day and 40 a week, 7 a.m.-7 p.m. (9 p.m. from June 1 through Labor Day).",
       "citation": {
         "url": "https://www.law.cornell.edu/cfr/text/29/570.35",
-        "title": "29 CFR § 570.35(a) — Hours of work for minors 14 and 15",
+        "title": "29 CFR \u00a7 570.35(a) \u2014 Hours of work for minors 14 and 15",
         "excerpt": "Between 7 a.m. and 7 p.m. ... except during the summer (June 1 through Labor Day) when the evening hour will be 9 p.m.",
         "last_verified": "2026-11-06"
       },
@@ -73,16 +114,47 @@
     },
     {
       "id": "US.minor_prohibited_roles.1",
-      "jurisdiction": {"state": "US", "city": null},
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
       "level": "federal",
       "type": "minor_prohibited_roles",
-      "params": {"age_below": 18, "role_tags": ["powered_industrial_truck"]},
+      "params": {
+        "age_below": 18,
+        "role_tags": [
+          "powered_industrial_truck"
+        ]
+      },
       "summary": "Workers under 18 may not operate or ride on forklifts and other high-lift trucks (Hazardous Occupations Order No. 7).",
       "citation": {
         "url": "https://www.law.cornell.edu/cfr/text/29/570.58",
-        "title": "29 CFR § 570.58 — Power-driven hoisting apparatus (HO 7)",
+        "title": "29 CFR \u00a7 570.58 \u2014 Power-driven hoisting apparatus (HO 7)",
         "excerpt": "operating, tending, riding upon ... high-lift truck ... highlift trucks known under such names as fork lifts, fork trucks, fork lift trucks",
         "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "US.tipped_minimum_wage.1",
+      "jurisdiction": {
+        "state": "US",
+        "city": null
+      },
+      "level": "federal",
+      "type": "tipped_minimum_wage",
+      "params": {
+        "cash_wage_per_hour": 2.13,
+        "max_tip_credit_per_hour": 5.12,
+        "effective": "2009-07-24"
+      },
+      "summary": "Under the FLSA an employer may pay tipped employees a cash wage of $2.13 an hour and count up to $5.12 of tips toward the $7.25 minimum wage.",
+      "citation": {
+        "url": "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-V/subchapter-B/part-531/subpart-D/section-531.50",
+        "title": "29 CFR \u00a7 531.50 \u2014 Statutory provisions with respect to tipped employees (FLSA \u00a7 3(m)(2)(A))",
+        "excerpt": "The cash wage paid such employee which ... shall not be less than the cash wage required to be paid such an employee on August 20, 1996 [ i.e., $2.13]",
+        "last_verified": "2026-11-07"
       },
       "confidence": "high",
       "verified": false
