@@ -14,7 +14,8 @@ Checks, all against the posted schedule `request.schedule`:
      A difference over 2 cents is a `metrics_mismatch`.
 
 Premium formula (law params only; keys from data/laws/STATUS.md "Extra param keys"):
-  * A rule applies unless `applies_to == "food"` (stores here are retail), `premium_basis == "none"`
+  * A rule applies if its `applies_to` matches Store.sector (#19, via law_rules), unless
+    `premium_basis == "none"`
     (NYC: prohibitions, not premiums), Store.employer_employee_count <= applies_if_employees_over,
     or the employee's wage > covered_wage_max_hourly. Thresholds we have no data for
     (min_covered_employees, min_local_employees, min_locations, city scopes) are assumed met.
@@ -122,8 +123,9 @@ class Premium:
 
 
 def rule_applies(config, rule) -> bool:
+    """Sector (#19) is already filtered by law_rules(); here: NYC-style prohibitions and size."""
     p = rule.params
-    if p.get("applies_to") == "food" or p.get("premium_basis") == "none":
+    if p.get("premium_basis") == "none":
         return False
     threshold = p.get("applies_if_employees_over")
     count = config.store.employer_employee_count

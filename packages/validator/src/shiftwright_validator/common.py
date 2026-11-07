@@ -65,10 +65,39 @@ def roles_by_id(config: StoreConfig) -> dict:
     return {r.id: r for r in config.roles}
 
 
+def applies_to_sector(rule: LawRule, sector) -> bool:
+    """SEMANTICS #19: `applies_to` "both" or the store's sector; unknown/other sector => applies;
+    no `applies_to` => applies. A list of sectors is accepted too."""
+    wanted = rule.params.get("applies_to") if isinstance(rule.params, dict) else None
+    if wanted is None or wanted == "both":
+        return True
+    sector_value = getattr(sector, "value", sector)
+    if sector_value is None or sector_value == "other":
+        return True
+    values = wanted if isinstance(wanted, list) else [wanted]
+    return sector_value in values or "both" in values
+
+
 def law_rules(config: StoreConfig, rule_type: LawRuleType) -> list[LawRule]:
+    """Rules of one type that apply to this store's sector."""
     if config.law_pack is None:
         return []
-    return [r for r in config.law_pack.rules if r.type == rule_type]
+    return [r for r in config.law_pack.rules
+            if r.type == rule_type and applies_to_sector(r, config.store.sector)]
+
+
+def is_tipped_shift(shift: Shift, employee: Employee, roles: dict) -> bool:
+    """SEMANTICS #20: every segment in a tipped role, and the employee has a tipped cash wage."""
+    if employee.tipped_wage_per_hour is None or not shift.segments:
+        return False
+    return all(getattr(roles.get(seg.role_id), "tipped", False) for seg in shift.segments)
+
+
+def shift_wage(shift: Shift, employee: Employee, roles: dict) -> float:
+    """Hourly pay for this shift's paid hours (#20)."""
+    if is_tipped_shift(shift, employee, roles):
+        return employee.tipped_wage_per_hour
+    return employee.wage_per_hour
 
 
 def active_constraints(config: StoreConfig, kind: ConstraintKind) -> list[Constraint]:

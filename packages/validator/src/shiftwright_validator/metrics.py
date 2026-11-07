@@ -3,7 +3,8 @@
 Definitions used (contracts/SEMANTICS.md v1.1):
   * Paid hours of a shift = clock span minus UNPAID breaks (paid breaks count as hours and cost).
   * total_hours = budget_hours_used = sum of paid hours.
-  * total_wage_cost = paid hours x wage + overtime premium (the extra part above straight time).
+  * total_wage_cost = paid hours x the shift's rate + overtime premium (the extra part above straight
+    time, always on wage_per_hour). Tipped shifts (#20) pay tipped_wage_per_hour.
   * overtime_hours: from the law pack's daily_overtime / weekly_overtime rules only. Daily overtime
     hours are taken out before the weekly threshold is applied, so no hour is counted twice.
     A shift's hours count on the day the shift starts. No OT rule in the pack => no overtime.
@@ -21,7 +22,8 @@ from dataclasses import dataclass, field
 
 from shiftwright_contracts.models import LawRuleType, Schedule, ScheduleMetrics, StoreConfig
 
-from .common import as_float, as_int, law_rules, paid_minutes, shift_interval, shifts_by_employee, week_minute
+from .common import (as_float, as_int, law_rules, paid_minutes, shift_interval, shift_wage,
+                     shifts_by_employee, week_minute)
 from .context import Context, build_context
 from .soft import SoftCost, soft_costs
 
@@ -103,11 +105,14 @@ def rest_premium_dollars(ctx: Context) -> float:
     found = rest_premium_rule(ctx.config)
     if found is None:
         return 0.0
-    minutes, multiplier, _ = found
+    minutes, multiplier, rule = found
+    skip_same_day = bool(rule.params.get("excludes_same_day_split"))
     total = 0.0
     for employee_id, shifts in shifts_by_employee(ctx.usable).items():
         wage = ctx.employees[employee_id].wage_per_hour
         for prev, nxt in zip(shifts, shifts[1:]):
+            if skip_same_day and prev.day == nxt.day:
+                continue
             prev_end = shift_interval(prev)[1]
             n_start, n_end = shift_interval(nxt)
             if n_start < prev_end:
@@ -164,8 +169,12 @@ def compute(ctx: Context) -> Computed:
     config = ctx.config
     by_emp: dict[str, float] = {}
     by_emp_day: dict[tuple[str, int], float] = {}
+    pay_by_emp: dict[str, float] = {}
     for shift in ctx.usable:
         hours = paid_minutes(shift) / 60
+        employee = ctx.employees[shift.employee_id]
+        pay_by_emp[shift.employee_id] = pay_by_emp.get(shift.employee_id, 0.0) + \
+            hours * shift_wage(shift, employee, ctx.roles)
         by_emp[shift.employee_id] = by_emp.get(shift.employee_id, 0.0) + hours
         key = (shift.employee_id, shift.day)
         by_emp_day[key] = by_emp_day.get(key, 0.0) + hours
@@ -176,9 +185,9 @@ def compute(ctx: Context) -> Computed:
     ot_premium = 0.0
     overtime: dict[str, EmployeeOvertime] = {}
     for employee_id, hours in by_emp.items():
-        wage = ctx.employees[employee_id].wage_per_hour
+        wage = ctx.employees[employee_id].wage_per_hour  # OT premium always on wage_per_hour (#20)
         total_hours += hours
-        base_wages += hours * wage
+        base_wages += pay_by_emp[employee_id]
         days = {day: h for (eid, day), h in by_emp_day.items() if eid == employee_id}
         ot = overtime_for(config, wage, hours, days)
         overtime[employee_id] = ot

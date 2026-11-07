@@ -69,14 +69,18 @@ def shift_length(ctx: Context, c: Constraint) -> list[Finding]:
     return findings
 
 
-def rest_shortfalls(ctx: Context, minutes: int, employee_filter=None) -> list[Finding]:
+def rest_shortfalls(ctx: Context, minutes: int, employee_filter=None,
+                    same_day: bool = True) -> list[Finding]:
     """Pairs of back-to-back shifts (same employee) with less than `minutes` rest between them.
-    Overlapping shifts are double-booking, not a rest problem, so they are skipped here."""
+    Overlapping shifts are double-booking, not a rest problem, so they are skipped here.
+    same_day=False skips pairs that start on the same day (split shifts, SEMANTICS #23)."""
     findings = []
     for employee_id, shifts in shifts_by_employee(ctx.usable).items():
         if employee_filter is not None and not employee_filter(employee_id):
             continue
         for prev, nxt in zip(shifts, shifts[1:]):
+            if not same_day and prev.day == nxt.day:
+                continue
             prev_end = shift_interval(prev)[1]
             next_start = shift_interval(nxt)[0]
             rest = next_start - prev_end
@@ -93,7 +97,8 @@ def min_rest(ctx: Context, c: Constraint) -> list[Finding]:
     minutes = as_int(c.params.get("minutes"), 0)
     if minutes <= 0:
         return []
-    return rest_shortfalls(ctx, minutes, lambda eid: applies_to(c, eid))
+    # SEMANTICS #23: the store constraint applies only between shifts on different days.
+    return rest_shortfalls(ctx, minutes, lambda eid: applies_to(c, eid), same_day=False)
 
 
 def days_worked(ctx: Context) -> dict[str, set[int]]:
