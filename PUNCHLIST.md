@@ -72,6 +72,27 @@ independent of the template.
 saves them, so the chat starts from "I know you're a taqueria in Chicago" instead of re-asking.
 **Done when:** the onboarding agent's first readiness check shows business basics done (test with the fake LLM).
 
+### A3. "Try it with a sample business": one call creates a workplace and its kickoff (M, after A1 and E4)
+The user should **watch** Shiftwright set up a business, not do chores. One endpoint does the setup work:
+
+`POST /api/workplaces/generated` `{sector, size?, difficulty?, state?, city?, seed?}` →
+`{store_id, company_name, kickoff: {message, attachments: [{kind, filename, row_count}]}}`
+- Builds a company with `shiftwright_scenarios.make_dataset`, creates a store owned by the caller
+  (template `empty`, `name`/`sector`/`jurisdiction` from the dataset; nothing else prefilled, so the agent
+  really does the setup), and runs the existing import **preview** for each CSV (roster → training →
+  availability → forecast → history), caching the previews server-side exactly like `/import/{kind}` does.
+  Nothing is committed yet.
+- `kickoff.message` is the generated manager's own words (`narrative`), ending "My exports are attached."
+- Chat: `POST /chat` accepts an optional `attachments: [{kind}]` on a user message. The loop tells the agent
+  which previews are attached; `onboard.md` gets one line: "If the leader attached files, start by showing
+  `ask_csv_import` for each, in import order, then continue setup from what they imported and said."
+- `GET /api/workplaces/{id}/sample-data.zip` keeps the download (E4's zip) for anyone who wants the files.
+- Requires a session; 5 generated workplaces per user per 10 min. Document both routes and the
+  `attachments` field in `contracts/API.md`.
+**Done when:** tests: auth required; a generated workplace is owned, has 0 employees before the cards are
+submitted, and reaches `readiness.ready` after scripted `accept_prefill` answers for an `easy` restaurant;
+bad values 400; rate limit.
+
 ---
 
 ## Lane B: product shell (`apps/web/` only) — start now against the Lane A table, wire up when A1 lands
@@ -89,7 +110,8 @@ saves them, so the chat starts from "I know you're a taqueria in Chicago" instea
 ### B2. Create a workplace (S)
 `/workplaces/new`: three fields: **Name**, **What kind of business?** (Restaurant/café · Retail store · Hotel ·
 Other, mapped to `sector`), **City, State**. Optional one-line description. Submit → `POST /api/stores` →
-`/w/:id`. Secondary link: "Or explore a sample workplace" → picks a demo template → `/api/workplaces/sample`.
+`/w/:id`. The other big choice on this screen is B7's **"Try it with a sample business"**. The
+hand-tuned demo stores (`/api/workplaces/sample`) stay reachable from the workplace switcher for rehearsed demos.
 
 ### B3. Workplace switcher (S)
 Replace the "Store ▾ / Load a demo store" menu with **My workplaces** (list from `/api/workplaces`, current one
@@ -116,6 +138,26 @@ Grep the UI copy and replace engineer words: "validator" → "compliance check",
 labels ("Forklift / powered industrial truck"), "infeasible" → "can't be fully covered under your rules"
 (with the reason). The conflict menu shows rule names, not ids.
 
+### B7. "Try it with a sample business": watch it set itself up (M, after B2 and B4; wire to A3)
+On `/workplaces/new`, next to the create form, one big secondary choice: **"Try it with a sample business"**
+with two cards, **Restaurant** and **Retail store**, and a small "More options" (city/state, size, difficulty:
+Clean · Tight budget · Legal traps · Messy exports, seed). One click →
+1. `POST /api/workplaces/generated` → go straight to `/w/:id` in setup mode (B4).
+2. The chat opens with the manager's message already sent, showing file chips for the attached CSVs, and the
+   agent starts working at once (streamed text, tool activity line, cards).
+3. **Autopilot, on by default for sample businesses:** routine cards (`csv_import` mappings, `store_basics`,
+   `payroll`, `roles`, `training_matrix`, `department_staffing`, `events`) show their prefilled content,
+   highlight for ~2 s with a "Looks right, continuing…" countdown, then submit as-is. Any click on the card
+   stops the countdown and hands control to the user. **Decisions stay with the user:** `confirm_tags`
+   (e.g. "Blake is 15 and trained on the fryer"), `propose_rule` hard/soft, `ask_tradeoff`, `conflict_menu`
+   never auto-submit. Those are the moments worth watching.
+4. When setup finishes, the agent offers to build; one click shows the schedule.
+- A thin "Autopilot on · Pause" toggle in the chat header. Real (non-sample) workplaces default to off.
+- Small link under the cards: "Download this company's files" (the A3 zip).
+Until A3 lands, build against the route's shape using the mock API's generated store.
+**Done when:** from `/workplaces/new`, one click on Restaurant reaches a built schedule with the user clicking
+only on decision cards; a test covers autopilot submit, user-interrupt and the never-auto decision cards.
+
 **Lane B done when:** a fresh visitor can sign up → create "Harbor Grill" (restaurant, Chicago) → finish
 setup in chat → build → see the schedule, without seeing a demo store, a dev pill, or an internal id.
 Playwright or Vitest coverage for: auth redirect, create workplace, setup → workspace mode switch.
@@ -133,7 +175,7 @@ Findings from the validator's audit, in `packages/validator/STATUS.md` (~lines 1
 **Done when:** `uv run python packages/validator/scripts/audit_fix.py --all-fww` reports no G1–G3 findings
 and every engine test stays green.
 
-### C2. Split shifts (M, after C1)
+### C2. Split shifts (M, after C1) — demo-critical: Harbor Grill's story is "doubles are normal here"
 SEMANTICS #23, `Store.max_shifts_per_day`. In `model.py` ~line 98–105 the per-day constraint is
 `sum(y) == w`; change to `sum(y) <= N*w` and `sum(y) >= w` (keep `works[e,d]` boolean so max-days rules stay
 correct). Rest-between-shifts (~lines 264–266) assumes one shift per day: handle split days (rest within a
@@ -167,6 +209,23 @@ Everything else in WS3's queue (MS/NM minors, more effective dates) is **parked*
 `write_exports` raises `KeyError: 'management'` for the food store, so the realistic eval skips it.
 **Done when:** `write_exports(generate(..., food...))` works and has a test.
 
+### E4. Test-company dataset builder (S, after E1) — `packages/scenarios/`
+The generator already exists (`generate(seed, size, difficulty, jurisdiction, sector)` + `write_exports`);
+expose it as one function and a CLI:
+- `make_dataset(sector, size, difficulty, state, city, seed) -> dict[str, bytes]` returning
+  `roster.csv`, `training.csv`, `availability.csv`, `forecast.csv`, `history.csv`, `README.txt`
+  (company name, location, the manager's `narrative` to paste into the chat, import order), and
+  `ANSWER_KEY.txt` (the planted traps from `expected`: minors on hazard roles, sub-minimum wages, the
+  narrative's omissions and contradiction, `expected.infeasible`), for whoever is checking the result.
+- `make_dataset_zip(...) -> bytes` (zip of the above, folder named after the company).
+- CLI: `uv run python -m shiftwright_scenarios.make_dataset --sector food --size S --difficulty legal_trap
+  --state IL --city chicago --seed 42 --out <dir>`.
+- `seed` omitted → random, and the seed is printed in README.txt so any company can be regenerated exactly.
+- Allowed values: sector `retail|food`; size `S|M` (no `L`, too slow to import live); difficulty
+  `easy|normal|tight|legal_trap|messy` (no `infeasible` in the button). Reject anything else.
+**Done when:** tests cover every sector × difficulty at size S (files present, CSVs re-import through the
+existing `import_packs/packs_harness.py` flow to `readiness.ready` for `easy`), same seed → byte-identical zip.
+
 ### E2. Re-score evals for free after C1/C2 (S) — `packages/evals/`
 `uv run python -m shiftwright_evals --quick --rescore-from real-quick-1 --run-id real-quick-2` (no API spend).
 Drop `SUSPECT_EXPECTED` for S legal_trap CA if C2 made it pass. Update `packages/evals/STATUS.md` with the table.
@@ -192,6 +251,6 @@ Contract v1.6 custom rules (`briefs/CONTRACT-v1.6.md`) · live Twilio · pattern
 | When | Lane A | Lane B | Lane C | Lane D | Lane E |
 |---|---|---|---|---|---|
 | now–06:00 | A1 | B1, B2 (against the table above) | C1 | D1 | E1 |
-| 06:00–09:00 | A2 | B3, B4 (wired to A1) | C2 | — | E2 |
+| 06:00–09:00 | A2, A3 | B3, B4, B7 (wired to A1/A3) | C2 | — | E4, E2 |
 | 09:00–11:00 | fixes | B5, B6 | fixes | — | E3 (if approved) |
 | 11:00–13:00 | **rehearse on deploy, fix only what breaks the demo** | | | | |
