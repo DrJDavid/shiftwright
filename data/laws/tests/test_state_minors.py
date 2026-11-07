@@ -8,9 +8,9 @@ from shiftwright_contracts.models import Jurisdiction, LawRuleType as T
 from shiftwright_laws import resolve
 
 STATES_DIR = Path(__file__).resolve().parents[1] / "states"
-MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC", "MI", "NJ", "WA", "AZ", "MA", "TN", "MD", "MO", "WI", "MN", "CO", "AL", "LA", "KY", "OR", "OK", "CT", "UT", "IA"]
+MINOR_STATES = ["CA", "NY", "FL", "IL", "PA", "OH", "NC", "MI", "NJ", "WA", "AZ", "MA", "TN", "MD", "MO", "WI", "MN", "CO", "AL", "LA", "KY", "OR", "OK", "CT", "UT", "IA", "NV"]
 # (state, age_min) bands whose law only limits school weeks (non-school weeks: federal floor only)
-SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16), ("NC", 16), ("TN", 16), ("MN", 16), ("AL", 16), ("LA", 16), ("LA", 17), ("KY", 16)}
+SCHOOL_WEEK_ONLY = {("FL", 16), ("OH", 16), ("NC", 16), ("TN", 16), ("MN", 16), ("AL", 16), ("LA", 16), ("LA", 17), ("KY", 16), ("NV", 16)}
 
 
 def minor_rules(state):
