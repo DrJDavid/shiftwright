@@ -98,25 +98,45 @@ class Builder:
             works[(eid, d)] = w
 
         # working / on-shift expressions per (e, abs slot)
-        working: dict[tuple[str, int], list] = {}
-        onshift: dict[tuple[str, int], list] = {}
+        # on[e,a] is defined by a running sum (shifts starting at a minus shifts ending at a) instead
+        # of summing every candidate that covers a: each y appears in 2 rows, not one per slot.
+        starts: dict[tuple[str, int], list] = {}
+        ends: dict[tuple[str, int], list] = {}
+        on_break: dict[tuple[str, int], list] = {}
+        slots_of: dict[str, set[int]] = {}
+        working_slots: set[tuple[str, int]] = set()
         for c in cands:
-            for a in c.work_slots:
-                working.setdefault((c.emp, a), []).append(y[c.idx])
+            starts.setdefault((c.emp, c.abs_start), []).append(y[c.idx])
+            ends.setdefault((c.emp, c.abs_end), []).append(y[c.idx])
+            slots_of.setdefault(c.emp, set()).update(c.on_slots)
+            working_slots.update((c.emp, a) for a in c.work_slots)
+            ws = set(c.work_slots)
             for a in c.on_slots:
-                onshift.setdefault((c.emp, a), []).append(y[c.idx])
+                if a not in ws:
+                    on_break.setdefault((c.emp, a), []).append(y[c.idx])
+        onshift: dict[tuple[str, int], cp_model.IntVar] = {}
+        working: dict[tuple[str, int], object] = {}
+        for eid, sl in slots_of.items():
+            for a in sorted(sl):
+                v = m.new_bool_var(f"on[{eid},{a}]")
+                prev = onshift.get((eid, a - slot))
+                m.add(v == (prev if prev is not None else 0) + sum(starts.get((eid, a), []))
+                      - sum(ends.get((eid, a), [])))
+                onshift[(eid, a)] = v
+                if (eid, a) in working_slots:
+                    working[(eid, a)] = v - sum(on_break.get((eid, a), [])) if (eid, a) in on_break else v
 
         # role assignment
         x = {}
         churn_terms = []
-        for (eid, a), ys in working.items():
+        for (eid, a), wexpr in working.items():
             rs = p.allowed_roles[eid]
             vs = []
             for r in rs:
                 v = m.new_bool_var(f"x[{eid},{r},{a}]")
                 x[(eid, r, a)] = v
                 vs.append(v)
-            m.add(sum(vs) == sum(ys))
+            m.add(sum(vs) == wexpr)
         if self.churn and CHURN_DOLLARS > 0:
             for (eid, r, a), v in x.items():
                 prev = x.get((eid, r, a - slot))
@@ -243,7 +263,7 @@ class Builder:
                     continue
                 ea, eb = ids
                 for a_slot in {a for (e_, a) in onshift if e_ == ea} & {a for (e_, a) in onshift if e_ == eb}:
-                    sa, sb = sum(onshift[(ea, a_slot)]), sum(onshift[(eb, a_slot)])
+                    sa, sb = onshift[(ea, a_slot)], onshift[(eb, a_slot)]
                     if hard:
                         self.add(sa + sb <= 1, g)
                     else:
@@ -351,10 +371,15 @@ class Builder:
         return built
 
 
-def solve(built: Built, time_limit_s: float, workers: int = 8, hint: Optional[dict] = None):
+def solve(built: Built, time_limit_s: float, workers: int = 8, hint: Optional[dict] = None,
+          light_presolve: bool = True):
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = float(time_limit_s)
     solver.parameters.num_workers = workers
+    if light_presolve:  # full presolve costs ~15 s on the demo store and barely shrinks it
+        solver.parameters.max_presolve_iterations = 1
+        solver.parameters.cp_model_probing_level = 0
+        solver.parameters.symmetry_level = 0
     if hint:
         for v, val in hint.items():
             built.model.add_hint(v, val)

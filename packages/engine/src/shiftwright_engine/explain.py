@@ -92,9 +92,13 @@ def explain_with_prep(p: Prep, schedule: Schedule, gap: Gap) -> list[GapReason]:
         minor = None
         for lr in p.minor_rules(e):
             pr = lr.params
+            late = pr.get("latest_end")
+            if pr.get("latest_end_before_non_school_day") is not None and (
+                    not pr.get("school_week") or gap.day in (4, 5)):
+                late = pr["latest_end_before_non_school_day"]
             if pr.get("earliest_start") is not None and gap.end <= pr["earliest_start"]:
                 minor = lr.id
-            elif pr.get("latest_end") is not None and gap.start >= pr["latest_end"]:
+            elif late is not None and gap.start >= late:
                 minor = lr.id
             elif pr.get("max_hours_week") is not None and week_min.get(e.id, 0) + slot > pr["max_hours_week"] * 60:
                 minor = lr.id

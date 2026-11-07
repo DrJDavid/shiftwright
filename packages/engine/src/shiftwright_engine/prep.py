@@ -90,12 +90,31 @@ class Prep:
         return c.applies_to_employee_ids is None or eid in c.applies_to_employee_ids
 
     def minor_rules(self, e: Employee) -> list[LawRule]:
+        """Matching minor_limits rules, filtered by Store.school_week (SEMANTICS #8): None = all,
+        True = school-week rules only, False = non-school rules only. A rule without a
+        `school_week` key applies either way."""
+        sw = self.cfg.store.school_week
         return [r for r in self.law_of(LawRuleType.minor_limits)
-                if r.params.get("age_min", 0) <= e.age <= r.params.get("age_max", -1)]
+                if r.params.get("age_min", 0) <= e.age <= r.params.get("age_max", -1)
+                and (sw is None or r.params.get("school_week") is None or bool(r.params["school_week"]) == sw)]
+
+    def minor_latest_end(self, e: Employee, day: int) -> Optional[int]:
+        """Latest shift end for a minor on `day` (same reading as the validator): a rule's
+        `latest_end_before_non_school_day` applies on Fri/Sat nights for school-week rules and on
+        every day for non-school rules; otherwise `latest_end`. Most restrictive rule wins."""
+        ends = []
+        for r in self.minor_rules(e):
+            pr = r.params
+            late = pr.get("latest_end_before_non_school_day")
+            if late is not None and (not pr.get("school_week") or day in (4, 5)):
+                ends.append(int(late))
+            elif pr.get("latest_end") is not None:
+                ends.append(int(pr["latest_end"]))
+        return min(ends) if ends else None
 
     def minor_day_cap(self, e: Employee, day: int) -> Optional[int]:
         """Paid-minute cap for a minor on `day`. School-week rules use max_hours_day on Mon-Fri and
-        max_hours_non_school_day (if given) on Sat/Sun; all matching rules apply (most restrictive)."""
+        max_hours_non_school_day (if given) on Sat/Sun; all applicable rules apply (most restrictive)."""
         caps = []
         for r in self.minor_rules(e):
             pr = r.params
@@ -231,7 +250,7 @@ def _pick(laws: list[LawRule], key) -> Optional[LawRule]:
 
 
 def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None = None,
-               length_step: int | None = None) -> Prep:
+               length_step: int | None = None, prune: bool = True) -> Prep:
     slot = cfg.store.slot_minutes
     laws = list(cfg.law_pack.rules) if cfg.law_pack else []
     constraints = [c for c in cfg.constraints if c.status == RuleStatus.confirmed]
@@ -292,22 +311,47 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
             p.demand[k] = p.demand.get(k, 0) + d.headcount
             t += slot
 
+    # Slots where an employee's work can matter: demand or always_staffed for a role they may work,
+    # or a preferred_on window. With `prune`, a candidate longer than the minimum whose first or last
+    # worked slot is not useful is dropped (the trimmed shift is never worse), and so is one with no
+    # useful slot. Employees under a hard min_hours_week keep every candidate.
+    useful_by_role: dict[str, set[int]] = {}
+    for (rid, a) in p.demand:
+        useful_by_role.setdefault(rid, set()).add(a)
+    for c in constraints:
+        if c.kind == ConstraintKind.always_staffed:
+            rid = c.params.get("role_id")
+            which = c.params.get("windows", "store_hours")
+            for d, (lo_, hi_) in (store_open if which == "store_hours" else windows).items():
+                useful_by_role.setdefault(rid, set()).update(
+                    d * DAY + t for t in range(_round_down(lo_, slot), hi_, slot))
+    hard_min_hours = [c for c in constraints
+                      if c.kind == ConstraintKind.min_hours_week and c.strength == Strength.hard]
+
     # Candidate shifts
     for e in (cfg.employees if with_cands else []):
         if not p.allowed_roles[e.id]:
             continue
+        useful: Optional[set[int]] = None
+        if prune and not any(p.applies(c, e.id) and e.min_hours_week > 0 for c in hard_min_hours):
+            useful = set().union(*(useful_by_role.get(r, set()) for r in p.allowed_roles[e.id]))
+            for a in e.availability:
+                if a.kind == AvailabilityKind.preferred_on:
+                    days_ = [a.weekday] if a.weekday is not None else [
+                        d for d in windows if cfg.store.week_start + timedelta(days=d) == a.on_date]
+                    for d in days_:
+                        useful.update(d * DAY + t for t in range(_round_down(a.start, slot), a.end, slot))
         lo, hi = p.shift_bounds(e.id)
         minors = p.minor_rules(e)
         earliest = max([r.params["earliest_start"] for r in minors if r.params.get("earliest_start") is not None],
                        default=None)
-        latest_end = min([r.params["latest_end"] for r in minors if r.params.get("latest_end") is not None],
-                         default=None)
         week_cap = min(c for c, _, _ in p.effective_max_minutes(e))
         for day, (w0, w1) in sorted(windows.items()):
             avail = list(_avail_for_day(p, e, day))
             unavail = [(a.start, a.end) for a in avail if a.kind == AvailabilityKind.unavailable]
             o, c = store_open[day]
             max_day_min = p.minor_day_cap(e, day)
+            latest_end = p.minor_latest_end(e, day)
             lst = p.by_emp_day.setdefault((e.id, day), [])
             for start in range(_round_up(w0, slot), w1, start_step or slot):
                 if earliest is not None and start < earliest:
@@ -354,6 +398,11 @@ def build_prep(cfg: StoreConfig, with_cands: bool = True, start_step: int | None
                         on = [day * DAY + t for t in range(start, end, slot)]
                         work = [day * DAY + t for t in range(start, end, slot)
                                 if not any(x <= t < y for x, y in bset)]
+                        if useful is not None:
+                            if not work or not useful.intersection(work):
+                                continue
+                            if length > lo and (work[0] not in useful or work[-1] not in useful):
+                                continue
                         cand = Cand(
                             idx=len(p.cands), emp=e.id, day=day, start=start, end=end, breaks=brks,
                             on_slots=on, work_slots=work, paid_min=paid, wage_units=money(wage),
