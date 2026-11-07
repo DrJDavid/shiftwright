@@ -1,4 +1,4 @@
-# Shiftwright API & chat protocol — v1.2
+# Shiftwright API & chat protocol — v1.4
 
 Owner: David. Backend (WS6) implements; web (WS7) and evals (WS5) consume.
 All bodies are JSON shaped by `contracts/models.py`. TypeScript types are generated
@@ -26,6 +26,9 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 | POST | `/api/sms/inbound` | Twilio webhook (form-encoded) → TwiML 200 | Validates Twilio signature. |
 | POST | `/api/sms/mock-reply` | `{from_phone, body}` → 200 | Only when `MESSENGER=mock`. Same code path as inbound. |
 | GET | `/api/laws/resolve?state=TX&city=austin` | → `LawPack` | |
+| POST | `/api/stores/{id}/equipment_roles` | `{role_id, decision: "confirm"\|"reject"}` → `StoreConfig` | v1.4. Roles whose names look like powered equipment are tagged `powered_industrial_truck` when created (import or chat); the leader confirms or rejects. Rejected roles are never re-tagged. |
+| GET | `/api/stores/{id}/import/{kind}/warnings` | → `{kind, warnings: string[]}` | v1.4. Warnings from the latest commit of that kind; the commit response also sets header `X-Import-Warning-Count`. |
+| GET | `/api/templates` | → `{templates: {id, label, jurisdiction}[]}` | v1.4. Store templates available on this server (e.g. `demo`, `demo_chicago`, `demo_seattle`, `demo_sf`, `tiny`, `empty`). |
 | GET | `/api/health` | → `{ok, contract_version, messenger, model}` | |
 
 Helper shapes (defined in `apps/api`, mirrored in TS by hand only for these):
@@ -37,12 +40,17 @@ ImportPreview = { kind, columns: string[], proposed_mapping: Record<string,strin
 Readiness     = { ready: boolean, checks: {id: string, label: string, ok: boolean, detail: string}[] }
 OutreachState = { plan_id, status: "idle"|"texting"|"filled"|"exhausted",
                   current_rank: number|null, messages: (OutboundMessage|InboundMessage)[],
-                  accepted_employee_ids: string[], schedule: Schedule }
+                  accepted_employee_ids: string[], schedule: Schedule,
+                  // v1.4
+                  mode: "one_to_one"|"group_offer",          // = FixPlan.outreach_mode
+                  wave: number, waiting_employee_ids: string[],
+                  premium: {status: "not_applicable"|"exempt"|"owed", law_rule_ids: string[], note: string} | null }
 ```
 
 Readiness checks (in order): store basics, jurisdiction resolved to a LawPack, roles exist,
 ≥1 employee, every role has ≥1 trained employee, demand exists for every open day,
-budget set, every employee's wage ≥ the law pack's minimum wage (v1.1; names the employees),
+priorities set (every role with demand has `gap_penalty_per_hour` > 0; v1.4, blocking),
+equipment roles reviewed (v1.4, warning only: the protective tag is already applied), budget set, every employee's wage ≥ the law pack's minimum wage (v1.1; names the employees),
 no `provisional` constraints older than the current session (warn, not block).
 
 ## Chat protocol (Server-Sent Events)
@@ -105,7 +113,8 @@ RoleStaffing = { base: number,                                   // people most 
 The server converts the result into `DemandRequirement`s (`source: leader`; base across open hours per day,
 peaks replace base inside their windows, open/close crews in the pre-open/post-close windows), replacing
 existing non-event demand for those roles, then the client shows a read-only `coverage_grid`-style preview.
-Truck and other event crews come from the `events` card. `coverage_grid` stays as an advanced editor.
+Truck and other event crews come from the `events` card. `coverage_grid` stays as an advanced editor; with `readonly: true` (v1.4) it is a preview that doesn't pause the turn.
+Forecast CSVs may carry an optional `duration` column (minutes) for start-only rows (v1.4).
 
 ## Environment variables
 
