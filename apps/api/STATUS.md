@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-06 ~22:45 CT_
+_Last updated: 2026-11-06 ~23:20 CT_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -26,8 +26,32 @@ _Last updated: 2026-11-06 ~22:45 CT_
 - Tests (`apps/api/tests`): contract tests for every implemented endpoint, SSE text/cards/config, real-server
   card pause→resume, scripted onboarding from `empty` to `readiness.ready = true`, log_unmodeled, lookup_law.
 
-**In progress / next (M2–M3):** CSV import (`/import/{kind}` + commit, LLM column mapping), fix endpoint,
-Messenger (mock + Twilio) + outreach orchestrator + `/api/sms/*`, Dockerfile/railway config, smoke script.
+**Done (M2/M3 backend pieces):**
+- CSV import: `POST /import/{kind}` (multipart) → `ImportPreview` (mapping = source column → our field | null;
+  name-matching heuristic always, LLM mapping from headers + 5 sample rows when a key is set; nothing saved),
+  `POST /import/{kind}/commit` `{mapping, rows}` → `StoreConfig`. If the client sends only the preview rows, the
+  server uses its cached full parse. Kinds: roster (DOB→age, phone→E.164, `$` wages, FT/PT), training (long format),
+  availability (wide `Avail Mon` windows → `unavailable` complements; OFF = whole day), forecast (per-slot or
+  windowed rows, merged), history (stored for mining). Unknown departments/roles are added with
+  "default, provisional — review" descriptions ($0/h gap penalty for unknown roles) and a warning.
+- `POST /fix` → `FixPlan` + `plan_id`; `POST /outreach/start`, `GET /outreach`; `POST /api/sms/inbound`
+  (Twilio form, signature checked against `PUBLIC_BASE_URL` + path, TwiML reply); `POST /api/sms/mock-reply`.
+- Messenger: `MockMessenger` (default) and `TwilioMessenger` (REST send). Bad Twilio env → falls back to mock with
+  a warning in `/api/health.warnings`. Replies: keywords first, helper-LLM fallback, `question` stays in the
+  thread for the leader and outreach keeps waiting.
+- Orchestrator: rank 1 → wait (`OUTREACH_TIMEOUT_S`, default 90) → accept: append their shift, recompute metrics via
+  the validator, save schedule, re-run `fix_day`; empty queue ⇒ `filled`. Decline/timeout ⇒ declined list, re-run
+  `fix_day`, text next; nobody left ⇒ `exhausted`. Message copy names role, day, time, $/hr, ends "Reply YES or NO".
+- Deploy: `apps/api/deploy/Dockerfile` (build from repo root; builds web, serves it), `apps/api/deploy/railway.toml`,
+  `apps/api/scripts/smoke.py` (health → create store → load demo/tiny fixture if present → readiness → solve).
+- Tests: 31 in `apps/api/tests` (+2 live-LLM skipped). Outreach acceptance test passes with faked `fix_day`/`validate`.
+
+**Next:** token streaming of agent text; `/outreach/stream` SSE (web polls for now); use real fixtures once WS4 lands;
+re-run outreach tests against the real engine once WS1 merges; live-agent tests once a key exists.
+
+**Coordinator follow-ups (outside my folder):** add `*.db`, `*.db-wal`, `*.db-shm` to root `.gitignore` (default
+`DATABASE_URL` writes `./shiftwright.db`); move/point Railway at `apps/api/deploy/railway.toml`; see
+`contracts/requests/ws6-fixplan-plan-id.md` (FixPlan id + two API.md clarifications).
 
 **Stubs (auto-replaced at call time when the real function exists; `/api/health` lists active ones in `stubs`):**
 - `engine.solve_week` → no shifts; every demand block is a priced gap; `produced_by="stub:engine"`,
@@ -52,5 +76,6 @@ Messenger (mock + Twilio) + outreach orchestrator + `/api/sms/*`, Dockerfile/rai
   OpenRouter once the key exists and set `AGENT_MODEL`.
 - `/gaps/explain` text is a deterministic template over engine reasons (no LLM call) — safer and instant.
 - Agent responses are not token-streamed yet: each LLM step arrives as one `text` delta.
-- Contract gap to raise: `/fix` returns `FixPlan` but `/outreach/start` takes `plan_id`; FixPlan has no id.
-  Plan: return FixPlan JSON plus a top-level `plan_id` key (extra key) and file `contracts/requests/ws6-plan-id.md`.
+- `/fix` returns FixPlan JSON + extra top-level `plan_id` (request filed).
+- Outreach state lives in memory per process (snapshotted to SQLite for GET after restart, but a running outreach
+  does not resume after a restart).

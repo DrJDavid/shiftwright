@@ -1,0 +1,11 @@
+# Railway service config. Env to set in Railway: OPENROUTER_API_KEY, AGENT_MODEL, MESSENGER (mock|twilio),
+# TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, PUBLIC_BASE_URL (the Railway URL; Twilio webhook =
+# $PUBLIC_BASE_URL/api/sms/inbound). Attach a volume at /data so SQLite survives redeploys.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/deploy/Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
