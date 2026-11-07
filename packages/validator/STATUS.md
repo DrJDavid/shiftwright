@@ -44,7 +44,7 @@ Contracts: **v1.4** (`contracts/SEMANTICS.md`). The validator follows it item by
     employee on the day → added / moved / reduced; grace; < 24 h variants and SF tiers; prorate; caps;
     `scheduled_shift` measure; flat dollars; exemptions incl. group-message, absent-coworker-hours-only,
     text-as-written, SF coworker absence; most expensive rule wins). Never raises (guard → `malformed`).
-- Tests (101: 94 fast + 7 slow engine tests, `uv run pytest packages/validator`):
+- Tests (107: 96 fast + 11 slow engine tests, `uv run pytest packages/validator`):
   - A hand-built perfect schedule (TEST-ONLY law values) passes and matches the hand calculation.
   - 25 golden bad schedules, each triggering exactly its code; a test checks every code has one.
   - Fuzz: 200 dict mutations (20% as JSON text) through parse + validate, plus 50 `model_construct`
@@ -54,7 +54,7 @@ Contracts: **v1.4** (`contracts/SEMANTICS.md`). The validator follows it item by
     are caught; under CA, 8 h shifts need breaks, and 10-min rest breaks at 13:00-13:10 / 17:05-17:15
     satisfy `CA.rest_break.1`. (Under CA, tiny_store's $15–$16 wages also trip `below_minimum_wage`
     against CA's $16.90; that's correct.)
-  - `test_fix.py` (24): clean plan; change before now; change on another day; called-out still
+  - `test_fix.py` (26): clean plan; unexplained change; plain validate() with unverified premium; change before now; change on another day; called-out still
     working; declined re-asked; mode mismatch; action missing; #16 preferred_off not charged; TEST-rule
     premium mismatch / schedule metrics / group-offer exemption / extension pricing; garbage plan;
     **a hand-computed premium table for all 10 predictive-scheduling jurisdictions** (Seattle, Chicago,
@@ -116,60 +116,72 @@ SEMANTICS that `always_staffed` treats someone on a break as still on duty. Vali
 is small (count break minutes as covered in `always_staffed` only).
 
 ### Regression tests
-`tests/test_engine_audit.py` (marked `slow`, ~60 s; skip with `-m "not slow"`): engine on tiny_store
+`tests/test_engine_audit.py` (marked `slow`, ~100 s; skip with `-m "not slow"`): engine on tiny_store
 (5 s), S/easy/TX/1 and S/legal_trap/TX/1 (15 s each) → status feasible/optimal, 0 disagreements;
-an empty infeasible schedule is not a disagreement; `fix_day` on tiny_store and on the demo store
-(Saturday 06:04, e034/e052/e053, modes None and one_to_one) → 0 `validate_fix` disagreements.
+an empty infeasible schedule is not a disagreement; `fix_day` on tiny_store, and on the Austin and
+Chicago demo stores (Saturday 06:04, e034/e052/e053) × 3 modes → 0 `validate_fix` disagreements and
+the plan uses the requested mode.
 
-## fix_day audit (black box, main 0145de2, Sat Nov 7)
+## fix_day audit (black box, main fb4dadf + d73494b, Sat Nov 7; engine ab46904)
 
-Harness: `shiftwright_validator.audit.audit_fix` / `classify_fix` and
-`uv run python packages/validator/scripts/audit_fix.py [--time 20] [--seeds 1 2 3] [--all-fww]`.
-Disagreement = any hard `validate_fix` violation or `metrics_mismatch`, except `below_minimum_wage`.
+Harness: `shiftwright_validator.audit.audit_fix` / `classify_fix`, and
+`uv run python packages/validator/scripts/audit_fix.py [--time 20] [--seeds 1 2 3] [--all-fww]`
+(about 8 min with `--all-fww`). Disagreement = any hard `validate_fix` violation or `metrics_mismatch`,
+except `below_minimum_wage`.
 
-- **TX (no predictive-scheduling rules): clean.** Demo store Saturday 06:04 e034/e052/e053 and
-  S easy/normal/tight/messy TX × seeds 1–3 via `pick_callouts` (12 plans): **0 disagreements** for
-  mode None / one_to_one. Nothing before `now` changed, call-outs removed, actions match the schedule,
-  both schedules pass `validate()` and their metrics match.
-- **Demo store moved into each of the 10 predictive-scheduling jurisdictions × 3 modes (30 plans):**
-  0 structural disagreements; all disagreements are premiums / mode (374 total over the 33 demo runs,
-  incl. TX). "Expected" `below_minimum_wage` hits are the Austin demo wages under city minimums
-  (relocation artefact, not a finding).
+Run: demo stores Austin / Chicago / Seattle / SF (`load_demo_store(locality)`), Saturday 06:04,
+e034/e052/e053 call out, × modes None / one_to_one / group_offer; the Austin store moved into all
+10 predictive-scheduling jurisdictions × 3 modes; S easy/normal/tight/messy TX × seeds 1–3 via
+`pick_callouts`. **54 plans, 40 clean, 54 disagreements in the other 14** (Seattle, SF, Oregon only).
+No plan changes anything before `now`, keeps a called-out employee working, or re-asks a decliner.
+"Expected" `below_minimum_wage` hits only come from moving the Austin store's wages into other cities.
 
-### For WS1 (engine) — fix_day
-- **F1 – premiums missing in 6 of 10 jurisdictions.** Seattle, Chicago, Evanston, LA, Philadelphia,
-  Oregon: every extension and call-in has `premium_pay_dollars = 0`, no `law_rule_ids`, no rationale
-  note, also with `Store.employer_employee_count = 1000`. Per #17 they're due, e.g. Seattle e030
-  extended 30 min: 0.5 h × $17.25 = $8.63 (prorate); Philadelphia e035 +3 h: 1 h × $21. Only
-  Berkeley / Emeryville / SF extensions are priced (and Berkeley/Emeryville match the validator exactly).
-- **F2 – call-ins never priced.** Every `OutreachCandidate.premium_pay_dollars = 0` with empty
-  `law_rule_ids` / `premium_note`, including Berkeley/Emeryville/Evanston/Oregon where no exemption
-  applies (`voluntary_additional_hours_exempt: false`, or OR texts aren't written consent), and
-  one-to-one texts in Seattle/Philadelphia (exemption needs a group message).
-- **F3 – `outreach_mode` ignored.** `FixRequest.outreach_mode="group_offer"` → `FixPlan.outreach_mode
-  = "one_to_one"` in every jurisdiction (TX included); None never picks group_offer even where it's
-  the cheaper legal mode (Seattle, Philadelphia).
-- **F4 – schedule metrics leave premiums out.** Berkeley: actions carry $158.50 of premiums but
-  `schedule_if_none_accept.metrics.premium_pay_dollars = 0` (#17 says they're included); so
-  premium_pay and objective mismatch.
-- **F5 – SF details (needs WS3 to confirm the reading):** the engine charges 1 h for < 24 h changes;
-  WS3's `under_24h_tiers` gives 2 h for ≤ 4 changed hours. The engine also charges extensions
-  that cover an absent coworker's hours, which `coworker_absence_exempt` exempts.
-- Repro: `audit_fix.py --all-fww` (≈ 6 min), or one place:
-  `load_demo_store()`, set `store.jurisdiction = Jurisdiction(state="WA", city="seattle")`,
-  `law_pack = resolve(...)`, `solve_week(30 s)`, `fix_day(FixRequest(..., day=5, now=364,
-  callouts=e034/e052/e053 @364))`, then `validate_fix(req, plan)`.
+Clean: Austin, Chicago (native and moved), Evanston, LA, Berkeley, Emeryville, Philadelphia, NYC,
+all 12 S plans, and Seattle native one_to_one. WS1's ab46904 fixed the earlier F1–F4 (missing
+premiums, unpriced call-ins, ignored outreach_mode, metrics without premiums).
+
+### For WS1 (engine) — remaining (repro: `audit_fix.py --all-fww`, or `load_demo_store("seattle"|"sf")`)
+- **G1 – changes only in schedule_if_all_accept, not named or priced.** e.g. Seattle (moved): e058
+  11:30→11:00 and (native) e011 12:00→12:30 appear only in `schedule_if_all_accept`, with no action
+  and no candidate, so no premium, and `metrics.premium_pay_dollars` is off by that amount (e.g.
+  $146.00 claimed vs $158.13). Now caught as `malformed` "hours change … but no action or outreach
+  candidate names them".
+- **G2 – grace minutes.** WS3: changes *shorter than* `grace_minutes` are free. Oregon (30):
+  30-minute extensions (e035, e045) get $0 with "change under 30 min"; validator charges 1 h × wage.
+  Seattle (15): e011's 30-minute extension gets $0 with "change under 15 min"; validator charges
+  0.5 h × $17.75 = $8.88 (prorate).
+- **G3 – Seattle group_offer, `exemption_only_for_absent_coworker_hours`.** e039 called in 11:00–18:30;
+  the called-out coworkers' hours end at 18:00, so 30 min aren't covering an absence: validator charges
+  0.5 h × wage (prorate); engine exempts the whole shift.
+- **G4 – SF `coworker_absence_exempt` on extensions.** e038 extended 09:00–11:00 inside the absent
+  coworkers' hours (06:04–16:30): engine charges $42.50 (2 h tier); validator exempts it (WS3: covering
+  an absent coworker "is exempt even without consent"). The engine already exempts SF call-ins this way.
+  **WS3 please confirm** the key also covers extensions.
+
+### Q2 for David — are `actions` part of schedule_if_all_accept?
+The engine's all_accept schedule often drops the immediate extensions (e.g. Berkeley e007, e016, e029,
+e044 are extended in none_accept but not in all_accept) and prices only what's left. The contract calls
+actions "immediate … no consent needed", which reads as "in both schedules". The validator accepts either
+(it prices whatever each schedule contains) but G1 is the unpriced version of this.
+
+### validate() vs predictive-scheduling premiums (WS1 report)
+`validate()` has no posted schedule, so it can't recompute #17 premiums. Chosen fix (no contract
+change): when the law pack has `predictive_scheduling` rules, plain `validate()` accepts a claimed
+`premium_pay_dollars` at or above its own clopen premium and compares `objective_dollars` after adding
+that unverified amount back. A claimed premium below the recomputed clopen premium still fails.
+`validate_fix` sets `ctx.premiums_exact = True` after adding its own #17 premiums, so plan schedules are
+checked exactly. Callers that have the FixRequest/FixPlan should use `validate_fix`. Test:
+`test_plain_validate_accepts_unverified_fww_premium`.
 
 ### For WS4 (scenarios)
-- Demo call-outs are reported at 06:04 for shifts that started 04:00 (e034, e052). `validate_fix`
-  treats the called-out employee's whole shift as gone, so it doesn't flag the change before `now`;
-  real call-outs would come before the shift.
+- Demo call-outs are reported at 06:04 for shifts that started at 04:00 (e034, e052). `validate_fix`
+  treats a called-out employee's whole shift as gone, so it doesn't flag the change before `now`.
 
 **In progress:** nothing.
 
-**Next slice:** re-run `audit_fix.py --all-fww` after WS1 fixes F1–F4; get WS3/David to confirm the
-SF reading (F5) and how NYC prohibitions should be reported (needs a ViolationCode → contracts request);
-add `validate_fix` to WS5 evals and to the API readiness check if wanted.
+**Next slice:** re-run `audit_fix.py --all-fww` after WS1 handles G1–G3 (and G4 once WS3 confirms);
+David to answer Q2; NYC prohibitions need a ViolationCode (contracts request) before the validator can
+report them; offer `validate_fix` to WS5 evals and to the API readiness check.
 
 **Blocked on:** nothing.
 

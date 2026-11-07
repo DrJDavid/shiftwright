@@ -247,3 +247,27 @@ def test_employer_below_threshold_is_not_covered(config, perfect):
     assert priced(config, change, False, "one_to_one") == 0
     config.store.employer_employee_count = None  # unknown: assume covered (SEMANTICS #17)
     assert priced(config, change, False, "one_to_one") > 0
+
+
+def test_plain_validate_accepts_unverified_fww_premium(config, perfect, kit):
+    """validate() has no posted schedule: with predictive_scheduling rules a claimed premium above
+    the recomputed one is left to validate_fix; one below it is still a mismatch."""
+    from shiftwright_validator import recompute_metrics
+
+    add_test_rule(config, kit)
+    m = recompute_metrics(config, perfect)
+    perfect.metrics = m.model_copy(update={"premium_pay_dollars": 16.0,
+                                           "objective_dollars": m.objective_dollars + 16})
+    assert validate(config, perfect).violations == []
+    config.law_pack.rules.pop()  # no predictive-scheduling rule: the $16 is unexplained
+    assert {v.code for v in validate(config, perfect).violations} == {V.metrics_mismatch}
+
+
+def test_unexplained_change_is_malformed(config, perfect):
+    request, plan = build(config, perfect)
+    s2 = next(s for s in plan.schedule_if_all_accept.shifts if s.id == "s2")  # Jo 13-17 -> 12:30-17
+    s2.start = 750
+    s2.segments = [RoleSegment(role_id="leader", start=750, end=1020)]
+    hits = [v.message for v in validate_fix(request, plan).violations if v.code == V.malformed]
+    assert hits == ["[schedule_if_all_accept] e6's hours change on day 0 (+30 / -0 min) but no action "
+                    "or outreach candidate names them."]

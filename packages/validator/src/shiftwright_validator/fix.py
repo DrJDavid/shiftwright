@@ -4,7 +4,8 @@ Checks, all against the posted schedule `request.schedule`:
   1. Shape: the plan's outreach_mode matches the request's (when the request sets one); every
      extend/reassign action shows up in schedule_if_none_accept.
   2. Nothing before `now` on `request.day` (and nothing on any other day) changed, except the
-     called-out employees' own shifts, which are removed.
+     called-out employees' own shifts, which are removed. Every employee whose repair-day hours
+     change is named by an action (or, in schedule_if_all_accept, is an outreach candidate).
   3. Called-out employees don't work after they called out; declined employees aren't re-asked.
   4. Both schedules pass validate(); their metrics include the predictive-scheduling premiums
      recomputed here, and call-in shifts are not charged availability preferences (#16).
@@ -335,6 +336,27 @@ def unchanged_checks(request: FixRequest, label: str, after: Schedule) -> list[V
     return out
 
 
+def unexplained_changes(request: FixRequest, plan: FixPlan, label: str, after: Schedule) -> list[Violation]:
+    """Every employee whose repair-day hours change must be named by an action (or, in
+    schedule_if_all_accept, be an outreach candidate); otherwise nobody is told and nothing is priced."""
+    called_out = {co.employee_id for co in request.callouts}
+    named = {a.employee_id for a in plan.actions if a.employee_id}
+    if label == "schedule_if_all_accept":
+        named |= {c.employee_id for c in plan.outreach_queue}
+    out = []
+    for eid in employees_on_day(request.schedule, after, day=request.day):
+        if eid in called_out or eid in named:
+            continue
+        change = diff(eid, day_minutes(request.schedule.shifts, eid, request.day),
+                      day_minutes(after.shifts, eid, request.day))
+        if change is not None:
+            out.append(hard(C.malformed, f"[{label}] {eid}'s hours change on day {request.day} "
+                                         f"(+{len(change.added)} / -{len(change.removed)} min) but no "
+                                         f"action or outreach candidate names them.",
+                            employee_id=eid, day=request.day))
+    return out
+
+
 def plan_shape_checks(request: FixRequest, plan: FixPlan) -> list[Violation]:
     out = []
     if request.outreach_mode is not None and plan.outreach_mode != request.outreach_mode:
@@ -409,6 +431,7 @@ def validate_plan_schedule(request: FixRequest, plan: FixPlan, label: str, sched
     ctx = build_context(request.config, schedule)
     ctx.extra_premium_dollars = sum(p.dollars for p in premiums.values())
     ctx.callin_shift_ids = callin_ids
+    ctx.premiums_exact = True
     report = validate_context(ctx)
     for v in report.violations:
         v.message = f"[{label}] {v.message}"
@@ -436,6 +459,7 @@ def _validate_fix(request: FixRequest, plan: FixPlan) -> ValidationReport:
         reports[label] = validate_plan_schedule(request, plan, label, schedule)
         violations += reports[label].violations
         violations += unchanged_checks(request, label, schedule)
+        violations += unexplained_changes(request, plan, label, schedule)
     violations += premium_checks(request, plan)
     hard_count = sum(1 for v in violations if v.severity == "hard")
     return ValidationReport(passed=hard_count == 0, hard_count=hard_count, violations=violations,

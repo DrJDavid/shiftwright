@@ -3,9 +3,9 @@
     uv run python packages/validator/scripts/audit_fix.py [--time 20] [--seeds 1 2 3]
            [--jurisdictions "WA seattle" "PA philadelphia" ...]
 
-1. Demo store, Saturday 06:04, call-outs e034/e052/e053 (the demo script), in its own
-   jurisdiction and, if given, moved into each predictive-scheduling jurisdiction, for
-   outreach_mode None / one_to_one / group_offer.
+1. Demo stores (Austin, Chicago, Seattle, SF), Saturday 06:04, call-outs e034/e052/e053 (the demo
+   script), for outreach_mode None / one_to_one / group_offer; optionally the Austin store moved into
+   each predictive-scheduling jurisdiction (--all-fww / --jurisdictions).
 2. S scenarios (easy/normal/tight/messy TX) via pick_callouts on the scenario's call-out day.
 """
 from __future__ import annotations
@@ -45,16 +45,17 @@ def main() -> None:
     ap.add_argument("--all-fww", action="store_true", help="all 10 predictive-scheduling jurisdictions")
     args = ap.parse_args()
 
-    places = [None] + (FWW if args.all_fww else args.jurisdictions)
-    for place in places:
+    for locality in ("austin", "chicago", "seattle", "sf"):
+        case = Case(f"demo:{locality}", with_law_pack(load_demo_store(locality)))
+        schedule = solve_week(case.config, time_limit_s=30)
+        report(audit_fix(case, schedule, day=5, now=364, modes=MODES,
+                         callout_ids=["e034", "e052", "e053"]))
+    for place in (FWW if args.all_fww else args.jurisdictions):
         config = load_demo_store()
-        name = "demo_store"
-        if place is not None:
-            state, city = place.split(" ", 1)
-            config.store.jurisdiction = Jurisdiction(state=state, city=None if city == "-" else city)
-            config.law_pack = resolve(config.store.jurisdiction)
-            name = f"demo@{place}"
-        case = Case(name, with_law_pack(config))
+        state, city = place.split(" ", 1)
+        config.store.jurisdiction = Jurisdiction(state=state, city=None if city == "-" else city)
+        config.law_pack = resolve(config.store.jurisdiction)
+        case = Case(f"demo@{place}", with_law_pack(config))
         schedule = solve_week(case.config, time_limit_s=30)
         report(audit_fix(case, schedule, day=5, now=364, modes=MODES,
                          callout_ids=["e034", "e052", "e053"]))

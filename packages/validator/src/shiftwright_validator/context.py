@@ -72,6 +72,7 @@ class Context:
     # call-in shifts, which are not charged availability preferences (SEMANTICS #16).
     extra_premium_dollars: float = 0.0
     callin_shift_ids: set = field(default_factory=set)
+    premiums_exact: bool = False  # True once validate_fix has added the predictive-scheduling premiums
 
 
 def build_context(config: StoreConfig, schedule: Schedule) -> Context:

@@ -1,6 +1,6 @@
 """Engine regression (black box): engine schedules must pass the validator.
 
-Marked slow (~70 s). Skip with `-m "not slow"`. The full audit is
+Marked slow (~100 s). Skip with `-m "not slow"`. The full audit is
 `uv run python packages/validator/scripts/audit_engine.py` (see STATUS.md).
 """
 from __future__ import annotations
@@ -69,17 +69,23 @@ def test_fix_day_plans_pass_validator():
     assert found == [], found
 
 
-@pytest.fixture(scope="module")
-def demo_week():
-    config = with_law_pack(load_demo_store())
-    return config, engine.solve_week(config, time_limit_s=30)
+_WEEKS: dict = {}
+
+
+def demo_week(locality):
+    if locality not in _WEEKS:
+        config = with_law_pack(load_demo_store(locality))
+        _WEEKS[locality] = (config, engine.solve_week(config, time_limit_s=30))
+    return _WEEKS[locality]
 
 
 @needs_fix_day
-@pytest.mark.parametrize("mode", [None, "one_to_one"])
-def test_demo_saturday_callouts_pass_validate_fix(demo_week, mode):
-    """The demo script: Saturday 06:04, e034 / e052 / e053 call out."""
-    config, schedule = demo_week
-    [result] = list(audit_fix(Case("demo_store", config), schedule, day=5, now=364, modes=(mode,),
-                              callout_ids=["e034", "e052", "e053"]))
+@pytest.mark.parametrize("locality", ["austin", "chicago"])
+@pytest.mark.parametrize("mode", [None, "one_to_one", "group_offer"])
+def test_demo_saturday_callouts_pass_validate_fix(locality, mode):
+    """The demo script: Saturday 06:04, e034 / e052 / e053 call out. Chicago has Fair Workweek."""
+    config, schedule = demo_week(locality)
+    [result] = list(audit_fix(Case(f"demo:{locality}", config), schedule, day=5, now=364,
+                              modes=(mode,), callout_ids=["e034", "e052", "e053"]))
+    assert result.plan_mode == (mode or result.plan_mode)
     assert result.disagreements == [], result.disagreements

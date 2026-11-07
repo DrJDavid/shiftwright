@@ -559,10 +559,22 @@ def check_metrics_mismatch(ctx: Context, computed: Computed) -> list[Violation]:
     claimed = ctx.schedule.metrics
     if claimed is None:
         return []
+    # Predictive-scheduling premiums are owed for changes to a *posted* schedule, which validate()
+    # isn't given (SEMANTICS #17). Unless validate_fix has added them (premiums_exact), a claimed
+    # premium above the recomputed one is accepted here and verified exactly by validate_fix.
+    unverified = 0.0
+    lower_bound_only = not ctx.premiums_exact and bool(law_rules(ctx.config, LawRuleType.predictive_scheduling))
+    c_prem = getattr(claimed, "premium_pay_dollars", None)
+    if lower_bound_only and isinstance(c_prem, (int, float)) and c_prem == c_prem:
+        unverified = max(0.0, float(c_prem) - computed.metrics.premium_pay_dollars)
     out = []
     for name, kind in METRIC_FIELDS:
         c_val = getattr(claimed, name, None)
         a_val = getattr(computed.metrics, name)
+        if name == "premium_pay_dollars":
+            a_val += unverified
+        elif name == "objective_dollars":
+            a_val = round(a_val + unverified, 2)
         if not isinstance(c_val, (int, float)) or c_val != c_val:  # missing or NaN
             out.append(hard(C.metrics_mismatch, f"Claimed {name} is {c_val!r}; recomputed {a_val:g}."))
         elif mismatch(float(c_val), a_val, kind):
