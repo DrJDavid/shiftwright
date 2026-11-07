@@ -10,7 +10,8 @@
     "Exemptions (FAQ Q15-16): employee-initiated changes only \u2014 shift swaps, coverage arrangements between employees, employee requests to leave early or take sick/vacation days. The FAQ lists no exemption for employer-requested hours the employee voluntarily accepts (voluntary_additional_hours_exempt=false).",
     "Coverage (FAQ Q6): employers with 10+ employees in Berkeley primarily in retail (and other listed industries) with 56+ employees globally; restaurants, retail/restaurant franchisees and nonprofits need 100+ globally. Covers employees working 2+ hours/week in Berkeley; ordinance operational Jan. 12, 2024. Extra key min_local_employees.",
     "Offers of additional hours to existing part-time employees must be made and accepted in writing, with 24 h to respond (FAQ Q20).",
-    "applies_to='both': retail and restaurants are covered, but restaurants need 100+ employees globally (retail 56+); the rule's threshold is the retail one."
+    "applies_to='both': retail and restaurants are covered, but restaurants need 100+ employees globally (retail 56+); the rule's threshold is the retail one.",
+    "min_rest_between_shifts: the FAQ measures 11 h from 'the end of the previous shift' with no same-day exclusion, so excludes_same_day_split is not set (applies between every pair of shifts)."
   ],
   "rules": [
     {

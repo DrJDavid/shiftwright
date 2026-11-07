@@ -11,7 +11,8 @@
     "Consent does not waive pay: 'Predictability Pay is required when the change is initiated by the Employer, even if the Employee consents to that change In Writing' (Reg. 5). Exemptions (Reg. 5.1): employee-initiated change; employee accepts an employer-initiated change due to another scheduled employee's absence (must be told it is voluntary, may decline, and no predictability pay); accepted offers of additional hours under LAMC 185.05; discipline; force majeure; hours paid at overtime under Lab. Code 510. Employees asked to leave early voluntarily are still owed pay (FAQ 47).",
     "'In Writing' includes emails, text messages, scheduling or messaging apps (Rules, definitions). Changes made with <14 days' notice need the employee's written consent.",
     "Coverage: 300+ employees globally, principal NAICS retail trade (44-45); employees working 2+ hours a week in the City of LA.",
-    "applies_to='retail': covered employers are NAICS retail trade (44-45) only."
+    "applies_to='retail': covered employers are NAICS retail trade (44-45) only.",
+    "excludes_same_day_split=true: LA Rules (rest between shifts): 'A split shift, which refers to certain shifts that occur on the same workday is not qualified for the rest break premium under the FWWO.'"
   ],
   "rules": [
     {
@@ -69,7 +70,8 @@
         "minutes": 600,
         "premium_multiplier": 1.5,
         "waivable": true,
-        "premium_applies_to": "shift"
+        "premium_applies_to": "shift",
+        "excludes_same_day_split": true
       },
       "summary": "A shift starting less than 10 hours after a closing shift needs the employee's written consent and is paid at 1.5x.",
       "citation": {

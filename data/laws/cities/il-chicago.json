@@ -13,7 +13,8 @@
     "'Writing' or 'written' = printed or printable communication incl. email, text message or computer system (MCC 6-110-020, https://codelibrary.amlegal.com/codes/chicago/latest/chicago_il/0-0-0-2639928).",
     "Coverage (MCC 6-110-020): 'Employer' = 100+ employees globally (250+ for not-for-profits), 50 of whom are Covered Employees, primarily engaged in a Covered Industry (Retail is one); Restaurants need 30+ locations and 250+ employees globally. Covered Employee: majority of work time in Chicago, in a covered industry, and pay <= the indexed threshold ($26.00/h or $50,000/yr in the code; $33.85/h or $64,945.55/yr per chicago.gov for 2026).",
     "Tipped minimum wage: max_tip_credit_per_hour 4.09 = $17.05 \u2212 $12.96 (chicago.gov, read 2026-11-07). Chicago's One Fair Wage ordinance phases the tip credit out by July 1, 2028 (not encoded; future steps need their published amounts).",
-    "applies_to='both': Covered Industries include Retail and Restaurants (MCC 6-110-020); Restaurants also need 30+ locations and 250+ employees globally."
+    "applies_to='both': Covered Industries include Retail and Restaurants (MCC 6-110-020); Restaurants also need 30+ locations and 250+ employees globally.",
+    "excludes_same_day_split=true: MCC 6-110-070 applies to 'a shift that begins less than 10 hours after the end of the previous day's shift' (previous day only)."
   ],
   "rules": [
     {
@@ -70,7 +71,8 @@
         "minutes": 600,
         "premium_multiplier": 1.25,
         "waivable": false,
-        "premium_applies_to": "shift"
+        "premium_applies_to": "shift",
+        "excludes_same_day_split": true
       },
       "summary": "A shift that starts less than 10 hours after the previous day's shift is paid at 1.25x, and the employee may decline it.",
       "citation": {

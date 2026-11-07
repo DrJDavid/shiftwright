@@ -17,7 +17,8 @@
     "Exceptions (653.455(3)): employee-initiated swaps/coverage between employees; employee written requests; voluntary standby list acceptances (653.432); (k) employer requests extra hours for unanticipated customer needs or unexpected employee absence, employee consents in writing, standby list exhausted first if one exists, and \u2014 if the employee is not working at the time \u2014 the request is a group communication (to all eligible employees, written or oral); an employee on shift may be asked individually (extensions).",
     "ORS 653.412-.485 do not define 'in writing'; BOLI lists text message as a notice method but the consent standard was not confirmed (OAR 839-026 not fetched), so text_message_counts_as_written=false (conservative).",
     "Coverage (ORS 653.422): retail, hospitality or food-services establishments with 500+ employees worldwide (chains and integrated enterprises aggregated). ORS 653.490 preempts local scheduling laws.",
-    "applies_to='both': retail, food services and hospitality (hotels/motels) establishments (ORS 653.412); hospitality not representable in applies_to yet."
+    "applies_to='both': retail, food services and hospitality (hotels/motels) establishments (ORS 653.412); hospitality not representable in applies_to yet.",
+    "excludes_same_day_split=true: ORS 653.442(1): rest period is the first 10 hours after the end of 'the previous calendar day's work shift' or a shift spanning two calendar days."
   ],
   "rules": [
     {
@@ -165,7 +166,8 @@
       "params": {
         "minutes": 600,
         "premium_multiplier": 1.5,
-        "waivable": true
+        "waivable": true,
+        "excludes_same_day_split": true
       },
       "summary": "Covered employees may not be scheduled within 10 hours after the previous day's shift unless they request or agree; hours worked in that window are paid at 1.5x.",
       "citation": {

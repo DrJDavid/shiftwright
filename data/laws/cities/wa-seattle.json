@@ -13,7 +13,8 @@
     "Call-out repair: a one-on-one call or text to a single employee is NOT exempt (Q&A \u00a7 I.10 Example 1: 1 hour owed). The mass-communication exception does not cover open shifts or hours other than the absent employee's actual hours, and never applies to sending someone home early. Engine keys: exemption_requires_group_message, exemption_min_recipients, exemption_only_for_absent_coworker_hours, exemption_message_must_state.",
     "Employees may decline any hours not on the originally posted schedule.",
     "No tip credit: since January 1, 2025 small employers may no longer count tips toward minimum compensation (Seattle OLS minimum wage page); state law also forbids it (RCW 49.46.020(3)). No tipped_minimum_wage rule.",
-    "applies_to='both': retail and food-service establishments (full-service restaurants need 40+ locations)."
+    "applies_to='both': retail and food-service establishments (full-service restaurants need 40+ locations).",
+    "excludes_same_day_split=true: OLS Q&A (Right to Rest Q2 Example 4, Q3): two shifts within a single day 'do not qualify for Right to Rest protections'; split shifts are excluded."
   ],
   "rules": [
     {
@@ -73,7 +74,8 @@
       "params": {
         "minutes": 600,
         "premium_multiplier": 1.5,
-        "waivable": false
+        "waivable": false,
+        "excludes_same_day_split": true
       },
       "summary": "Hours worked between a closing and opening shift less than 10 hours apart are paid at 1.5x.",
       "citation": {

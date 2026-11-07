@@ -12,7 +12,8 @@
     "Call-out repair (FAQ Q12-14): asking one employee to cover or stay late requires written consent AND predictability pay; a Written Mass Communication sent to all employees qualified to fill the shift, used only for hours another employee cannot work, stating that accepting is voluntary and they may decline, is exempt. Shift trades consented by Written Communication are exempt.",
     "'Written Communication' = print or electronic means incl. email, text messages, scheduling applications (FAQ Q5).",
     "Coverage: retail, food or hospitality establishments with 250+ employees worldwide and 30+ locations worldwide (\u00a7 9-4601), counting full-time, part-time and temporary employees.",
-    "applies_to='both': retail, food service and hospitality establishments (\u00a7 9-4601); hospitality is not representable in applies_to yet."
+    "applies_to='both': retail, food service and hospitality establishments (\u00a7 9-4601); hospitality is not representable in applies_to yet.",
+    "excludes_same_day_split=true: FAQ: 'not be scheduled less than nine hours after the end of the previous day's shift'."
   ],
   "rules": [
     {
@@ -74,7 +75,8 @@
         "minutes": 540,
         "premium_multiplier": null,
         "premium_flat_dollars": 40,
-        "waivable": true
+        "waivable": true,
+        "excludes_same_day_split": true
       },
       "summary": "Employees may not be scheduled less than 9 hours after the previous day's shift unless they consent and are paid $40.",
       "citation": {

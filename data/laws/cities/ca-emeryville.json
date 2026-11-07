@@ -9,7 +9,8 @@
     "Employers must first offer extra hours to existing qualified part-timers up to 35 h/week.",
     "Right to rest: 1.5x for hours worked between shifts separated by less than 11 hours; employee may decline.",
     "Predictability pay as read from the city's official employee notice on 2026-11-06: 1 h for changes with <14 days but >=24 h notice; with <24 h notice, 4 h or the scheduled shift length (whichever is less) for cancelled/reduced shifts, other changes 1 h. Encoded with reduced_hours_measure='scheduled_shift' (cap applies to the shift's scheduled hours, not the hours cut). The notice and ordinance could not be re-fetched on 2026-11-07 (Akamai 403), so the rule is confidence=medium and exemptions are not encoded (conservative: charge).",
-    "applies_to='both' kept from the 2026-11-06 reading (retail and fast food); not re-verified (site blocked)."
+    "applies_to='both' kept from the 2026-11-06 reading (retail and fast food); not re-verified (site blocked).",
+    "min_rest_between_shifts: same-day split exclusion not verified; excludes_same_day_split not set."
   ],
   "rules": [
     {
