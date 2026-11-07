@@ -4,6 +4,27 @@
 *Goal: a judge watches David **sign up, create a workplace from scratch, set it up in chat, build the
 week, and handle call-outs** on the deployed URL, and it feels like a product, not a dev console.*
 
+## Branch and merge rules (updated 05:25, these override anything below)
+
+- **Exactly one merger: the Cursor coordinator.** It is the only agent that commits to `main`, merges, and
+  pushes. Workers (Cursor task agents **and** the Claude Code session) commit only on their own branch,
+  never on `main`, and never push.
+- Workers: branch `cursor/<task-id>` (Claude Code uses `claude/<task-id>`) cut from the **current** `main`;
+  rebase onto `main` before reporting; finish with `READY TO MERGE: <branch> <commit> — <what>`.
+- Coordinator, before each merge: trial-merge in a scratch worktree, `uv lock && uv sync && uv run pytest`
+  plus `cd apps/web && npm run build && npm run lint && npm test`; merge with `--no-ff` only when green;
+  push `main`; tell the other workers to rebase. Never force-push. Update the status board below.
+- No one edits files in the main checkout's working tree except the coordinator.
+
+## Status board (05:25)
+
+| Task | State |
+|---|---|
+| C1 fix-plan G1–G3, C2 split shifts, D1 minor hazard rules, E1 food exports | **merged** |
+| Plain-language role priorities, chat setup fixes (Claude Code) | **merged** (`7304274`, `80e21fc`) |
+| A1 auth, A3 generated businesses, B1 web shell, E2 rescore, E4 dataset builder | on branches, need rebase onto `main` + review |
+| A2, B2–B7, C3, E3 | not started |
+
 ## How to run these with Cursor
 
 - **One task per agent, one branch per task:** `cursor/<task-id>` (e.g. `cursor/A1-auth`), cut from `main`.
@@ -126,6 +147,16 @@ checked, "+ New workplace", "Sign out"). Samples appear only under "Explore a sa
 - One **Build my schedule** button, enabled when ready (or "Build anyway" with a one-line warning).
 - After the first build → **workspace mode** (B5). The chat collapses to a side drawer ("Ask Shiftwright").
 
+**Bugs found in QA (04:45), fold into B1/B2/B4:**
+- **The first-visit store is the big-box template** (`VITE_STORE_TEMPLATE` defaults to `bigbox_mid` in
+  `App.tsx`), so "Set up my store" for a coffee shop starts with 14 retail roles nobody is trained for and
+  8am–10pm hours. Every new workplace must start from template `empty` (B1 removes the auto-create; B2
+  creates `empty` with the form's basics).
+- **Build works on an empty store and shows "Coverage 100% · 0 hard violations ✓" for 0 shifts.** True but
+  misleading. In B4: the Build button stays disabled until people, training and staffing exist (readiness
+  `employees`, `training`, `demand`), with one plain line saying what's missing. Anywhere coverage is shown
+  with no demand, show "—", not 100%.
+
 ### B5. Workspace mode: fewer, clearer tabs (M)
 - Tabs: **Schedule** (grid + stats; coverage heatmap as a toggle inside it) · **Call-outs** (current Fix tab)
   · **Team & rules** (Store + Rulebook merged) · **Compliance** (receipt).
@@ -182,6 +213,35 @@ correct). Rest-between-shifts (~lines 264–266) assumes one shift per day: hand
 day per SEMANTICS #23, rest across days from last end to next first start). Infeasibility proofs must hold
 under the max. **Done when:** S legal_trap CA solves feasible with 0 hard violations (WS4 set
 `max_shifts_per_day=2` there), the validator's `audit_engine.py` passes on it, all engine tests green.
+
+### C3. Coverage first, then cost (M–L, after C2) — **deadline 10:00**, else keep current behavior for the demo
+David's call: money must never decide whether an hour gets covered. Today the objective trades each
+uncovered hour's `gap_penalty_per_hour` against wages, so a cheap enough gap is "worth leaving". Make it
+**lexicographic**:
+1. Maximize covered demand (person-minutes), **tier by tier**: roles ordered by `gap_penalty_per_hour`,
+   highest tier first. The penalty becomes a *rank*, not a price: a higher tier's coverage is never traded
+   for a lower tier's or for money.
+2. Only among schedules that tie on coverage at every tier, minimize cost (wages + OT + law premiums + soft
+   penalties).
+- Hard rules unchanged: budget hours/dollar caps, overtime off, laws, training, availability. With the cap
+  binding, Must-cover demand is filled first and the rest of the gaps are reported with real reasons.
+- `cheaper_to_leave_gap` must no longer appear for a gap that someone legal, available, trained and within
+  budget could fill.
+- Reported metrics keep today's formulas (`objective_dollars`, `gap_penalty_dollars`) so the validator's
+  recompute still matches; only the optimization order changes.
+- Implementation is yours (sequential solves per tier with coverage locked, or tier weights that strictly
+  dominate total cost; the existing two-phase solve and day LNS are the natural places). Performance bar
+  unchanged: demo store ≤ 30 s, fixer ≤ 10 s.
+**Contract (David approved via this list):** add SEMANTICS #25 ("objective is lexicographic: coverage by
+priority tier, then cost; `gap_penalty_per_hour` orders tiers; metrics formulas unchanged") and a docstring
+note on `Role.gap_penalty_per_hour`. No schema change.
+**API follow-up (C3b, `apps/api` only, after C3 lands):** in `priorities.py`, map levels to fixed tier values
+(`must_cover` 300, `important` 200, `nice_to_have` 100) instead of wage multiples, and drop the readiness
+"priority below pay" sub-check (any positive priority now gets covered when possible).
+**Evals follow-up (C3c, `packages/evals`):** compare wage cost (not objective) between systems; rescore for free.
+**Done when:** all four city demo stores + Harbor Grill solve with 0 hard violations, coverage ≥ today's on
+each, within budget, ≤ 30 s; validator `audit_engine.py` agrees; engine, validator and API suites green;
+`real-quick-3` rescore (no spend) in `packages/evals/STATUS.md`.
 
 ---
 
@@ -251,6 +311,6 @@ Contract v1.6 custom rules (`briefs/CONTRACT-v1.6.md`) · live Twilio · pattern
 | When | Lane A | Lane B | Lane C | Lane D | Lane E |
 |---|---|---|---|---|---|
 | now–06:00 | A1 | B1, B2 (against the table above) | C1 | D1 | E1 |
-| 06:00–09:00 | A2, A3 | B3, B4, B7 (wired to A1/A3) | C2 | — | E4, E2 |
+| 06:00–09:00 | A2, A3, C3b | B3, B4, B7 (wired to A1/A3) | C3 (deadline 10:00) | — | E4, E2, C3c |
 | 09:00–11:00 | fixes | B5, B6 | fixes | — | E3 (if approved) |
 | 11:00–13:00 | **rehearse on deploy, fix only what breaks the demo** | | | | |

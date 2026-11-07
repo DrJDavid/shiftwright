@@ -7,9 +7,10 @@ The called-out shifts are removed from `now` on. Levers:
   - call_in: a new shift for someone not working today, starting at or after `now`
     (wage + CALL_IN_DISRUPTION_DOLLARS + any predictive-scheduling premium; preferences not charged);
   - drop_coverage: leave the gap (its penalty).
-Two models are solved on the week (other days fixed): N without call-ins (`schedule_if_none_accept`,
-and the immediate `actions`) and A with every allowed lever (`schedule_if_all_accept`; its call-ins
-head the `outreach_queue`). Alternates are the next best call-ins against N's remaining gaps.
+Two models are solved on the week (other days fixed): A with every allowed lever
+(`schedule_if_all_accept`; its call-ins head the `outreach_queue`), then N without call-ins but with
+exactly A's extensions (`schedule_if_none_accept` and the immediate `actions`, SEMANTICS #24).
+Alternates are the next best call-ins against N's remaining gaps.
 Ranking (SEMANTICS #16): gap hours the shift can cover per added dollar × est_accept_prob.
 """
 from __future__ import annotations
@@ -101,10 +102,13 @@ class _Fix:
         self.base: list[Shift] = []
         self.reported_at = {c.employee_id: c.reported_at for c in req.callouts if c.day == self.d}
         self.callout_notes: list[tuple[Shift, Optional[Shift], str]] = []
-        self.absent_spans: list[tuple[int, int]] = []  # called-out coworkers' lost time today (day minutes)
+        # Called-out coworkers' scheduled time today from when they called out (day minutes).
+        self.absent_spans: list[tuple[int, int]] = [
+            (max(sh.start, self.reported_at[sh.employee_id]), sh.end) for sh in req.schedule.shifts
+            if sh.employee_id in self.callout_ids and sh.day == self.d
+            and sh.end > max(sh.start, self.reported_at[sh.employee_id])]
         for sh in req.schedule.shifts:
             if sh.employee_id in self.callout_ids and sh.day == self.d and sh.end > self.now:
-                self.absent_spans.append((max(sh.start, self.now), sh.end))
                 lo, _ = p.shift_bounds(sh.employee_id)
                 when = min(self.now, self.reported_at.get(sh.employee_id, self.now))
                 cut = _round_down(when, self.slot)  # never past the call-out (they left)
@@ -130,10 +134,15 @@ class _Fix:
                         f"{sh.start // 60:02d}:{sh.start % 60:02d}–{sh.end // 60:02d}:{sh.end % 60:02d} shift is removed.")))
                 continue
             self.base.append(sh)
-        self.orig = {(s.employee_id, s.day): s for s in self.base}
+        self.orig_by_id = {s.id: s for s in self.base}
+        per_day: dict[tuple[str, int], int] = {}
+        for s in self.base:
+            per_day[(s.employee_id, s.day)] = per_day.get((s.employee_id, s.day), 0) + 1
+        # (employee, day) -> their only shift that day; split days (#23) are kept as they are.
+        self.orig = {(s.employee_id, s.day): s for s in self.base if per_day[(s.employee_id, s.day)] == 1}
 
         # Candidates: one frozen candidate per base shift, plus extensions and call-ins on the day.
-        self.frozen_idx: dict[tuple[str, int], int] = {}
+        self.frozen: dict[int, Shift] = {}  # frozen candidate idx -> the posted shift
         self.fixed_roles: dict[tuple[str, int], str] = {}
         self.ext: set[int] = set()
         self.callin: set[int] = set()
@@ -144,12 +153,13 @@ class _Fix:
             c = self._add(make_cand(p, e, sh.day, sh.start, sh.end, list(sh.breaks), [], 10 ** 9, None,
                                     charge_preferences=True, strict=False))
             c.pref_units = 0  # existing shift: preference already accepted when it was scheduled
-            self.frozen_idx[(sh.employee_id, sh.day)] = c.idx
+            self.frozen[c.idx] = sh
             roles = _roles_of(sh, self.slot)
             for a, r in roles.items():
                 if sh.day != self.d or a < self.d * DAY + self.now or Lever.reassign not in self.levers:
                     self.fixed_roles[(sh.employee_id, a)] = r
-            if sh.day == self.d and Lever.extend in self.levers and sh.end > self.now:
+            if (sh.day == self.d and Lever.extend in self.levers and sh.end > self.now
+                    and (sh.employee_id, sh.day) in self.orig):
                 self._extensions(e, sh)
             if sh.employee_id not in p.allowed_roles or not set(sh_roles(sh)) <= set(p.allowed_roles[sh.employee_id]):
                 # Keep their roles exactly as given (we can't re-derive a role they may not normally work).
@@ -162,7 +172,7 @@ class _Fix:
                         or not p.allowed_roles.get(e.id)):
                     continue
                 self._callins(e)
-        self.forced_days = set(self.frozen_idx)
+        self.forced_days = {(sh.employee_id, sh.day) for sh in self.frozen.values()}
 
     # ------------------------------------------------------------------ candidates
     def _add(self, c: Cand) -> Cand:
@@ -210,7 +220,7 @@ class _Fix:
                         continue
                     c = make_cand(p, e, sh.day, st, en, brks, avail, week_cap, day_cap, charge_preferences=False)
                     if c is not None:
-                        c.extra_units = money(extension_premium(p, e, max(0, c.paid_min - paid_minutes(sh))).dollars)
+                        c.extra_units = money(self.ext_premium(e, sh, st, en).dollars)
                         self.ext.add(self._add(c).idx)
 
     def _callins(self, e) -> None:
@@ -242,28 +252,32 @@ class _Fix:
                     self.callin.add(self._add(c).idx)
 
     def premium(self, c: Cand, mode: str, n_recipients: int) -> Premium:
-        return call_in_premium(self.p, self.p.emps[c.emp], c.start, c.end, c.paid_min, mode,
-                               self.absent_spans, n_recipients)
+        return call_in_premium(self.p, self.p.emps[c.emp], c.start, c.end, mode, self.absent_spans, n_recipients)
+
+    def ext_premium(self, e, orig: Shift, start: int, end: int) -> Premium:
+        added = ([(start, orig.start)] if start < orig.start else []) + ([(orig.end, end)] if end > orig.end else [])
+        return extension_premium(self.p, e, added, self.absent_spans)
 
     # ------------------------------------------------------------------ solving
     def _solve(self, allow: set[int], forced: set[int], time_limit_s: float, churn: bool = True):
         p = self.p
-        frozen = set(self.frozen_idx.values())
+        frozen = set(self.frozen)
         ok = frozen | allow
         hours_floor = sum(p.cands[i].paid_min for i in frozen)
-        forced_days = {k for k, i in self.frozen_idx.items()}
-        b = Builder(p, cand_ok=lambda c: c.idx in ok, churn=churn, forced=(frozen - self._replaceable()) | forced,
+        b = Builder(p, cand_ok=lambda c: c.idx in ok, churn=churn,
+                    forced=(frozen - self._replaceable(allow)) | forced,
                     fixed_roles=self.fixed_roles, elastic_always=ELASTIC_ALWAYS_DOLLARS_PER_HOUR,
-                    min_hours_cap_minutes=hours_floor, forced_days=forced_days).build()
+                    min_hours_cap_minutes=hours_floor, forced_days=self.forced_days,
+                    one_shift_days={(p.cands[i].emp, p.cands[i].day) for i in self.callin}).build()
         s, st = solve(b, time_limit_s)
         if st not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             return None
         return b, s, st
 
-    def _replaceable(self) -> set[int]:
-        """Frozen candidates an extension may replace (same employee, the fix day)."""
-        emps = {self.p.cands[i].emp for i in self.ext}
-        return {i for (eid, day), i in self.frozen_idx.items() if day == self.d and eid in emps}
+    def _replaceable(self, allow: set[int]) -> set[int]:
+        """Frozen candidates an allowed extension may replace (same employee, the fix day)."""
+        emps = {self.p.cands[i].emp for i in self.ext & allow}
+        return {i for i, sh in self.frozen.items() if sh.day == self.d and sh.employee_id in emps}
 
     def _shifts(self, b, s) -> list[Shift]:
         p = self.p
@@ -272,8 +286,8 @@ class _Fix:
             v = b.y.get(c.idx)
             if v is None or not s.boolean_value(v):
                 continue
-            orig = self.orig.get((c.emp, c.day))
-            if c.idx in self.frozen_idx.values() and (c.day != self.d or Lever.reassign not in self.levers):
+            orig = self.frozen.get(c.idx) or self.orig.get((c.emp, c.day))
+            if c.idx in self.frozen and (c.day != self.d or Lever.reassign not in self.levers):
                 out.append(orig)
                 continue
             roles_at = {}
@@ -298,7 +312,7 @@ class _Fix:
         out = {}
         who = ", ".join(sorted(self.callout_ids)) or "nobody"
         for sh in shifts:
-            o = self.orig.get((sh.employee_id, sh.day))
+            o = self.orig_by_id.get(sh.id)
             if sh.day != self.d:
                 continue
             if o is None:
@@ -327,10 +341,9 @@ class _Fix:
     def extension_premiums(self, shifts: list[Shift]) -> dict[str, Premium]:
         out = {}
         for sh in shifts:
-            o = self.orig.get((sh.employee_id, sh.day))
+            o = self.orig_by_id.get(sh.id)
             if sh.day == self.d and o is not None and (o.start, o.end) != (sh.start, sh.end):
-                out[sh.employee_id] = extension_premium(self.p, self.p.emps[sh.employee_id],
-                                                        max(0, paid_minutes(sh) - paid_minutes(o)))
+                out[sh.employee_id] = self.ext_premium(self.p.emps[sh.employee_id], o, sh.start, sh.end)
         return out
 
     # ------------------------------------------------------------------ outreach
@@ -442,7 +455,7 @@ def _actions(fx: _Fix, none_shifts: list[Shift], none_sched: Schedule,
     for sh in none_shifts:
         if sh.day != d:
             continue
-        orig = fx.orig.get((sh.employee_id, d))
+        orig = fx.orig_by_id.get(sh.id)
         if orig is None:
             continue
         e = p.emps[sh.employee_id]
@@ -504,10 +517,20 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
     t0 = time.perf_counter()
     fx = _Fix(req)
     base_sched = fx._schedule(list(fx.base))
-    per = max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.4)
 
-    # N: no call-ins.
-    rN = fx._solve(fx.ext, set(), per)
+    # A: every allowed lever, extensions and call-ins chosen together.
+    picked: list[int] = []
+    rA, a_ext = None, None
+    if Lever.call_in in fx.levers and fx.callin:
+        rA = fx._solve(fx.ext | fx.callin, set(), max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.5))
+        if rA is not None:
+            picked = [i for i in fx.callin if rA[1].boolean_value(rA[0].y[i])]
+            a_ext = {i for i in fx.ext if rA[1].boolean_value(rA[0].y[i])}
+
+    # N: no call-ins. A's extensions are the immediate actions, so N keeps exactly those
+    # (SEMANTICS #24: actions are in both schedules; A differs from N only by call-ins).
+    per = max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.6)
+    rN = fx._solve(fx.ext, set(), per) if a_ext is None else fx._solve(a_ext, a_ext, per)
     if rN is None:
         none_shifts, none_sched = list(fx.base), base_sched
         ext_N = {}
@@ -517,15 +540,7 @@ def fix_day(req: FixRequest, time_limit_s: float = 8) -> FixPlan:
         none_sched = fx._schedule(none_shifts, rN[0], rN[1], "optimal" if rN[2] == cp_model.OPTIMAL else "feasible",
                                   premium_pay=sum(x.dollars for x in ext_N.values()))
 
-    # A: every allowed lever.
-    picked: list[int] = []
-    all_shifts, rA = none_shifts, None
-    if Lever.call_in in fx.levers and fx.callin:
-        rA = fx._solve(fx.ext | fx.callin, set(), max(1.0, (time_limit_s - (time.perf_counter() - t0)) * 0.7))
-        if rA is not None:
-            picked = [i for i in fx.callin if rA[1].boolean_value(rA[0].y[i])]
-            if picked:
-                all_shifts = fx._shifts(rA[0], rA[1])
+    all_shifts = fx._shifts(rA[0], rA[1]) if picked else none_shifts
 
     # Outreach pool: A's call-ins, then up to MAX_ALTERNATES alternates against N's remaining gaps.
     pool = []  # (cand, shift, open hours)

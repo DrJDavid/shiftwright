@@ -14,7 +14,7 @@ _PHRASE = {
     GapReasonCode.minor_rule: "is blocked by a minor-labor rule",
     GapReasonCode.rest_rule: "would break a rest-between-shifts rule",
     GapReasonCode.already_assigned: "is working a higher-priority role then",
-    GapReasonCode.cheaper_to_leave_gap: "would cost more than leaving the gap",
+    GapReasonCode.cheaper_to_leave_gap: "would cost more than this hour is worth at the role's priority",
 }
 
 
@@ -36,11 +36,17 @@ def money(x: float) -> str:
     return f"${x:,.0f}" if abs(x - round(x)) < 0.005 else f"${x:,.2f}"
 
 
-def phrase_gap(config: StoreConfig, gap: Gap, reasons: list[GapReason]) -> str:
+def phrase_gap(config: StoreConfig, gap: Gap, reasons: list[GapReason], levels: dict | None = None) -> str:
+    """`levels`: role_id -> priority level (see priorities.py). A leveled role is described by its level, not by
+    the internal gap penalty in dollars."""
+    from .priorities import label
+
     roles = {r.id: r.name for r in config.roles}
     names = {e.id: e.name for e in config.employees}
+    lvl = label((levels or {}).get(gap.role_id))
+    cost = f"priority: {lvl}" if lvl else money(gap.penalty_dollars)
     head = (f"{roles.get(gap.role_id, gap.role_id)} {DAYS[gap.day]} {clock(gap.start)}–{clock(gap.end)} "
-            f"uncovered ({gap.missing_headcount} short, {money(gap.penalty_dollars)})")
+            f"uncovered ({gap.missing_headcount} short, {cost})")
     if not reasons:
         return head + ". The engine gave no per-person reasons."
     parts = []

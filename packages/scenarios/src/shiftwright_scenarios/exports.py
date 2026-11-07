@@ -10,7 +10,8 @@ history.csv       Week Ending, Date, TM_ID, Job Code, In, Out
 Mapping notes (for the importer):
   TM_ID = "7" + 5-digit employee number (e007 -> 700007). Dept/Job Code tables are DEPT_CODES /
   JOB_CODES below. Job Status FT/PT/SEAS. Wage Rate "$16.25". Dates MM/DD/YYYY. DOB gives the
-  employee's age on week_start. Avail values: "ALL", "NOT AVAIL", or "HHMM-HHMM" windows
+  employee's age on week_start. Driver is FREIGHT (truck/delivery event), EVENT (any other event),
+  ONLINE (order_picker/drive_up) or SALES. Avail values: "ALL", "NOT AVAIL", or "HHMM-HHMM" windows
   joined by ";". Forecast/History times are 12-hour clock ("4:00 AM").
 """
 from __future__ import annotations
@@ -20,7 +21,7 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-from shiftwright_contracts.models import AvailabilityKind, Employee, StoreConfig
+from shiftwright_contracts.models import AvailabilityKind, Employee, EventKind, StoreConfig
 
 from .catalog import DAY_NAMES
 from .models import Scenario
@@ -33,6 +34,9 @@ DEPT_CODES = {
     "asset_protection": "ASSET PROT",
     "receiving": "INBOUND",
     "leadership": "LEADERSHIP",
+    "front_of_house": "FOH",
+    "back_of_house": "BOH",
+    "management": "MGMT",
 }
 JOB_CODES = {
     "leader_on_duty": "LOD",
@@ -49,6 +53,13 @@ JOB_CODES = {
     "truck_unload": "INBD",
     "backroom": "BKRM",
     "pit_operator": "PIT",
+    "manager_on_duty": "MOD",
+    "server": "SRVR",
+    "bartender": "BAR",
+    "host": "HOST",
+    "line_cook": "LINE",
+    "prep_cook": "PREP",
+    "dishwasher": "DISH",
 }
 STATUS_CODES = {"full_time": "FT", "part_time": "PT", "seasonal": "SEAS"}
 
@@ -110,6 +121,12 @@ def write_exports(sc: Scenario, out_dir: Path) -> None:
     ws = cfg.store.week_start
     role_dept = {r.id: r.department_id for r in cfg.roles}
     role_name = {r.id: r.name for r in cfg.roles}
+    event_kind = {ev.id: ev.kind for ev in cfg.events}
+
+    def driver(d) -> str:
+        if d.event_id:
+            return "FREIGHT" if event_kind.get(d.event_id) in (EventKind.truck, EventKind.delivery) else "EVENT"
+        return "ONLINE" if d.role_id in ("order_picker", "drive_up") else "SALES"
 
     _write(out_dir / "roster.csv",
            ["TM_ID", "Full Name", "Dept", "Job Status", "Wage Rate", "Hire Date", "DOB", "Min Hrs", "Max Hrs", "Phone"],
@@ -130,8 +147,7 @@ def write_exports(sc: Scenario, out_dir: Path) -> None:
 
     _write(out_dir / "forecast.csv", ["Date", "Dept", "Job Code", "Start Time", "End Time", "Req HC", "Driver"],
            [[_d(ws + timedelta(days=d.day)), DEPT_CODES[role_dept[d.role_id]], JOB_CODES[d.role_id],
-             _t12(d.start), _t12(d.end), d.headcount,
-             "FREIGHT" if d.event_id else "ONLINE" if d.role_id in ("order_picker", "drive_up") else "SALES"]
+             _t12(d.start), _t12(d.end), d.headcount, driver(d)]
             for d in sorted(cfg.demand, key=lambda d: (d.day, d.start, d.role_id))])
 
     rows = []

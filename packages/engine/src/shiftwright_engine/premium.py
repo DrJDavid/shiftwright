@@ -43,34 +43,39 @@ def _rules(p: Prep, e: Employee):
     return out
 
 
+def _cents(x: float) -> float:
+    return int(x * 100 + 0.5 + 1e-9) / 100
+
+
 def _added_hours_premium(r, e: Employee, added_min: int) -> tuple[float, Optional[str]]:
-    """Premium dollars for adding `added_min` minutes with < 24 h notice; (0, note) if a param is missing."""
+    """Premium dollars for adding `added_min` clock minutes with < 24 h notice; (0, note) if a param
+    is missing. Only changes strictly shorter than `grace_minutes` are free."""
     pr = r.params
     if pr.get("premium_basis") == "none":
         return 0.0, f"No predictability pay under {r.id} (it requires consent instead of a premium)."
     grace = pr.get("grace_minutes")
     if grace is not None and added_min < int(grace):
         return 0.0, f"No predictability pay under {r.id}: change under {int(grace)} min."
+    tiers = pr.get("under_24h_tiers")
+    if tiers:
+        hours = next((float(t["premium_hours"]) for t in tiers
+                      if t.get("max_changed_hours") is None or added_min / 60 <= float(t["max_changed_hours"])), None)
+        if hours is None:
+            return 0.0, f"Premium not computed: {r.id} lacks a matching under_24h_tiers entry."
+    else:
+        hours = pr.get("change_premium_hours_under_24h")
+        if hours is None:
+            hours = pr.get("change_premium_hours")
+        if hours is None:
+            return 0.0, f"Premium not computed: {r.id} lacks change_premium_hours."
+        hours = float(hours)
+        if pr.get("prorate_added_under_1h"):
+            hours = min(hours, added_min / 60)
+        if pr.get("change_premium_hours_max") is not None:
+            hours = min(hours, float(pr["change_premium_hours_max"]))
     if pr.get("premium_flat_dollars") is not None:
         return float(pr["premium_flat_dollars"]), None
-    tiers = pr.get("under_24h_tiers")
-    hours = None
-    if tiers:
-        for t in tiers:
-            mx = t.get("max_changed_hours")
-            if mx is None or added_min / 60 <= float(mx):
-                hours = float(t["premium_hours"])
-                break
-    if hours is None:
-        hours = pr.get("change_premium_hours_under_24h", pr.get("change_premium_hours"))
-    if hours is None:
-        return 0.0, f"Premium not computed: {r.id} lacks change_premium_hours."
-    hours = float(hours)
-    if pr.get("prorate_added_under_1h"):
-        hours = min(hours, added_min / 60)
-    if pr.get("change_premium_hours_max") is not None:
-        hours = min(hours, float(pr["change_premium_hours_max"]))
-    return round(hours * e.wage_per_hour, 2), None
+    return _cents(hours * e.wage_per_hour), None
 
 
 def _overlap(a0: int, a1: int, spans: list[tuple[int, int]]) -> int:
@@ -85,19 +90,37 @@ def _overlap(a0: int, a1: int, spans: list[tuple[int, int]]) -> int:
     return tot
 
 
-def call_in_premium(p: Prep, e: Employee, start: int, end: int, added_min: int, mode: str,
+def _most_expensive(per_rule: list[Premium]) -> Premium:
+    """Several rules: the most expensive one counts (the first on a tie)."""
+    best = None
+    for x in per_rule:
+        x.dollars = round(x.dollars, 2)
+        if best is None or x.dollars > best.dollars:
+            best = x
+    return best or Premium()
+
+
+def _applies_to_extensions(pr: dict, key: str) -> bool:
+    scope = pr.get(key)
+    return scope is None or "extension" in scope
+
+
+def call_in_premium(p: Prep, e: Employee, start: int, end: int, mode: str,
                     absent_spans: list[tuple[int, int]], n_recipients: int) -> Premium:
     """A new shift [start, end) offered by text in `mode`; absent_spans = the called-out coworkers' lost
-    time that day (for `exemption_only_for_absent_coworker_hours`)."""
-    out = Premium()
+    time that day (for `exemption_only_for_absent_coworker_hours`). Changes are measured in clock
+    minutes (breaks included), like the ordinances' "hours added"."""
+    per_rule = []
+    added_min = end - start
+    covering = _overlap(start, end, absent_spans)
     for r in _rules(p, e):
         pr = r.params
-        out.law_rule_ids.append(r.id)
-        charged = added_min
-        why_exempt = None
+        out = Premium(law_rule_ids=[r.id])
+        per_rule.append(out)
+        exempt, why_exempt = 0, None
         if pr.get("coworker_absence_exempt"):
-            why_exempt = "covering an absent coworker"
-        elif pr.get("voluntary_additional_hours_exempt"):
+            exempt, why_exempt = covering, "covering an absent coworker"
+        if pr.get("voluntary_additional_hours_exempt"):
             written_ok = (not pr.get("consent_must_be_written")) or pr.get("text_message_counts_as_written") is True
             group_needed = bool(pr.get("exemption_requires_group_message"))
             min_rec = int(pr.get("exemption_min_recipients") or 2)
@@ -113,11 +136,8 @@ def call_in_premium(p: Prep, e: Employee, start: int, end: int, added_min: int, 
                               (" via a group message" if group_needed else ""))
                 must = pr.get("exemption_message_must_state") or ["accepting the hours is voluntary"]
                 why_exempt += "; the message must state: " + "; ".join(must)
-        if why_exempt is not None:
-            if pr.get("exemption_only_for_absent_coworker_hours"):
-                charged = max(0, added_min - _overlap(start, end, absent_spans))
-            else:
-                charged = 0
+                exempt = covering if pr.get("exemption_only_for_absent_coworker_hours") else added_min
+        charged = max(0, added_min - exempt)
         if charged <= 0:
             out.notes.append(f"No predictability pay: {why_exempt}, exempt under {r.id}.")
             continue
@@ -128,20 +148,32 @@ def call_in_premium(p: Prep, e: Employee, start: int, end: int, added_min: int, 
             part = "" if charged == added_min else f" for the {charged / 60:g} h not covering an absent coworker"
             out.notes.append(f"{r.id}: +${dollars:,.2f} predictability pay (hours added with under 24 h notice{part}).")
         out.dollars += dollars
-    out.dollars = round(out.dollars, 2)
-    return out
+    return _most_expensive(per_rule)
 
 
-def extension_premium(p: Prep, e: Employee, added_min: int) -> Premium:
-    """An extension decided by the leader (no written consent): always premium-bearing."""
-    out = Premium()
+def extension_premium(p: Prep, e: Employee, added_spans: list[tuple[int, int]],
+                      absent_spans: list[tuple[int, int]] = ()) -> Premium:
+    """An extension decided by the leader (no written consent), adding the clock spans `added_spans`.
+    Premium-bearing unless a `coworker_absence_exempt` rule covers extensions and the added time
+    covers a called-out coworker's hours."""
+    per_rule = []
+    added_min = sum(b - a for a, b in added_spans)
+    covering = sum(_overlap(a, b, list(absent_spans)) for a, b in added_spans)
     for r in _rules(p, e):
-        out.law_rule_ids.append(r.id)
-        dollars, note = _added_hours_premium(r, e, added_min)
+        pr = r.params
+        out = Premium(law_rule_ids=[r.id])
+        per_rule.append(out)
+        charged = added_min
+        if pr.get("coworker_absence_exempt") and _applies_to_extensions(pr, "coworker_absence_exempt_applies_to"):
+            charged -= covering
+        if charged <= 0:
+            out.notes.append(f"No predictability pay: covering an absent coworker, exempt under {r.id}.")
+            continue
+        dollars, note = _added_hours_premium(r, e, charged)
         if note:
             out.notes.append(note)
         elif dollars > 0:
-            out.notes.append(f"{r.id}: +${dollars:,.2f} predictability pay (shift extended with under 24 h notice).")
+            part = "" if charged == added_min else f" for the {charged / 60:g} h not covering an absent coworker"
+            out.notes.append(f"{r.id}: +${dollars:,.2f} predictability pay (shift extended with under 24 h notice{part}).")
         out.dollars += dollars
-    out.dollars = round(out.dollars, 2)
-    return out
+    return _most_expensive(per_rule)

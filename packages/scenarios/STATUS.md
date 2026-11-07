@@ -121,6 +121,13 @@
 - CSV exports: `fixtures/exports/{roster,training,availability,forecast,history}.csv`, corporate style
   (`TM_ID`, `Dept`, `Wage Rate`, `Avail Mon`, DOB instead of age, job codes, 12-hour times). The mapping
   tables and format notes are in the `shiftwright_scenarios.exports` docstring.
+  - *(E1, Nov 7.)* Food scenarios export too. `DEPT_CODES`/`JOB_CODES` were retail-only, so the food store
+    raised `KeyError: 'management'`; added FOH/BOH/MGMT and MOD/SRVR/BAR/HOST/LINE/PREP/DISH. Forecast
+    `Driver` now comes from the event kind: FREIGHT (truck/delivery), EVENT (other events, e.g. the
+    restaurant's private dinner), else ONLINE/SALES; retail output is byte-identical. Only `retail` and
+    `food` sectors exist. `tests/test_exports.py` round-trips both sectors × S/M/L × every difficulty,
+    the demo restaurant, and checks codes are unique (evals reverse-maps `JOB_CODES`). The realistic eval
+    should no longer skip food cases.
 
 **In progress:** nothing. Open follow-up below.
 

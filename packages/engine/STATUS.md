@@ -164,12 +164,58 @@ metrics by `shift_rate`); sector applicability #19 (`prep.sector_applies`, laws 
 `minor_prohibited_roles.age_min` #21 (Chicago under-21 alcohol_service honored). Restaurant demo:
 93.3% at 24 s, no metrics_mismatch, no under-21 bartender, e008 (15) only server. Tests `tests/test_v15.py`.
 
+**C1 fix-plan correctness G1–G4 (done, PUNCHLIST Lane C):**
+- G1 / SEMANTICS #24: model A (all levers, `schedule_if_all_accept`) is solved **first**; its
+  extensions are the immediate actions, and N (`schedule_if_none_accept`) is solved with exactly
+  those extensions forced and no call-ins. So every `extend` action is in both schedules and A
+  differs from N only by call-ins (all in the queue). (Solving N first and forcing its extensions in
+  A left no call-in worth adding on the Austin demo: the API's outreach came back "exhausted".)
+  Roles may still be re-optimized in A once a call-in arrives (validate_fix checks hours, not roles).
+- G2 / G3: premiums are measured in **clock minutes** (shift span, breaks included), like the
+  validator and the ordinances' "hours added"; before, paid minutes (unpaid meal removed) made a
+  30-min extension look like 0–20 min (under grace) and an 11:00–18:30 call-in look fully inside the
+  absence. Grace: only changes strictly shorter than `grace_minutes` are free (unchanged rule, now on
+  the right minutes). The absent coworkers' time runs from each call-out's `reported_at` (validator).
+- G4 (SF): `coworker_absence_exempt` also exempts the part of an **extension** covering an absent
+  coworker, when `coworker_absence_exempt_applies_to` (law data) is absent or lists `extension`.
+- Several predictive-scheduling rules: the most expensive one counts (validator rule); tier hours
+  are not pro-rated/capped; `premium_flat_dollars` replaces hours × wage. Cents round half up.
+- `premium.call_in_premium(p, e, start, end, mode, absent_spans, n)` /
+  `extension_premium(p, e, added_spans, absent_spans)` (signatures changed; engine-internal).
+- `audit_fix.py --all-fww`: 0 disagreements apart from the expected below_minimum_wage (was 14 plans
+  with disagreements). Tests: `test_premium.py` (grace, clock minutes, SF extension), `test_fix.py::
+  test_fww_plan_actions_in_both_schedules_and_priced` (Seattle/Oregon × modes, validate_fix clean).
+
+**C2 split shifts (done, SEMANTICS #23, `Store.max_shifts_per_day` = N):**
+- N = 1 (default): the model is exactly as before (`sum(y) == works`).
+- N > 1 (`model.py`): `works[e,d] ≤ Σy ≤ N·works[e,d]` (works stays boolean, so max-days /
+  consecutive-days count a day once). The on-shift running sum is boolean, so an employee's shifts
+  never overlap; plus `starts(a) + on(a−slot) ≤ 1`, i.e. **at least one slot between two shifts**
+  (engine policy: back-to-back shifts would be one long shift without its breaks).
+- Rest: store `min_rest_between_shifts` only across days, from the day's last end to the next day's
+  first start (`model.day_bounds`: int vars bounded by each chosen candidate). Law
+  `min_rest_between_shifts` also within a day unless `excludes_same_day_split` (window over shift
+  ends before each start).
+- Per-day sums over a split day: minor daily cap; daily OT cap when overtime isn't allowed (guarded
+  by the daily_overtime law id for conflict cores); otherwise daily OT/double time beyond what each
+  shift already prices (`day_ot_terms`), also removed from weekly OT. Metrics: `ot_breakdown` sums
+  paid minutes per (employee, start day) before daily OT; preferences sum overlaps of all shifts.
+- Ids: a split day's later shifts get `sh-<emp>-d<day>-2` (`output.unique_ids`).
+- Proof (`bounds.always_staffed_conflict`): per-day minimum shifts may use two shifts by one
+  person, and the week needs Σ ceil(shifts_d / N) person-days ≤ available days. S legal_trap CA:
+  infeasible at N = 1 (as before), no proof at N = 2.
+- Seed (`solve._seed_always_staffed`) supports split days; above 20k candidates it uses the hourly
+  grid when N > 1 (full grid took > 12 s to a first solution on S legal_trap CA, hourly ~4 s).
+- Greedy still builds one shift per day (a hint only; CP-SAT/LNS add the second shifts).
+- fix_day: frozen shifts keyed by candidate/shift id, so both shifts of a split day are kept;
+  employees with two shifts on the fix day get no extensions (roles may still be reassigned);
+  a call-in is one shift (`Builder(one_shift_days=…)`).
+- S legal_trap CA (30 s, seed 1): feasible, 0 hard, ~88.6% coverage, $16.4k, 15 split days
+  (Grok's validated schedule: 90.7%, $15.7k). Tests: `tests/test_split.py`.
+
 **Next steps (in order):**
-1. WS2 validate_fix findings: G1 (changes only in schedule_if_all_accept without action/candidate:
-   Seattle e011, e058), G2 grace = only changes SHORTER than grace_minutes are free, G3 Seattle group
-   offer exempts only the absent coworker's hours; SEMANTICS #24 (actions apply to both schedules).
-2. Split shifts (SEMANTICS #23, `Store.max_shifts_per_day`); proofs valid under that max.
-3. Re-fix candidates priced for the plan's mode (WS6 note).
+1. Re-fix candidates priced for the plan's mode (WS6 note).
+2. Split days in greedy (would give LNS a better start on split-shift stores).
 
 **Blocked on:** nothing. Rebased onto main 3720fea+ (contracts v1.5).
 

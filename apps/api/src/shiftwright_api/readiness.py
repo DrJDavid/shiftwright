@@ -53,11 +53,19 @@ def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readin
 
     demand_roles = {d.role_id for d in config.demand if d.headcount > 0}
     unpriced = [r.name for r in config.roles if r.id in demand_roles and r.gap_penalty_per_hour <= 0]
-    add("priorities", "Role priorities set", bool(demand_roles) and not unpriced,
+    # a gap cheaper than the cheapest trained person's wage means the solver leaves that role empty
+    cheap = []
+    for r in config.roles:
+        wages = [e.wage_per_hour for e in config.employees if r.id in e.trained_role_ids]
+        if r.id in demand_roles and r.gap_penalty_per_hour > 0 and wages and r.gap_penalty_per_hour < min(wages):
+            cheap.append(f"{r.name} (${r.gap_penalty_per_hour:g}/h vs ${min(wages):g}/h pay)")
+    add("priorities", "Role priorities set", bool(demand_roles) and not unpriced and not cheap,
         ("No demand yet." if not demand_roles else
-         "Every role with demand has a gap cost." if not unpriced else
-         f"Set priorities (what an uncovered hour costs) for: {', '.join(unpriced)}. "
-         "At $0/h the solver would leave them empty."))
+         f"Pick a priority (Must cover, Important or Nice to have) on the Roles card for: {', '.join(unpriced)}. "
+         "Without one, the schedule leaves them empty." if unpriced else
+         f"These roles are set to a dollar priority below what their staff earn, so the schedule would leave "
+         f"them empty: {'; '.join(cheap)}. Pick Must cover, Important or Nice to have on the Roles card." if cheap else
+         "Every role with staffing has a priority."))
 
     names = {r.id: r.name for r in config.roles}
     review = equipment_review or {}

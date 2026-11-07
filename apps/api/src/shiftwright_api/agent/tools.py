@@ -30,7 +30,7 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import equipment, import_flow, integrations, readiness
+from .. import equipment, import_flow, integrations, priorities, readiness
 from ..db import ConfigInvalid, Database
 
 
@@ -72,6 +72,13 @@ class ToolContext:
                     d = out
                 tagged.extend(equipment.tag_in_dict(d, review))
                 return out
+        levels = priorities.load(self.db, self.store_id)
+        unpriced = fn
+
+        def fn(d):  # noqa: F811 - same mutation, then reprice leveled roles from current wages
+            out = unpriced(d)
+            priorities.apply(out if out is not None else d, levels)
+            return out
         try:
             cfg = self.db.mutate(self.store_id, fn, tool, args, actor or self.actor)
         except ConfigInvalid as e:
@@ -179,17 +186,46 @@ def ask_payroll(ctx: ToolContext, args: dict) -> CardRequest:
     return CardRequest("payroll", props, apply)
 
 
+def _proposed_level(item: dict) -> Optional[str]:
+    """Level for a role the agent proposes: the one it names, else the default unless a $ priority was stated."""
+    if item.get("priority") in priorities.LEVELS:
+        return item["priority"]
+    stated = item.get("gap_penalty_per_hour")
+    return None if stated and float(stated) > 0 else priorities.DEFAULT_LEVEL
+
+
 def ask_roles(ctx: ToolContext, args: dict) -> CardRequest:
     cfg = ctx.config()
+    levels = priorities.load(ctx.db, ctx.store_id)
+    raw = cfg.model_dump(mode="json")
     props = {"departments": [d.model_dump(mode="json") for d in cfg.departments],
-             "roles": [r.model_dump(mode="json") for r in cfg.roles]}
+             "roles": [{**r.model_dump(mode="json"), "priority": levels.get(r.id)} for r in cfg.roles]}
     for key in ("departments", "roles"):
         for item in args.get(key) or []:
+            if key == "roles":
+                existing = next((r for r in props["roles"] if r["id"] == item.get("id")), None)
+                lvl = _proposed_level(item) if existing is None or item.get("priority") else existing["priority"]
+                item = {**item, "priority": lvl}
+                if lvl:
+                    item["gap_penalty_per_hour"] = priorities.penalty(lvl, priorities.base_wage(raw, item.get("id", "")))
             _upsert(props[key], item)
 
     def apply(result: dict) -> ToolResult:
         if _cancelled(result):
             return CANCELLED
+        new_levels = dict(levels)
+        roles_out = []
+        for r in result.get("roles") or []:
+            r = dict(r)
+            lvl = r.pop("priority", None)
+            if lvl in priorities.LEVELS:
+                new_levels[r["id"]] = lvl
+            else:
+                new_levels.pop(r.get("id"), None)  # custom $ priority from the card
+            roles_out.append(r)
+        if result.get("roles") is not None:
+            result = {**result, "roles": roles_out}
+            priorities.save(ctx.db, ctx.store_id, new_levels)
 
         def fn(d):
             d["departments"] = result.get("departments", d["departments"])
@@ -627,6 +663,15 @@ def set_budget(ctx: ToolContext, args: dict) -> ToolResult:
 def upsert_role(ctx: ToolContext, args: dict) -> ToolResult:
     role = args.get("role") or {}
     dept = args.get("department")
+    role = {k: v for k, v in role.items() if k != "priority"}
+    levels = priorities.load(ctx.db, ctx.store_id)
+    is_new = not any(r.id == role.get("id") for r in ctx.config().roles)
+    lvl = args.get("priority") if args.get("priority") in priorities.LEVELS else (
+        _proposed_level(role) if is_new else levels.get(role.get("id")))
+    if lvl:
+        levels[role["id"]] = lvl
+        role.setdefault("gap_penalty_per_hour", 0.0)  # repriced from wages by the mutate hook
+        priorities.save(ctx.db, ctx.store_id, levels)
 
     def fn(d):
         if dept:
@@ -656,6 +701,7 @@ def upsert_employee(ctx: ToolContext, args: dict) -> ToolResult:
             merged["home_department_id"] = roles[trained[0]]["department_id"]
         merged.setdefault("status", "part_time")
         merged.setdefault("hire_date", d["store"]["week_start"])
+        merged.setdefault("phone", "")  # optional: only needed to text them about open shifts
         if merged.get("phone"):
             from ..imports import parse_phone
             merged["phone"] = parse_phone(str(merged["phone"])) or merged["phone"]
@@ -913,8 +959,11 @@ TOOLS: list[Tool] = [
          "Pauses until the leader submits; the result is saved to the config.", PREFILL, ask_store_basics, "card"),
     Tool("ask_payroll", "Show the payroll card (weekly hours cap, optional dollar cap, overtime allowed). "
          "Saved on submit.", PREFILL, ask_payroll, "card"),
-    Tool("ask_roles", "Show the roles card (departments and roles, each with gap_penalty_per_hour). Pass proposed "
-         "departments/roles to prefill. Saved on submit.",
+    Tool("ask_roles", "Show the roles card (departments and roles). Each role has a `priority`: must_cover | "
+         "important | nice_to_have (default important); the tool prices it from the pay of the people trained for "
+         "it, so every level is worth covering and lower levels go uncovered first when hours or people run out. "
+         "Pass a role's priority only if the leader said it; never pass gap_penalty_per_hour unless they gave a "
+         "dollar value. Saved on submit.",
          _obj({"departments": {"type": "array", "items": {"type": "object"}},
                "roles": {"type": "array", "items": {"type": "object"}}}), ask_roles, "card"),
     Tool("ask_training_matrix", "Show the training matrix card (employee x role). Saved on submit.",
@@ -975,13 +1024,21 @@ TOOLS: list[Tool] = [
     Tool("set_budget", "Set the weekly hours cap, optional dollar cap, and whether overtime is allowed.",
          _obj({"weekly_hours_cap": {"type": "number"}, "weekly_dollar_cap": {"type": ["number", "null"]},
                "overtime_allowed": {"type": "boolean"}}), set_budget, "mutation"),
-    Tool("upsert_role", "Add or update a role. Pass `department` to add its department too, `tags` for role tags.",
-         _obj({"role": {**_schema(Role)}, "department": {"type": "object"},
+    Tool("upsert_role", "Add or update a role. Pass `department` to add its department too, `tags` for role tags, "
+         "`priority` (must_cover | important | nice_to_have) only if the leader said it; new roles default to "
+         "important. Never pass gap_penalty_per_hour unless the leader gave a dollar value.",
+         _obj({"role": {**_schema(Role), "required": ["id", "department_id", "name"]}, "department": {"type": "object"},
+               "priority": {"type": "string", "enum": list(priorities.LEVELS)},
                "tags": {"type": "array", "items": {"type": "string"}}}, ["role"]), upsert_role, "mutation"),
     Tool("upsert_employee", "Add or update one employee (trained roles must exist). Required: id, name, age, "
-         "phone, wage_per_hour, trained_role_ids. home_department_id defaults to the first role's department, "
-         "status to part_time. tipped_wage_per_hour only if the leader states a tipped cash wage.",
-         _obj({"employee": {**_schema(Employee)}}, ["employee"]),
+         "wage_per_hour, trained_role_ids. phone is optional (only needed to text them about open shifts; "
+         "don't ask for it during setup, never invent one). hire_date defaults to the schedule week, "
+         "home_department_id to the first role's department, status to part_time. "
+         "tipped_wage_per_hour only if the leader states a tipped cash wage.",
+         _obj({"employee": {**_schema(Employee),
+                            # the tool fills phone/hire_date/home_department_id/status itself
+                            "required": ["id", "name", "age", "wage_per_hour", "trained_role_ids"]}},
+              ["employee"]),
          upsert_employee, "mutation"),
     Tool("set_demand", "Add/update DemandRequirements. `replace_days` first clears those days.",
          _obj({"requirements": {"type": "array", "items": {"type": "object"}},

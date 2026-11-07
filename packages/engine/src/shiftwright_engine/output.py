@@ -42,7 +42,17 @@ def shifts_from_solution(built, solver: cp_model.CpSolver) -> list[Shift]:
                     roles_at[a] = r
                     break
         out.append(make_shift(p, c, roles_at))
-    return out
+    return unique_ids(out)
+
+
+def unique_ids(shifts: list[Shift]) -> list[Shift]:
+    """A split day's later shifts get `<id>-<n>` (n = 2, 3, …) so shift ids stay unique."""
+    seen: dict[str, int] = {}
+    rank: dict[int, int] = {}
+    for i in sorted(range(len(shifts)), key=lambda i: (shifts[i].id, shifts[i].start)):
+        seen[shifts[i].id] = rank[i] = seen.get(shifts[i].id, 0) + 1
+    return [sh if rank[i] == 1 else sh.model_copy(update={"id": f"{sh.id}-{rank[i]}"})
+            for i, sh in enumerate(shifts)]
 
 
 def make_shift(p: Prep, c, roles_at: dict[int, str]) -> Shift:
@@ -120,16 +130,16 @@ def gaps_from_shifts(p: Prep, shifts: Iterable[Shift]) -> list[Gap]:
 
 def availability_violations(p: Prep, shifts: list[Shift]) -> list[SoftViolation]:
     out = []
-    by_ed = {(s.employee_id, s.day): s for s in shifts}
+    by_ed: dict[tuple[str, int], list[Shift]] = defaultdict(list)
+    for s in shifts:
+        by_ed[(s.employee_id, s.day)].append(s)
     for e in p.cfg.employees:
         for d in range(7):
-            sh = by_ed.get((e.id, d))
+            mine = by_ed.get((e.id, d), [])
             for a in _avail_for_day(p, e, d):
                 if a.kind == AvailabilityKind.unavailable or a.weight_dollars <= 0:
                     continue
-                ov = 0.0
-                if sh is not None:
-                    ov = max(0, min(sh.end, a.end) - max(sh.start, a.start)) / 60
+                ov = sum(max(0, min(sh.end, a.end) - max(sh.start, a.start)) for sh in mine) / 60
                 hrs = ov if a.kind == AvailabilityKind.preferred_off else (a.end - a.start) / 60 - ov
                 if hrs > 0:
                     out.append(SoftViolation(kind="availability_preference", employee_id=e.id, amount=round(hrs, 4),
@@ -154,13 +164,16 @@ def soft_from_solution(built, solver) -> list[SoftViolation]:
 
 
 def ot_breakdown(p: Prep, shifts: list[Shift]) -> tuple[float, float]:
-    """(overtime_hours, overtime premium dollars): daily OT per shift (law pack daily_overtime), then
-    weekly OT over threshold on the remaining hours, so no hour counts twice (WS2 semantics #4)."""
+    """(overtime_hours, overtime premium dollars): daily OT per day, all of that day's shifts summed
+    by start day (law pack daily_overtime, #4, #23), then weekly OT over threshold on the remaining
+    hours, so no hour counts twice (WS2 semantics #4)."""
     hours, prem = 0.0, 0.0
     week_min: dict[str, float] = defaultdict(float)  # paid minutes NOT already daily OT
+    day_min: dict[tuple[str, int], int] = defaultdict(int)
     for sh in shifts:
-        e = p.emps[sh.employee_id]
-        pm = paid_minutes(sh)
+        day_min[(sh.employee_id, sh.day)] += paid_minutes(sh)
+    for (eid, _), pm in day_min.items():
+        e = p.emps[eid]
         week_min[e.id] += pm
         if p.daily_ot is not None:
             thr = p.daily_ot.params["threshold_hours"] * 60
