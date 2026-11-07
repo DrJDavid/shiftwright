@@ -1,4 +1,4 @@
-# Shiftwright contract semantics — v1.1
+# Shiftwright contract semantics — v1.2
 
 Owner: David. These rules are part of the contract. The engine (WS1) and the validator (WS2)
 must both follow them, so that a disagreement means a bug, not a different reading.
@@ -7,6 +7,11 @@ with the v1.1 changes below folded in.
 
 ## Changelog
 
+- **1.2.0** (Sat Nov 7, ~01:00):
+  - `Shift.why: list[str]` — engine-generated, factual reasons for each assignment (headline first).
+    Must only state facts derivable from the config and the schedule. The validator ignores it.
+  - API.md: `demo` / `tiny` templates, `ImportPreview.target_fields` / `required_fields`,
+    `MOCK_AUTOREPLY` / `MOCK_REPLY_DELAY_S` / `MOCK_SEED`, question auto-answer, card supersede.
 - **1.1.0** (Fri Nov 6):
   - `FixPlan.plan_id: Optional[str]` (WS6 request). The engine leaves it `None`; the API fills it.
   - Breaks off the slot grid (WS1 request): `Break.start/end`, and `RoleSegment.start/end` where

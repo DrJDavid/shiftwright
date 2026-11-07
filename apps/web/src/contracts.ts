@@ -181,9 +181,13 @@ export type End6 = number;
  * Cover [start,end) minus breaks exactly, no overlaps. Mid-shift role changes allowed.
  */
 export type Segments = RoleSegment[];
+/**
+ * v1.2. Engine-generated, factual one-liners explaining this assignment, e.g. 'Only trained PIT operator available Sat 6–10 am', 'Covers truck unload 4–10 am (demand 6)', 'Under max hours (32/40)'. No invented facts; first item is the headline. The validator ignores it; baselines may leave it empty.
+ */
+export type Why = string[];
 export type AddedCostDollars1 = number;
 export type EstAcceptProb = number;
-export type Why = string;
+export type Why1 = string;
 export type OutreachQueue = OutreachCandidate[];
 export type StoreId = string;
 export type WeekStart = string;
@@ -616,7 +620,7 @@ export interface OutreachCandidate {
   proposed_shift: Shift;
   added_cost_dollars: AddedCostDollars1;
   est_accept_prob: EstAcceptProb;
-  why: Why;
+  why: Why1;
   [k: string]: unknown;
 }
 /**
@@ -631,6 +635,7 @@ export interface Shift {
   end: End5;
   breaks?: Breaks;
   segments: Segments;
+  why?: Why;
   [k: string]: unknown;
 }
 /**

@@ -1,4 +1,4 @@
-# Shiftwright API & chat protocol — v1.1
+# Shiftwright API & chat protocol — v1.2
 
 Owner: David. Backend (WS6) implements; web (WS7) and evals (WS5) consume.
 All bodies are JSON shaped by `contracts/models.py`. TypeScript types are generated
@@ -8,7 +8,7 @@ from the JSON Schema (`make types` → `apps/web/src/contracts.ts`); never hand-
 
 | Method | Path | Body → Response | Notes |
 |---|---|---|---|
-| POST | `/api/stores` | `{template?: "bigbox_small"\|"bigbox_mid"\|"empty", name, jurisdiction}` → `StoreConfig` | Creates a store from a template (defaults have `source: default`). |
+| POST | `/api/stores` | `{template?: "bigbox_small"\|"bigbox_mid"\|"empty", name, jurisdiction}` → `StoreConfig` | Creates a store from a template (defaults have `source: default`). v1.2: templates `demo` (Store #0417 Austin, 60 staff) and `tiny` load the WS4 fixtures as-is under a new id; `name`/`jurisdiction` optional for those two. |
 | GET | `/api/stores/{id}/config` | → `StoreConfig` | |
 | PUT | `/api/stores/{id}/config` | `StoreConfig` → `StoreConfig` | Full replace; bumps `config_version`. Used by cards that edit grids. |
 | POST | `/api/stores/{id}/import/{kind}` | multipart CSV → `ImportPreview` | `kind` ∈ roster, training, availability, forecast, history. Returns a proposed column mapping + parsed rows; nothing is saved yet. |
@@ -32,7 +32,8 @@ Helper shapes (defined in `apps/api`, mirrored in TS by hand only for these):
 
 ```ts
 ImportPreview = { kind, columns: string[], proposed_mapping: Record<string,string|null>,
-                  unmapped_required: string[], rows_preview: object[], row_count: number, warnings: string[] }
+                  unmapped_required: string[], rows_preview: object[], row_count: number, warnings: string[],
+                  target_fields: string[], required_fields: string[] }   // v1.2: fields a column may map to / must map
 Readiness     = { ready: boolean, checks: {id: string, label: string, ok: boolean, detail: string}[] }
 OutreachState = { plan_id, status: "idle"|"texting"|"filled"|"exhausted",
                   current_rank: number|null, messages: (OutboundMessage|InboundMessage)[],
@@ -69,6 +70,8 @@ same as in interactive mode, but no `POST /chat/card` is needed.
 
 `ChatMessage = {role: "user"|"assistant", content: string, card?: {card_id, card_type, props, result}}`
 The server keeps the canonical transcript; the client sends only new user messages.
+v1.2: a new user message while the previous turn is paused on a card cancels that card (`{cancelled: true}`)
+and starts the new turn; 409 only if the previous turn is mid model call.
 
 ## Card catalogue (card_type → props → result)
 
@@ -103,4 +106,8 @@ DATABASE_URL=sqlite:///./shiftwright.db
 SMS_ALLOWLIST=            # v1.1: Twilio only texts these + DEMO_PHONE_1/2
 DEMO_KEY=                 # v1.1: if set, mutating /api/stores/* routes need header X-Demo-Key (401 otherwise)
 MAX_TEXTS_PER_STORE_HOUR=20
+MOCK_AUTOREPLY=script     # v1.2, mock only: script (rank 1 declines; rank 2 asks a question, then accepts; rest accept) | prob (seeded draw on est_accept_prob) | off
+MOCK_REPLY_DELAY_S=4
+MOCK_SEED=417
 ```
+Mock outreach answers an employee's question automatically by restating only the offer's role, day, times and pay.

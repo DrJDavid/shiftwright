@@ -1490,6 +1490,14 @@
           },
           "title": "Segments",
           "type": "array"
+        },
+        "why": {
+          "description": "v1.2. Engine-generated, factual one-liners explaining this assignment, e.g. 'Only trained PIT operator available Sat 6\u201310 am', 'Covers truck unload 4\u201310 am (demand 6)', 'Under max hours (32/40)'. No invented facts; first item is the headline. The validator ignores it; baselines may leave it empty.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Why",
+          "type": "array"
         }
       },
       "required": [
@@ -1644,7 +1652,7 @@
     "StoreConfig": {
       "properties": {
         "contract_version": {
-          "default": "1.1.0",
+          "default": "1.2.0",
           "title": "Contract Version",
           "type": "string"
         },
