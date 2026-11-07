@@ -8,7 +8,7 @@ Checks (per demo store: austin, chicago, seattle, sf, restaurant):
      at 06:04 that starts by 12:00 ("Saturday morning").
   3. The repair is possible but not trivial:
      - the call-outs leave real work behind (headcount-hours after 06:04, by role);
-     - several plausible call-in candidates exist: adult non-leaders trained (and old enough) for a
+     - plausible call-in candidates exist (>= 2): adult non-leaders trained (and old enough) for a
        called-out role, with no Saturday shift, free Saturday morning, under max days and max hours,
        and a decent call-in record (offered >= 2, (accepted+1)/(offered+2) >= 0.5).
      With fix_day, also the engine's plan (actions, outreach queue, coverage before/after).
@@ -34,7 +34,11 @@ from .demo import SATURDAY
 from .fixtures import DEMO_STORES, load_demo_scenario
 
 MORNING_END = 12 * 60
-MIN_PLAUSIBLE = 3        # "several" call-in candidates
+# >= 2 free people with a decent record (one can say no, the next yes: the SPEC §7 story), and with
+# fix_day the engine's own outreach queue must hold >= MIN_QUEUE candidates. With exact 5-minute breaks
+# (WS1, Nov 7) the Austin solve uses more of the bench, leaving 2 decent + 3-4 weaker free candidates.
+MIN_PLAUSIBLE = 2
+MIN_QUEUE = 3
 DECENT_PROB = 0.5
 CALL_IN_HOURS = 4        # min shift length in the demo store
 
@@ -165,6 +169,7 @@ def verify(time_limit_s: float = 30, solve_week: Optional[Callable] = None,
                       "coverage_before_pct": plan.coverage_before_pct,
                       "coverage_after_best_pct": plan.coverage_after_best_pct,
                       "coverage_after_worst_pct": plan.coverage_after_worst_pct}
+        rep["repair_possible"] = rep["repair_possible"] and len(plan.outreach_queue) >= MIN_QUEUE
     return rep
 
 

@@ -49,5 +49,5 @@ def test_repair_possible_but_not_trivial(loc):  # retail stores; the restaurant 
     assert r["repair_possible"], r["plausible_callins"]
     if "fix" in r:
         fix = r["fix"]
-        assert fix["outreach_queue"]
+        assert len(fix["outreach_queue"]) >= 3, fix["outreach_queue"]
         assert fix["coverage_after_best_pct"] > fix["coverage_before_pct"]

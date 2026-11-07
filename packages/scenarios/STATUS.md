@@ -19,9 +19,14 @@
     the same amount (ceil-to-quarter(min) − 15); `expected.minimum_wage`, `expected.wage_lift`.
     TX output is unchanged (min $7.25). Tested for TX, TX/austin, CA, CA/san_francisco, WA/seattle,
     IL/chicago, NY/new_york × S/M/L × all difficulties × seeds 1–2: nobody below minimum except the trap.
-  - `legal_trap` adds a `below_minimum_wage` trap: one adult full-timer with open availability (so
-    they get scheduled), wage = floor(min − $1) to the quarter. `expected.traps.below_minimum_wage`
-    = [id], `expected.traps.minimum_wage` = {dollars_per_hour, law_rule_id}.
+  - *(Removed Nov 7, David: unrealistic.)* The `below_minimum_wage` trap is gone. `enforce_minimum_wage`
+    runs after every wage lift, so no generated employee (retail or food, any size/difficulty/
+    jurisdiction) is ever below the resolved minimum; tested over 7 jurisdictions × S/M/L × all
+    difficulties × both sectors. (WS5's e013/e053 at $15.75 in CA were that trap.)
+  - CA `legal_trap` stores set `Store.max_shifts_per_day = 2` (SEMANTICS #23): the S store is legal
+    only with a split day; `expected.infeasible` stays False. The engine on main doesn't do split
+    shifts yet, so it still reports S/legal_trap/CA infeasible (`c_lod_always`, `c_max_days`,
+    `c_max_shift`, `c_min_shift`); that's for WS1.
 - Generator: `generate(seed, size="S"|"M"|"L", difficulty, jurisdiction="TX" | "WA/seattle" | Jurisdiction, school_week=True)`.
   Deterministic: identical output for the same arguments, across processes. Tests in `tests/test_generator.py`.
   - Sizes: S = 27 staff, 9 roles, trucks Wed+Sat. M = 60 staff, 14 roles, trucks Tue/Thu/Sat. L = 120 staff, 14 roles, 4 trucks.
@@ -89,6 +94,30 @@
       +4 where the pack has daily OT and OT isn't allowed. Chicago +3 (e061–e063), Seattle +6, SF +10.
   - SF Formula Retail predictive scheduling has `min_locations: 40`; there's no store field for the
     chain's location count, so it isn't modeled (a 400k-employee chain has far more than 40).
+- **Food sector** (`generate(seed, size, difficulty, jurisdiction, sector="food")`, `food.py`):
+  full-service restaurant and bar. Roles: `manager_on_duty` (always_staffed), `server` and
+  `bartender` (tipped), `host`, `line_cook`, `prep_cook`, `dishwasher`; tags bartender →
+  `alcohol_service`, line_cook → `cooking`, `fryer`, prep_cook → `meat_slicer`. Mon–Thu 11–22,
+  Fri–Sat 11–23, Sun 11–21, prep from 9. Lunch 11–14 and dinner 17–21 peaks, Fri/Sat ×1.35, Sun ×1.15.
+  Thursday 18–22 `private_event` "Rehearsal dinner (40 guests)" (+2 servers, +1 bartender, +1 cook,
+  `source: event`). `sector=food`, `max_shifts_per_day=2`, min shift 3 h. S/M/L = 18/32/60 staff
+  (3/4/6 managers), ≥ 2 minors (16–17, front of house / dish only; store policy: bartenders 21+,
+  no minors on line/slicer outside the traps). `tipped_wage_per_hour` (for anyone trained in a
+  tipped role) = resolved `tipped_minimum_wage.cash_wage_per_hour`, or the full minimum when the
+  pack has none (today: everywhere; TX tipped = $7.25 full federal/state minimum). Cap = need ×
+  ratio × `break_allowance`. legal_trap: a 15-year-old trained on line_cook (fryer) + a minor on
+  bartender. infeasible: single manager. messy: 2 omissions + event-day contradiction. Call-outs:
+  a server and a line cook, Saturday 15:30. Retail output is unchanged (retail `sector` stays None).
+- **Demo restaurant:** `load_demo_store("restaurant")` / `load_demo_scenario("restaurant")`,
+  `fixtures/demo_store_restaurant.json` + `demo_scenario_restaurant.json` (`DEMO_STORES` =
+  localities + "restaurant"; `DEMO_LOCALITIES` is still the 4 retail ones). "Harbor Grill #12,
+  Chicago IL" (`rest-0612`), food M normal seed 612, 32 staff, cap 804 h, employer count 3,500
+  (synthetic regional group), posted 14 days ahead. e008 is 15 and trained on line_cook (fryer).
+  Call-outs e005 (server) and e028 (line cook) Saturday 15:30; each is unavailable Saturday before
+  16:00 and prefers 16:00–23:00, so they're on Saturday dinner shifts that haven't started yet.
+  Narrative = food narrative + Chicago law-pack sentences + "Blake is 15 ... helping on the fryer".
+  **Regenerate after WS3 adds `tipped_minimum_wage`** (the drift test will flag it): tipped wages
+  then drop from $17.05 to the pack's cash wage.
 - CSV exports: `fixtures/exports/{roster,training,availability,forecast,history}.csv`, corporate style
   (`TM_ID`, `Dept`, `Wage Rate`, `Avail Mon`, DOB instead of age, job codes, 12-hour times). The mapping
   tables and format notes are in the `shiftwright_scenarios.exports` docstring.
@@ -129,6 +158,17 @@
   all ("No schedule found within the time limit"). That's for WS1. `tests/test_demo_engine.py` is
   parametrized by locality with coverage floors (austin 90, chicago 88, seattle/sf 85); non-Austin
   cases run only with `SW_DEMO_ENGINE_ALL=1` (+~90 s). `verify_demo` also runs WS2's `validate()`.
+- **After WS1's exact 5-minute breaks (main 4bae4f6), 30 s:** Austin 90.3–92.9%, Chicago 94.4%,
+  Seattle 90.0%, SF 88.4%, restaurant 91.5–92.2%; all feasible, validator 0 hard, call-outs on
+  their shifts. Austin's free bench shrank: 2 runs had only 2 free people with a decent call-in
+  record (e051 4/4, e022 2/2), one had 4. **Decision:** threshold is now ≥ 2 plausible (one says no,
+  the next yes: the SPEC §7 story) plus, with `fix_day`, ≥ 3 candidates in the engine's own outreach
+  queue (Austin had 4–8). I didn't add Saturday-off people or raise call-in records again: that's the
+  kind of distortion we removed with the demo phones. The restaurant is checked for solve,
+  validator and call-outs only (small bench: 1 plausible, 4 in the queue).
+- **Restaurant demo caveat:** until WS3's fryer/cooking minor rules land, nothing bans e008 (15) from
+  line_cook: the engine schedules them there and `fix_day` ranks e008 first in the outreach queue.
+  Once the rule is in the Chicago/IL/federal pack, both go away; re-run `verify_demo 30 restaurant`.
 - `test_easy_engine_coverage`: 4 runs of S/easy/seed 1 at 30 s gave 97.8–98.9% (the engine stops at
   a 4–6% optimality gap, and multi-worker CP-SAT under a time limit isn't deterministic). The test
   now asserts coverage ≥ 97%, budget hours used ≤ 90% of the cap, and no gap in any role with
