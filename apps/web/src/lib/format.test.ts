@@ -34,3 +34,16 @@ describe('fmtDayDate', () => {
     expect(fmtDayDate('2026-11-09', 6)).toEqual({ weekday: 'Sun', date: 'Nov 15' })
   })
 })
+
+import { humanizer } from './humanize'
+describe('humanizer', () => {
+  it('swaps ids for names and 24h times for 12h', () => {
+    const h = humanizer({
+      employees: [{ id: 'e004', name: 'Val Martin' }],
+      roles: [{ id: 'leader_on_duty', name: 'Leader on Duty' }],
+    } as never)
+    expect(h('Extend e004 from 12:30–22:00 as leader_on_duty; IL.chicago.predictive_scheduling.1')).toBe(
+      'Extend Val Martin from 12:30p–10p as Leader on Duty; IL.chicago.predictive_scheduling.1',
+    )
+  })
+})
