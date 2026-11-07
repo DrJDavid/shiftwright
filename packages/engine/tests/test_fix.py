@@ -30,7 +30,7 @@ def _check_frozen(week: Schedule, plan, req: FixRequest):
         for k, o in out.items():
             eid, d = k
             if d != req.day:
-                assert got.get(k) == o, k
+                assert k in got and got[k].model_dump(exclude={"why"}) == o.model_dump(exclude={"why"}), k
             elif eid not in callouts and o.start < req.now:
                 assert k in got and _before(got[k], req.now) == _before(o, req.now), k
         for k, s in got.items():

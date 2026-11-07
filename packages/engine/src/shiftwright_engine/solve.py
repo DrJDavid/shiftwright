@@ -11,6 +11,7 @@ from shiftwright_contracts.models import ConstraintKind, Infeasibility, LawRuleT
 from .bounds import always_staffed_conflict
 from .explain import explain_with_prep
 from .greedy import greedy
+from .why import annotate
 from .model import Builder, default_workers, solve
 from .output import (
     availability_violations,
@@ -202,7 +203,7 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
     built, solver = b2, s2
     if obj1 is None:  # greedy fallback (objective includes the small churn tiebreak)
         obj1 = s2.objective_value
-    shifts = shifts_from_solution(built, solver)
+    shifts = annotate(p, shifts_from_solution(built, solver))
     soft = soft_from_solution(built, solver) + availability_violations(p, shifts)
     gaps = gaps_from_shifts(p, shifts)
     sched = _base(config, sched_status, shifts=shifts, soft_violations=soft)

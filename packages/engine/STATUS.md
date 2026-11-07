@@ -75,8 +75,37 @@ is mostly a weak bound; ≤1% proven gap in <30 s is NOT reached. Fine for the d
   coverage before 92.4–92.7% → worst 93.4–93.6% → best 94.2–94.5%; queue top 2 = e023, e027.
   `scripts/fix_demo.py` prints the plan. Tests: `tests/test_fix.py` (tiny + demo: <10 s, frozen
   past/other days, validator clean, declines excluded, accept → refix keeps the shift).
-- Predictive-scheduling premium: placeholder only (`_premium`: change_premium_hours × wage if the pack
-  has the rule) — must be replaced per SEMANTICS #17 (next step 2).
+- Predictive-scheduling premiums (SEMANTICS #17, v1.4 modes) — `premium.py`, params only:
+  - applies unless `Store.employer_employee_count` ≤ `applies_if_employees_over`; `applies_to: food`
+    skipped (retail); `covered_wage_max_hourly` excludes higher-paid staff. NOT applied (unknown data):
+    `min_covered_employees`, `min_local_employees`, `min_locations`, `employee_count_scope`,
+    `post_deadline_grace_hours`, `change_premium_window_days`. Fix changes are same-day ⇒ inside the
+    notice window and < 24 h notice.
+  - added hours (call-in, extension): `premium_flat_dollars`, else `under_24h_tiers`, else
+    `change_premium_hours_under_24h`/`change_premium_hours`, pro-rated if `prorate_added_under_1h`,
+    capped by `change_premium_hours_max`, free under `grace_minutes`; × wage (regular = scheduled rate
+    here). `premium_basis: none` (NYC) ⇒ no premium, noted. Missing hours param ⇒ $0 + "Premium not
+    computed: <rule> lacks <param>".
+  - call-in exemptions: `coworker_absence_exempt` (SF); else `voluntary_additional_hours_exempt` with
+    written consent satisfied by text only if `text_message_counts_as_written` is true (or no written
+    requirement); `exemption_requires_group_message` ⇒ only `group_offer` with ≥
+    `exemption_min_recipients` queue members; `exemption_only_for_absent_coworker_hours` ⇒ only the
+    minutes overlapping the called-out shifts' lost time are exempt, the rest is charged. Extensions are
+    always premium-bearing (leader-decided, no written consent). Reassigns are free; the call-out's own
+    lost hours are never charged.
+  - mode: `FixRequest.outreach_mode`, else the cheaper total premium over A's call-ins (tie one_to_one),
+    reported in `FixPlan.outreach_mode`. Call-in and extension premiums are in the CP-SAT objective
+    (`extra_units`; call-ins priced at the cheapest allowed mode), in `OutreachCandidate.added_cost_dollars`
+    (+ `premium_pay_dollars`, `law_rule_ids`, `premium_note`), `FixAction.premium_pay_dollars` +
+    rationale, ranking, and `schedule_if_*.metrics.premium_pay_dollars`.
+  - Known: WS2's `validate()` reports `metrics_mismatch` on `premium_pay_dollars` for FWW cities (it
+    recomputes only clopen premiums); SEMANTICS #17 says WS2 checks these in a fix-plan check instead.
+  - Checked on the demo store moved to Chicago (call-in exempt by text, extensions +1 h) and Seattle
+    (one_to_one +min(1 h, added)×wage, group_offer exempt for the absent coworker's hours; mode None
+    picks group_offer); fix_day 2–7 s there. Tests: `tests/test_premium.py`.
+- `Shift.why` (v1.2, `why.py`): per shift, headline role line ("Keeps Leader on Duty staffed Sat
+  8 am–4 pm (c_lod_always)", "Only Cashier on shift …", "Covers Cashier … (needs 2)"), weekly hours
+  "32/40 h this week", preferred-on/off overlap, minor note; fix_day prefixes call-in / extension lines.
 
 **Eval fixes this slice:** `bounds.always_staffed_conflict` proves hard always_staffed infeasibility
 fast (per-day exact min shifts 1/2/3+ by slot bitmasks vs days the eligible people can work);
@@ -91,17 +120,13 @@ flexible rest-break layouts and are not pruned. `ENGINE_WORKERS` env sets CP-SAT
 min(8, cpu)); `ENGINE_LOG=1` logs CP-SAT search. Memory work not done (Railway now 8 GB).
 
 **Next steps (in order):**
-1. Shift.why (contracts v1.2): factual one-liners for every shift from solve_week and fix_day.
-2. SEMANTICS #17 predictive-scheduling premiums in fix_day from law-pack params only (Chicago,
-   Seattle; see data/laws/STATUS.md "Extra param keys"); call-in mode (one-to-one text vs group
-   offer) affects Seattle exemption; extensions premium-bearing in Seattle.
-3. v1.1 5-minute breaks + per-minute coverage (`BREAK_GRANULARITY_MINUTES=5`): place breaks at
+1. v1.1 5-minute breaks + per-minute coverage (`BREAK_GRANULARITY_MINUTES=5`): place breaks at
    5-min resolution with exact durations; coverage/gap per minute; `output.make_shift` splits
    RoleSegments at break bounds; metrics and `gaps_from_shifts` per minute.
-4. Check WS4's Chicago/Seattle demo variants solve in ≤30 s. Perf of big CA models (M legal_trap:
+2. Check WS4's Chicago/Seattle demo variants solve in ≤30 s. Perf of big CA models (M legal_trap:
    189k candidates, CP-SAT finds nothing in 30 s; greedy fallback is used).
 
-**Blocked on:** nothing. Rebased onto main 4f53a85.
+**Blocked on:** nothing. Rebased onto main 0145de2 (contracts v1.4).
 
 **Interpretations / shortcuts (please review — validator WS2 should agree):**
 - Hours = paid hours: shift length minus unpaid breaks. Budget hours and `max_hours_week` use paid hours.
