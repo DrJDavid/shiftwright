@@ -136,6 +136,36 @@ def _seed_always_staffed(p, roles: set[str], time_limit_s: float, stats: dict):
     return chosen, roles_at
 
 
+def _day_lns(p, chosen0: set[int], roles0: dict, until: float, stats: dict):
+    """Large models: improve the greedy week one day at a time (full candidate grid for that day,
+    every other day's shifts fixed, hinted with the current week). Returns (chosen, objective units)
+    or None if the start can't be kept (the caller then solves the restricted week model)."""
+    days = sorted(p.windows)
+    cur, roles, obj = set(chosen0), dict(roles0), None
+    rounds = 0
+    t_start = time.perf_counter()
+    while True:
+        for k, d in enumerate(days):
+            remaining = until - time.perf_counter()
+            per = remaining / max(1, len(days) - k) - 1.0  # ~1 s to build a day model
+            if per < 0.8:
+                stats["stages"].append({"stage": "day_lns", "rounds": rounds, "s": round(time.perf_counter() - t_start, 2)})
+                return (cur, obj) if obj is not None or rounds else (cur, obj)
+            forced = {i for i in cur if p.cands[i].day != d}
+            b = Builder(p, cand_ok=lambda c, d=d: c.day == d or c.idx in cur, forced=forced).build()
+            hint = {v: int(i in cur) for i, v in b.y.items()}
+            for (e, r, a), v in b.x.items():
+                hint[v] = int(roles.get((e, a)) == r)
+            s, st = solve(b, per, hint=hint)
+            if st in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                cur = {i for i, v in b.y.items() if s.boolean_value(v)}
+                roles = {(e, a): r for (e, r, a), v in b.x.items() if s.boolean_value(v)}
+                obj = s.objective_value
+            elif obj is None and rounds == 0 and k == 0:
+                return None  # the greedy start breaks a hard rule somewhere
+        rounds += 1
+
+
 def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional[Schedule] = None) -> Schedule:
     """Large models start CP-SAT from a greedy schedule (seeded with a small always_staffed model).
     Phase 2 re-assigns roles with the churn tiebreak on the chosen shifts. A proven-infeasible
@@ -173,45 +203,54 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
                 chosen0, roles0 = greedy(p, seed)
                 stats["stages"].append({"stage": "greedy_seeded", "shifts": len(chosen0),
                                         "s": round(time.perf_counter() - tg, 2)})
-    cand_ok = None
+    lns = None
     if chosen0 is not None and len(p.cands) > FULL_MODEL_MAX_CANDS:
-        lo = {eid: p.shift_bounds(eid)[0] for eid in p.emps}
-        keep = set(chosen0)
-        cand_ok = lambda c: c.idx in keep or (c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0)  # noqa: E731
-    tb = time.perf_counter()
-    built = Builder(p, cand_ok=cand_ok).build()
-    stats["model_candidate_shifts"] = len(built.y)
-    stats["build_s"] = round(time.perf_counter() - tb, 2)
-    stats["prep_s"] = round(tb - t0, 2)
-    if chosen0 is not None:
-        hint = {v: 0 for v in built.y.values()}
-        for idx in chosen0:
-            if idx in built.y:
-                hint[built.y[idx]] = 1
-        for (eid, r, a), v in built.x.items():
-            hint[v] = int(roles0.get((eid, a)) == r)
-    stats["phase1_limit_s"] = round(left(1.0), 2)
-    solver, status = solve(built, left(1.0), hint=hint)
-    stats.update({"solver_status": solver.status_name(status), "num_role_vars": len(built.x),
-                  "build_and_solve_s": round(time.perf_counter() - t0, 3)})
-    if status == cp_model.INFEASIBLE:
-        inf = find_conflicts(config, time_limit_s=max(1.0, deadline - time.perf_counter()))
-        if inf is None or "solver_timeout" in inf.conflicting_other:
-            inf = Infeasibility(conflicting_other=["unisolated"],
-                                summary="The solver proved the hard rules cannot all hold, but could not "
-                                        "isolate which ones within the time limit.")
-        return _base(config, "infeasible", infeasibility=inf, solver_stats=stats)
-
-    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        chosen = {c.idx for c in p.cands if c.idx in built.y and solver.boolean_value(built.y[c.idx])}
-        obj1, bound1 = solver.objective_value, solver.best_objective_bound
-    elif chosen0:
-        chosen, obj1, bound1 = chosen0, None, solver.best_objective_bound
-        stats["fallback"] = "greedy"
+        lns = _day_lns(p, chosen0, roles0, deadline - reserve, stats)
+    if lns is not None:
+        chosen, obj1 = lns
+        bound1 = None
+        status = cp_model.FEASIBLE
+        stats["solver_status"] = "DAY_LNS"
     else:
-        stats["error"] = "No schedule found within the time limit."
-        return _base(config, "error", solver_stats=stats)
-    del built, solver, hint  # free the phase-1 model before phase 2
+        cand_ok = None
+        if chosen0 is not None and len(p.cands) > FULL_MODEL_MAX_CANDS:
+            lo = {eid: p.shift_bounds(eid)[0] for eid in p.emps}
+            keep = set(chosen0)
+            cand_ok = lambda c: c.idx in keep or (c.start % 60 == 0 and (c.end - c.start - lo[c.emp]) % 60 == 0)  # noqa: E731
+        tb = time.perf_counter()
+        built = Builder(p, cand_ok=cand_ok).build()
+        stats["model_candidate_shifts"] = len(built.y)
+        stats["build_s"] = round(time.perf_counter() - tb, 2)
+        stats["prep_s"] = round(tb - t0, 2)
+        if chosen0 is not None:
+            hint = {v: 0 for v in built.y.values()}
+            for idx in chosen0:
+                if idx in built.y:
+                    hint[built.y[idx]] = 1
+            for (eid, r, a), v in built.x.items():
+                hint[v] = int(roles0.get((eid, a)) == r)
+        stats["phase1_limit_s"] = round(left(1.0), 2)
+        solver, status = solve(built, left(1.0), hint=hint)
+        stats.update({"solver_status": solver.status_name(status), "num_role_vars": len(built.x),
+                      "build_and_solve_s": round(time.perf_counter() - t0, 3)})
+        if status == cp_model.INFEASIBLE:
+            inf = find_conflicts(config, time_limit_s=max(1.0, deadline - time.perf_counter()))
+            if inf is None or "solver_timeout" in inf.conflicting_other:
+                inf = Infeasibility(conflicting_other=["unisolated"],
+                                    summary="The solver proved the hard rules cannot all hold, but could not "
+                                            "isolate which ones within the time limit.")
+            return _base(config, "infeasible", infeasibility=inf, solver_stats=stats)
+
+        if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            chosen = {c.idx for c in p.cands if c.idx in built.y and solver.boolean_value(built.y[c.idx])}
+            obj1, bound1 = solver.objective_value, solver.best_objective_bound
+        elif chosen0:
+            chosen, obj1, bound1 = chosen0, None, solver.best_objective_bound
+            stats["fallback"] = "greedy"
+        else:
+            stats["error"] = "No schedule found within the time limit."
+            return _base(config, "error", solver_stats=stats)
+        del built, solver, hint  # free the phase-1 model before phase 2
     sched_status = STATUS.get(status, "feasible")
 
     # Phase 2: keep the chosen shifts, re-assign roles with a small churn tiebreak so
@@ -237,11 +276,11 @@ def solve_week(config: StoreConfig, time_limit_s: float = 20, previous: Optional
     sched.gaps = gaps
     sched.metrics = compute_metrics(p, shifts, soft, gaps)
     obj = obj1 + built.objective_const_units
-    bound = bound1 + built.objective_const_units
+    bound = None if bound1 is None else bound1 + built.objective_const_units
     stats.update({
         "phase1_objective_dollars": round(obj / SCALE, 2),
-        "best_bound_dollars": round(bound / SCALE, 2),
-        "relative_gap": round((obj - bound) / obj, 6) if obj else 0.0,
+        "best_bound_dollars": None if bound is None else round(bound / SCALE, 2),
+        "relative_gap": None if bound is None else (round((obj - bound) / obj, 6) if obj else 0.0),
         "total_s": round(time.perf_counter() - t0, 3),
     })
     sched.solver_stats = stats
