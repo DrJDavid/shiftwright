@@ -4,6 +4,7 @@ import { ApiError } from './api/client'
 import type { Readiness, SolveResponse } from './api/protocol'
 import type { Gap, LawPack, StoreConfig } from './contracts'
 import { ChatPane } from './components/ChatPane'
+import { CoverageTab } from './components/CoverageTab'
 import { GapSheet } from './components/GapSheet'
 import { ReadinessRail } from './components/ReadinessRail'
 import { Rulebook } from './components/Rulebook'
@@ -14,7 +15,7 @@ import { fmtDayDate } from './lib/format'
 type Tab = 'schedule' | 'coverage' | 'fix'
 const TABS: { id: Tab; label: string; ready: boolean }[] = [
   { id: 'schedule', label: 'Schedule', ready: true },
-  { id: 'coverage', label: 'Coverage', ready: false },
+  { id: 'coverage', label: 'Coverage', ready: true },
   { id: 'fix', label: 'Fix call-outs', ready: false },
 ]
 
@@ -236,6 +237,7 @@ export default function App() {
           {tab === 'schedule' && (
             <ScheduleTab config={config} result={result} solve={solve} onSolve={() => void runSolve()} onGapClick={setOpenGap} />
           )}
+          {tab === 'coverage' && <CoverageTab config={config} result={result} onGapClick={setOpenGap} />}
           {openGap && result && (
             <GapSheet
               api={api}
