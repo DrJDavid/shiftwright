@@ -68,6 +68,10 @@ class Context:
     slot: int
     structurally_ok: list[Shift] = field(default_factory=list)  # sane fields, any employee id
     usable: list[Shift] = field(default_factory=list)           # sane fields AND known employee
+    # Set only by validate_fix (fix.py): law premiums the plan's changes owe (SEMANTICS #17), and
+    # call-in shifts, which are not charged availability preferences (SEMANTICS #16).
+    extra_premium_dollars: float = 0.0
+    callin_shift_ids: set = field(default_factory=set)
 
 
 def build_context(config: StoreConfig, schedule: Schedule) -> Context:

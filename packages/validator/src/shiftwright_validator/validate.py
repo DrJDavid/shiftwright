@@ -11,7 +11,7 @@ from shiftwright_contracts.models import (
 )
 
 from .checks import ALL_CHECKS
-from .context import build_context
+from .context import Context, build_context
 from .metrics import Computed, compute
 from .parse import parse_schedule_lenient
 
@@ -31,8 +31,12 @@ def _crash(where: str, exc: Exception) -> Violation:
 
 
 def validate(config: StoreConfig, schedule: Schedule) -> ValidationReport:
+    return validate_context(build_context(config, schedule))
+
+
+def validate_context(ctx: Context) -> ValidationReport:
+    config = ctx.config
     violations: list[Violation] = []
-    ctx = build_context(config, schedule)
     try:
         computed = compute(ctx)
     except Exception as exc:  # noqa: BLE001 - must never crash on garbage

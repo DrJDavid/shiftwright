@@ -185,7 +185,7 @@ def compute(ctx: Context) -> Computed:
         ot_hours += ot.overtime_hours
         ot_premium += ot.premium_dollars
 
-    premium = rest_premium_dollars(ctx)
+    premium = rest_premium_dollars(ctx) + ctx.extra_premium_dollars
     req_hours, cov_hours, gap_dollars = coverage(ctx)
     soft = soft_costs(ctx)
     soft_dollars = sum(c.dollars for c in soft)

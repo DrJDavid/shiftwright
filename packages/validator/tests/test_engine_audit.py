@@ -1,6 +1,6 @@
 """Engine regression (black box): engine schedules must pass the validator.
 
-Marked slow (~25 s). Skip with `-m "not slow"`. The full audit is
+Marked slow (~70 s). Skip with `-m "not slow"`. The full audit is
 `uv run python packages/validator/scripts/audit_engine.py` (see STATUS.md).
 """
 from __future__ import annotations
@@ -12,11 +12,13 @@ pytest.importorskip("shiftwright_scenarios")
 pytest.importorskip("shiftwright_laws")
 
 from shiftwright_contracts.models import FixRequest  # noqa: E402
-from shiftwright_scenarios import load_tiny_store, pick_callouts  # noqa: E402
+from shiftwright_scenarios import load_demo_store, load_tiny_store, pick_callouts  # noqa: E402
 from shiftwright_validator.audit import (  # noqa: E402
+    Case,
     audit_cases,
-    audit_fix_plan,
+    audit_fix,
     classify,
+    classify_fix,
     default_cases,
     with_law_pack,
 )
@@ -33,8 +35,6 @@ def small_cases():
 
 @pytest.mark.parametrize("name,config,limit", small_cases())
 def test_engine_schedule_passes_validator(name, config, limit):
-    from shiftwright_validator.audit import Case
-
     [result] = list(audit_cases([Case(name, config)], time_limit_s=limit))
     assert result.status in ("optimal", "feasible"), result.line()
     assert result.disagreements == [], result.disagreements
@@ -52,7 +52,10 @@ def test_infeasible_empty_schedule_is_not_a_disagreement():
     assert found == [] and expected
 
 
-@pytest.mark.skipif(not hasattr(engine, "fix_day"), reason="shiftwright_engine.fix_day not on main yet")
+needs_fix_day = pytest.mark.skipif(not hasattr(engine, "fix_day"), reason="shiftwright_engine.fix_day not on main")
+
+
+@needs_fix_day
 def test_fix_day_plans_pass_validator():
     config = with_law_pack(load_tiny_store())
     schedule = engine.solve_week(config, time_limit_s=5)
@@ -62,4 +65,21 @@ def test_fix_day_plans_pass_validator():
     req = FixRequest(config=config, schedule=schedule, callouts=callouts, day=day,
                      now=callouts[0].reported_at)
     plan = engine.fix_day(req, time_limit_s=8)
-    assert audit_fix_plan(config, plan) == []
+    found, _ = classify_fix(req, plan)
+    assert found == [], found
+
+
+@pytest.fixture(scope="module")
+def demo_week():
+    config = with_law_pack(load_demo_store())
+    return config, engine.solve_week(config, time_limit_s=30)
+
+
+@needs_fix_day
+@pytest.mark.parametrize("mode", [None, "one_to_one"])
+def test_demo_saturday_callouts_pass_validate_fix(demo_week, mode):
+    """The demo script: Saturday 06:04, e034 / e052 / e053 call out."""
+    config, schedule = demo_week
+    [result] = list(audit_fix(Case("demo_store", config), schedule, day=5, now=364, modes=(mode,),
+                              callout_ids=["e034", "e052", "e053"]))
+    assert result.disagreements == [], result.disagreements
