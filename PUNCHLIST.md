@@ -72,6 +72,12 @@ independent of the template.
 saves them, so the chat starts from "I know you're a taqueria in Chicago" instead of re-asking.
 **Done when:** the onboarding agent's first readiness check shows business basics done (test with the fake LLM).
 
+### A3. Test-company download route (S, after A1 and E4)
+`GET /api/sample-data?sector=&size=&difficulty=&state=&city=&seed=` → `application/zip`
+(`Content-Disposition: attachment; filename="<company>.zip"`), built by `shiftwright_scenarios.make_dataset_zip`.
+Requires a session; 400 on values E4 rejects; 10 downloads per user per 10 min. Document it in `contracts/API.md`.
+**Done when:** tests for auth required, a valid zip, 400 on a bad value, the rate limit.
+
 ---
 
 ## Lane B: product shell (`apps/web/` only) — start now against the Lane A table, wire up when A1 lands
@@ -116,6 +122,14 @@ Grep the UI copy and replace engineer words: "validator" → "compliance check",
 labels ("Forklift / powered industrial truck"), "infeasible" → "can't be fully covered under your rules"
 (with the reason). The conflict menu shows rule names, not ids.
 
+### B7. "Generate a test company" on the new-workplace screen (S, after B2; wire to A3)
+Below the create form: a small panel, **"No data handy? Generate a test company."** Pickers: business type
+(Restaurant · Retail), size (Small ~25 · Medium ~60), difficulty (Clean · Tight budget · Legal traps ·
+Messy exports), city/state (prefilled from the form), and an optional seed field. **Download** gets the zip
+from A3; then a one-line hint: "Create the workplace, then drag these CSVs into the chat. The README has the
+manager's description to paste." Don't auto-import: the point is to show the real import flow.
+Until A3 lands, build against the route's shape and show a disabled state with that note.
+
 **Lane B done when:** a fresh visitor can sign up → create "Harbor Grill" (restaurant, Chicago) → finish
 setup in chat → build → see the schedule, without seeing a demo store, a dev pill, or an internal id.
 Playwright or Vitest coverage for: auth redirect, create workplace, setup → workspace mode switch.
@@ -133,7 +147,7 @@ Findings from the validator's audit, in `packages/validator/STATUS.md` (~lines 1
 **Done when:** `uv run python packages/validator/scripts/audit_fix.py --all-fww` reports no G1–G3 findings
 and every engine test stays green.
 
-### C2. Split shifts (M, after C1)
+### C2. Split shifts (M, after C1) — demo-critical: Harbor Grill's story is "doubles are normal here"
 SEMANTICS #23, `Store.max_shifts_per_day`. In `model.py` ~line 98–105 the per-day constraint is
 `sum(y) == w`; change to `sum(y) <= N*w` and `sum(y) >= w` (keep `works[e,d]` boolean so max-days rules stay
 correct). Rest-between-shifts (~lines 264–266) assumes one shift per day: handle split days (rest within a
@@ -167,6 +181,23 @@ Everything else in WS3's queue (MS/NM minors, more effective dates) is **parked*
 `write_exports` raises `KeyError: 'management'` for the food store, so the realistic eval skips it.
 **Done when:** `write_exports(generate(..., food...))` works and has a test.
 
+### E4. Test-company dataset builder (S, after E1) — `packages/scenarios/`
+The generator already exists (`generate(seed, size, difficulty, jurisdiction, sector)` + `write_exports`);
+expose it as one function and a CLI:
+- `make_dataset(sector, size, difficulty, state, city, seed) -> dict[str, bytes]` returning
+  `roster.csv`, `training.csv`, `availability.csv`, `forecast.csv`, `history.csv`, `README.txt`
+  (company name, location, the manager's `narrative` to paste into the chat, import order), and
+  `ANSWER_KEY.txt` (the planted traps from `expected`: minors on hazard roles, sub-minimum wages, the
+  narrative's omissions and contradiction, `expected.infeasible`), for whoever is checking the result.
+- `make_dataset_zip(...) -> bytes` (zip of the above, folder named after the company).
+- CLI: `uv run python -m shiftwright_scenarios.make_dataset --sector food --size S --difficulty legal_trap
+  --state IL --city chicago --seed 42 --out <dir>`.
+- `seed` omitted → random, and the seed is printed in README.txt so any company can be regenerated exactly.
+- Allowed values: sector `retail|food`; size `S|M` (no `L`, too slow to import live); difficulty
+  `easy|normal|tight|legal_trap|messy` (no `infeasible` in the button). Reject anything else.
+**Done when:** tests cover every sector × difficulty at size S (files present, CSVs re-import through the
+existing `import_packs/packs_harness.py` flow to `readiness.ready` for `easy`), same seed → byte-identical zip.
+
 ### E2. Re-score evals for free after C1/C2 (S) — `packages/evals/`
 `uv run python -m shiftwright_evals --quick --rescore-from real-quick-1 --run-id real-quick-2` (no API spend).
 Drop `SUSPECT_EXPECTED` for S legal_trap CA if C2 made it pass. Update `packages/evals/STATUS.md` with the table.
@@ -192,6 +223,6 @@ Contract v1.6 custom rules (`briefs/CONTRACT-v1.6.md`) · live Twilio · pattern
 | When | Lane A | Lane B | Lane C | Lane D | Lane E |
 |---|---|---|---|---|---|
 | now–06:00 | A1 | B1, B2 (against the table above) | C1 | D1 | E1 |
-| 06:00–09:00 | A2 | B3, B4 (wired to A1) | C2 | — | E2 |
+| 06:00–09:00 | A2, A3 | B3, B4, B7 (wired to A1/A3) | C2 | — | E4, E2 |
 | 09:00–11:00 | fixes | B5, B6 | fixes | — | E3 (if approved) |
 | 11:00–13:00 | **rehearse on deploy, fix only what breaks the demo** | | | | |
