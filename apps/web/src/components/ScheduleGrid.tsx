@@ -3,7 +3,14 @@ import type { Employee, Gap, Schedule, Shift, StoreConfig } from '../contracts'
 import { fmtDayDate, fmtHours, fmtMoney, fmtMoneyShort, fmtRange } from '../lib/format'
 import { roleColors } from '../lib/roles'
 
-type Props = { schedule: Schedule; config: StoreConfig; onGapClick?: (g: Gap) => void; onDayClick?: (day: number) => void }
+type Props = {
+  schedule: Schedule
+  config: StoreConfig
+  onGapClick?: (g: Gap) => void
+  onDayClick?: (day: number) => void
+  /** Reported call-outs (Fix tab): their shifts are shown struck through. */
+  callouts?: { employee_id: string; day: number }[]
+}
 type Hover = { x: number; y: number; content: ReactNode } | null
 
 function paidHours(s: Shift) {
@@ -11,7 +18,7 @@ function paidHours(s: Shift) {
   return (s.end - s.start - unpaid) / 60
 }
 
-export function ScheduleGrid({ schedule, config, onGapClick, onDayClick }: Props) {
+export function ScheduleGrid({ schedule, config, onGapClick, onDayClick, callouts = [] }: Props) {
   const [groupBy, setGroupBy] = useState<'department' | 'hours'>('department')
   const [hover, setHover] = useState<Hover>(null)
   const colors = useMemo(() => roleColors(config.roles), [config.roles])
@@ -211,37 +218,43 @@ export function ScheduleGrid({ schedule, config, onGapClick, onDayClick }: Props
                     const cell = byCell.get(`${e.id}|${d}`) ?? []
                     return (
                       <td key={d} className="border-b border-l border-rule-soft px-1.5 py-1.5 align-middle group-hover:bg-paper">
-                        {cell.map((s) => (
-                          <div
-                            key={s.id}
-                            className="cursor-pointer"
-                            onMouseMove={(ev) => !pinned && show(ev, shiftDetail(e, s))}
-                            onMouseLeave={() => setHover(null)}
-                            onClick={(ev) => {
-                              setHover(null)
-                              setPinned({ x: ev.clientX, y: ev.clientY, e, s })
-                            }}
-                          >
-                            <div className="relative h-3">
-                              {s.segments.map((g, i) => (
-                                <div
-                                  key={i}
-                                  className="absolute top-0 h-full first:rounded-l-sm last:rounded-r-sm"
-                                  style={{ left: pct(g.start), width: width(g.start, g.end), background: colors.get(g.role_id) }}
-                                />
-                              ))}
-                              {/* v1.1: breaks may sit off the slot grid (5-minute steps); cut them out at minute precision. */}
-                              {(s.breaks ?? []).map((b, i) => (
-                                <div
-                                  key={`b${i}`}
-                                  className="absolute -top-px h-[calc(100%+2px)] bg-panel group-hover:bg-paper"
-                                  style={{ left: pct(b.start), width: `max(2px, ${width(b.start, b.end)})` }}
-                                />
-                              ))}
+                        {cell.map((s) => {
+                          const out = callouts.some((c) => c.employee_id === s.employee_id && c.day === s.day)
+                          return (
+                            <div
+                              key={s.id}
+                              className={`cursor-pointer ${out ? 'opacity-40' : ''}`}
+                              onMouseMove={(ev) => !pinned && show(ev, shiftDetail(e, s))}
+                              onMouseLeave={() => setHover(null)}
+                              onClick={(ev) => {
+                                setHover(null)
+                                setPinned({ x: ev.clientX, y: ev.clientY, e, s })
+                              }}
+                            >
+                              <div className="relative h-3">
+                                {s.segments.map((g, i) => (
+                                  <div
+                                    key={i}
+                                    className="absolute top-0 h-full first:rounded-l-sm last:rounded-r-sm"
+                                    style={{ left: pct(g.start), width: width(g.start, g.end), background: colors.get(g.role_id) }}
+                                  />
+                                ))}
+                                {/* v1.1: breaks may sit off the slot grid (5-minute steps); cut them out at minute precision. */}
+                                {(s.breaks ?? []).map((b, i) => (
+                                  <div
+                                    key={`b${i}`}
+                                    className="absolute -top-px h-[calc(100%+2px)] bg-panel group-hover:bg-paper"
+                                    style={{ left: pct(b.start), width: `max(2px, ${width(b.start, b.end)})` }}
+                                  />
+                                ))}
+                              </div>
+                              <div className={`mt-0.5 truncate text-xs ${out ? 'font-semibold text-gap' : 'text-ink-2'}`}>
+                                {out ? <span className="line-through">{fmtRange(s.start, s.end)}</span> : fmtRange(s.start, s.end)}
+                                {out && ' called out'}
+                              </div>
                             </div>
-                            <div className="mt-0.5 truncate text-xs text-ink-2">{fmtRange(s.start, s.end)}</div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </td>
                     )
                   })}

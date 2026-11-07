@@ -16,6 +16,8 @@ type Props = {
   lawPack: LawPack | null
   /** Outreach accepted someone: show the updated schedule (not re-validated yet). */
   onSchedule: (s: Schedule) => void
+  /** Reported call-outs, so the Schedule grid can mark those shifts. */
+  onCallouts?: (c: { employee_id: string; day: number }[]) => void
 }
 
 // The demo scenario's call-outs (packages/scenarios/fixtures/demo_scenario.json): Saturday 06:04.
@@ -31,7 +33,7 @@ const LEVER: Record<FixAction['lever'], string> = {
 type Msg = OutboundMessage | InboundMessage
 const isOut = (m: Msg): m is OutboundMessage => 'to_employee_id' in m
 
-export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
+export function FixTab({ api, config, result, lawPack, onSchedule, onCallouts }: Props) {
   const storeId = config.store.id
   const hasDemo = DEMO.ids.every((id) => config.employees.some((e) => e.id === id))
   const [day, setDay] = useState(hasDemo ? DEMO.day : 0)
@@ -59,6 +61,7 @@ export function FixTab({ api, config, result, lawPack, onSchedule }: Props) {
   const [sentCallouts, setSentCallouts] = useState<string[]>([])
   const findCoverage = async () => {
     setSentCallouts(chosen)
+    onCallouts?.(chosen.map((id) => ({ employee_id: id, day })))
     setBusy(true)
     setError(null)
     setPlan(null)
@@ -362,7 +365,7 @@ function PlanView({
         <Big label="Plan, if nobody says yes" value={fmtPct(plan.coverage_after_worst_pct)} tone="text-ink-2" />
       </div>
 
-      <ModeBanner plan={plan} outreach={outreach} h={h} lawById={lawById} />
+      <ModeBanner plan={plan} outreach={outreach} h={h} lawById={lawById} noScheduleLaw={!!lawPack && !hasScheduleLaw} />
 
       <section>
         <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Right away (no texts needed)</h3>
@@ -377,7 +380,7 @@ function PlanView({
                   {a.role_id ? `${roleName.get(a.role_id) ?? a.role_id} ` : ''}
                   {fmtRange(a.start, a.end)}
                 </span>
-                <PremiumLine action={a} lawById={lawById} hasScheduleLaw={hasScheduleLaw} lawLoaded={!!lawPack} />
+                <PremiumLine action={a} lawById={lawById} />
                 <details className="text-xs text-muted">
                   <summary className="cursor-pointer">Details</summary>
                   {h(a.rationale)}
@@ -507,17 +510,7 @@ function lawLabel(r: LawRule | undefined, id: string): string {
 }
 
 /** Premium per action (SEMANTICS #17): the engine's amount and law, or why there is none. Never computed here. */
-function PremiumLine({
-  action: a,
-  lawById,
-  hasScheduleLaw,
-  lawLoaded,
-}: {
-  action: FixAction
-  lawById: Map<string, LawRule>
-  hasScheduleLaw: boolean
-  lawLoaded: boolean
-}) {
+function PremiumLine({ action: a, lawById }: { action: FixAction; lawById: Map<string, LawRule> }) {
   const ids = a.law_rule_ids ?? []
   const premium = a.premium_pay_dollars ?? 0
   if (premium > 0)
@@ -545,9 +538,7 @@ function PremiumLine({
         <span className="text-muted">{ids.map((id) => lawLabel(lawById.get(id), id)).join(', ')} checked</span>
       </span>
     )
-  if (lawLoaded && !hasScheduleLaw && a.lever !== 'drop_coverage')
-    return <span className="mt-1 block text-xs text-muted">No predictive-scheduling law in this location's law pack.</span>
-  return null
+  return null // "no scheduling law here" is said once, in the mode banner
 }
 
 function CandidatePremium({
@@ -594,11 +585,13 @@ function ModeBanner({
   outreach,
   h,
   lawById,
+  noScheduleLaw,
 }: {
   plan: FixPlan
   outreach: OutreachState | null
   h: (t: string) => string
   lawById: Map<string, LawRule>
+  noScheduleLaw: boolean
 }) {
   const mode = outreach?.mode ?? plan.outreach_mode ?? 'one_to_one'
   const prem = outreach?.premium
@@ -629,6 +622,8 @@ function ModeBanner({
         </p>
       ) : label ? (
         <p className="mt-0.5 text-ink-2">Premiums below come from {label}; the outreach confirms whether they're owed.</p>
+      ) : noScheduleLaw ? (
+        <p className="mt-0.5 text-ink-2">No predictive-scheduling law in this location's law pack, so changes today carry no premium.</p>
       ) : null}
     </div>
   )
