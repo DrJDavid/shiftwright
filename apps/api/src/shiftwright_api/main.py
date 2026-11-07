@@ -137,6 +137,9 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
             raise HTTPException(422, f"Template {req.template!r} needs name and jurisdiction.")
         else:
             cfg = templates.build(req.template, req.name, req.jurisdiction)
+            if req.sector is not None:
+                cfg.store.sector = req.sector
+            cfg.store.business_description = req.business_description.strip()
         return db().create_store(cfg, actor="leader", owner_id=owner_id(request))
 
     @app.get("/api/templates")

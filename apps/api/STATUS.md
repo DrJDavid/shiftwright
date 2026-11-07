@@ -2,6 +2,15 @@
 
 _Last updated: 2026-11-07 ~04:45 CT (branch cursor/A1-auth, PUNCHLIST Lane A)_
 
+**Done (A2: workplace basics on create):**
+- `POST /api/stores` also takes optional `sector` (retail | food | hospitality | other; 422 otherwise) and
+  `business_description` (≤ 500 chars, trimmed), saved on structure templates (`empty`, `bigbox_*`,
+  `restaurant_small`; restaurant keeps `food` unless overridden). Fixture templates keep their own.
+  For API.md (stores row; I may only edit its auth section): add `sector?, business_description?` to the body.
+- So the onboarding agent's first `readiness_check` shows `business_type` ok ("food: 30-seat family taqueria");
+  prompt onboard v4.4: when `business_type` is already set it says back what it knows and moves on to hours
+  instead of re-asking. Tests in `test_onboarding.py` (fake LLM).
+
 **Done (A1: accounts, sessions, workplace ownership; `auth.py`):**
 - Routes exactly as the PUNCHLIST A1 table (documented in API.md "Accounts and workplaces"): `POST /api/auth/signup`
   (409 duplicate, case-insensitive), `/login` (401 "Wrong email or password." for both wrong password and unknown

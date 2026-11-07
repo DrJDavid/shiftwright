@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from shiftwright_contracts.models import InboundMessage, Jurisdiction, OutboundMessage, Schedule
+from shiftwright_contracts.models import InboundMessage, Jurisdiction, OutboundMessage, Schedule, Sector
 
 Template = Literal["bigbox_small", "bigbox_mid", "empty", "demo", "tiny"]
 ImportKind = Literal["roster", "training", "availability", "forecast", "history",
@@ -17,6 +17,9 @@ class CreateStoreRequest(BaseModel):
     template: str = Field("bigbox_small", pattern=r"^(bigbox_small|bigbox_mid|restaurant_small|empty|demo|tiny|demo_[a-z0-9_]+)$")
     name: Optional[str] = None  # required except for fixture templates (demo, tiny), which keep their own
     jurisdiction: Optional[Jurisdiction] = None
+    # A2: business basics from the create form, saved on structure templates (fixtures keep their own)
+    sector: Optional[Sector] = None
+    business_description: str = Field("", max_length=500)
 
 
 class SignupRequest(BaseModel):
