@@ -10,8 +10,8 @@
     "No state paid rest-period requirement in the DOL table; federal law does not require one.",
     "No state daily overtime listed in the DOL table.",
     "Drafted from US DOL WHD state tables (confidence=medium) on 2026-11-06; upgrade to primary sources pending.",
-    "State minor-hour limits not yet researched for this state; federal 14-15 limits apply as the floor.",
-    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date."
+    "minimum_wage.effective is the DOL table date (2026-11-05), not the statutory effective date.",
+    "Minors (Idaho Code \u00a7 44-1304): same limits in school and non-school weeks; looser than federal (federal.json still applies). No Idaho hour limits for 16-17."
   ],
   "rules": [
     {
@@ -34,6 +34,62 @@
         "last_verified": "2026-11-06"
       },
       "confidence": "medium",
+      "verified": false
+    },
+    {
+      "id": "ID.minor_limits.1",
+      "jurisdiction": {
+        "state": "ID",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": true,
+        "max_hours_day": 9,
+        "max_hours_week": 54,
+        "earliest_start": 360,
+        "latest_end": 1260,
+        "latest_end_summer": null
+      },
+      "summary": "Children under 16 may work at most 9 hours a day and 54 a week, 6 a.m.-9 p.m.",
+      "citation": {
+        "url": "https://legislature.idaho.gov/statutesrules/idstat/Title44/T44CH13/SECT44-1304/",
+        "title": "Idaho Code \u00a7 44-1304 \u2014 Working hours for children under sixteen",
+        "excerpt": "more than fifty-four (54) hours in any one week, nor more than nine (9) hours in any one day; nor before the hour of six o'clock in the morning nor after the hour of nine o'clock in the evening",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
+      "verified": false
+    },
+    {
+      "id": "ID.minor_limits.2",
+      "jurisdiction": {
+        "state": "ID",
+        "city": null
+      },
+      "level": "state",
+      "type": "minor_limits",
+      "params": {
+        "age_min": 14,
+        "age_max": 15,
+        "school_week": false,
+        "max_hours_day": 9,
+        "max_hours_week": 54,
+        "earliest_start": 360,
+        "latest_end": 1260,
+        "latest_end_summer": null
+      },
+      "summary": "Children under 16 may work at most 9 hours a day and 54 a week, 6 a.m.-9 p.m.",
+      "citation": {
+        "url": "https://legislature.idaho.gov/statutesrules/idstat/Title44/T44CH13/SECT44-1304/",
+        "title": "Idaho Code \u00a7 44-1304 \u2014 Working hours for children under sixteen",
+        "excerpt": "more than fifty-four (54) hours in any one week, nor more than nine (9) hours in any one day; nor before the hour of six o'clock in the morning nor after the hour of nine o'clock in the evening",
+        "last_verified": "2026-11-06"
+      },
+      "confidence": "high",
       "verified": false
     }
   ]
