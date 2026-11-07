@@ -216,11 +216,17 @@ def _days_for(cfg: StoreConfig, day_type: str) -> list[int]:
 
 
 def _window(cfg: StoreConfig, days: list[int]) -> tuple[int, int]:
+    """Open − pre_open .. close + post_close, widened to cover events on those days (e.g. a 4am truck)."""
     hrs = [h for h in cfg.store.hours if h.day in days]
     if not hrs:
         return 0, 0
-    return (min(h.open for h in hrs) - cfg.store.pre_open_minutes,
-            max(h.close for h in hrs) + cfg.store.post_close_minutes)
+    start = min(h.open for h in hrs) - cfg.store.pre_open_minutes
+    end = max(h.close for h in hrs) + cfg.store.post_close_minutes
+    for e in cfg.events:
+        if e.day in days:
+            start, end = min(start, e.start), max(end, e.end)
+    slot = cfg.store.slot_minutes
+    return max(0, start - start % slot), end
 
 
 def ask_coverage_grid(ctx: ToolContext, args: dict) -> CardRequest:
@@ -662,7 +668,9 @@ TOOLS: list[Tool] = [
     Tool("ask_training_matrix", "Show the training matrix card (employee x role). Saved on submit.",
          _obj({}), ask_training_matrix, "card"),
     Tool("ask_coverage_grid", "Show the coverage grid card for one day type (headcount per role per slot). "
-         "Saved as demand on submit.",
+         "One set of numbers applies to every listed day, and submitting replaces leader demand on those days. "
+         "The grid widens to cover events on those days (e.g. a 4am truck); ask events first. "
+         "Pass `days` to split day types whose needs differ (e.g. a Saturday truck day).",
          _obj({"day_type": {"type": "string", "enum": sorted(DAY_TYPES)},
                "days": {"type": "array", "items": {"type": "integer"}, "description": "Override which days (0=Mon)."}},
               ["day_type"]), ask_coverage_grid, "card"),

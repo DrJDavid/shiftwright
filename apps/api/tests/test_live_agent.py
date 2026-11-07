@@ -24,6 +24,12 @@ class Recorder(OpenRouterClient):
         self.tool_names += [tc.name for tc in resp.tool_calls]
         return resp
 
+    async def stream(self, messages, tools):
+        async for piece in super().stream(messages, tools):
+            if not isinstance(piece, str):
+                self.tool_names += [tc.name for tc in piece.tool_calls]
+            yield piece
+
 
 @pytest.fixture
 def live(tmp_path):

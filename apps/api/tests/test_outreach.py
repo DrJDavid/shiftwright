@@ -237,3 +237,38 @@ def test_demo_key_guards_mutations(settings):
         assert c.post(f"/api/stores/{sid}/solve", json={}).status_code == 401
         assert c.post("/api/sms/mock-reply", json={"from_phone": "1", "body": "y"}).status_code == 401
         assert c.post("/api/sms/inbound", data={"From": "1", "Body": "y"}).status_code == 200  # mock: no signature
+
+
+def test_outreach_stream_pushes_snapshots_until_filled(oclient):
+    import json
+    import threading
+    c, sid, cfg = oclient
+    rank1, rank2 = _cashiers(cfg)
+    _start(c, sid)
+    _wait(c, sid, lambda s: s.current_rank == 1)
+    seen: list[OutreachState] = []
+
+    def reply():
+        st = _wait(c, sid, lambda s: s.current_rank == 1)
+        time.sleep(0.1)
+        c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "no"})
+        st = _wait(c, sid, lambda s: getattr(s.messages[-1], "to_employee_id", None) == rank2)
+        c.post("/api/sms/mock-reply", json={"from_phone": st.messages[-1].to_phone, "body": "yes"})
+
+    t = threading.Thread(target=reply)
+    t.start()
+    with c.stream("GET", f"/api/stores/{sid}/outreach/stream") as r:
+        assert r.headers["content-type"].startswith("text/event-stream")
+        for line in r.iter_lines():
+            if line.startswith("data: "):
+                seen.append(OutreachState.model_validate(json.loads(line[6:])))
+    t.join()
+    assert seen[0].status == "texting" and seen[-1].status == "filled"
+    assert len(seen) >= 3 and seen[-1].accepted_employee_ids == [rank2]
+
+
+def test_outreach_stream_idle_store_closes(client):
+    from api_helpers import make_store
+    sid = make_store(client)["store"]["id"]
+    r = client.get(f"/api/stores/{sid}/outreach/stream")
+    assert r.text.startswith("event: state\ndata: ") and '"status":"idle"' in r.text

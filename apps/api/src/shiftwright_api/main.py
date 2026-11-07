@@ -251,6 +251,34 @@ def create_app(settings: Optional[Settings] = None, llm: Optional[LLMClient] = N
         load(store_id)
         return app.state.outreach.state(store_id)
 
+    @app.get("/api/stores/{store_id}/outreach/stream")
+    async def outreach_stream(store_id: str, request: Request) -> StreamingResponse:
+        """SSE: `event: state` with an OutreachState snapshot now and on every change; ends after a
+        snapshot whose status is not "texting". `: ping` comment every 15 s while waiting."""
+        load(store_id)
+        mgr = app.state.outreach
+
+        async def stream():
+            last = None
+            while True:
+                ev = mgr.change_event(store_id)
+                st = mgr.state(store_id)
+                body = st.model_dump_json()
+                if body != last:
+                    last = body
+                    yield f"event: state\ndata: {body}\n\n"
+                if st.status != "texting":
+                    return
+                try:
+                    await asyncio.wait_for(ev.wait(), timeout=15)
+                except asyncio.TimeoutError:
+                    if await request.is_disconnected():
+                        return
+                    yield ": ping\n\n"
+
+        return StreamingResponse(stream(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
     @app.post("/api/sms/inbound")
     async def sms_inbound(request: Request) -> Response:
         form = {k: str(v) for k, v in (await request.form()).items()}

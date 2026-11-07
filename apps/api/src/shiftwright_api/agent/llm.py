@@ -5,7 +5,7 @@ import copy
 import itertools
 import json
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, Union
+from typing import Any, AsyncIterator, Callable, Protocol, Union
 
 import httpx
 
@@ -71,6 +71,56 @@ class OpenRouterClient:
                 args = raw
             calls.append(ToolCall(id=tc["id"], name=tc["function"]["name"], arguments=args))
         return LLMResponse(content=msg.get("content") or None, tool_calls=calls)
+
+    async def stream(self, messages: list[dict], tools: list[dict]) -> AsyncIterator[Union[str, LLMResponse]]:
+        """Token streaming: yields text deltas (str) as they arrive, then the full LLMResponse last."""
+        if not self.api_key:
+            raise LLMUnavailable("OPENROUTER_API_KEY is not set; the chat agent is unavailable.")
+        body: dict[str, Any] = {"model": self.model, "messages": messages, "stream": True}
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        text: list[str] = []
+        parts: dict[int, dict] = {}  # tool-call index -> {id, name, args}
+        async with httpx.AsyncClient(timeout=self.timeout_s) as client:
+            async with client.stream(
+                "POST", OPENROUTER_URL, json=body,
+                headers={"Authorization": f"Bearer {self.api_key}", "X-Title": "Shiftwright"},
+            ) as r:
+                if r.status_code >= 400:
+                    raise LLMUnavailable(f"OpenRouter error {r.status_code}: {(await r.aread()).decode()[:500]}")
+                async for line in r.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue  # blank lines and ": OPENROUTER PROCESSING" keep-alives
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    if chunk.get("error"):
+                        raise LLMUnavailable(f"OpenRouter stream error: {str(chunk['error'])[:500]}")
+                    for choice in chunk.get("choices") or []:
+                        delta = choice.get("delta") or {}
+                        if delta.get("content"):
+                            text.append(delta["content"])
+                            yield delta["content"]
+                        for tc in delta.get("tool_calls") or []:
+                            p = parts.setdefault(tc.get("index", 0), {"id": "", "name": "", "args": ""})
+                            p["id"] = tc.get("id") or p["id"]
+                            fn = tc.get("function") or {}
+                            p["name"] += fn.get("name") or ""
+                            p["args"] += fn.get("arguments") or ""
+        calls = []
+        for i in sorted(parts):
+            p = parts[i]
+            try:
+                args: Union[dict, str] = json.loads(p["args"] or "{}")
+            except json.JSONDecodeError:
+                args = p["args"]
+            calls.append(ToolCall(id=p["id"] or f"call_{i}", name=p["name"], arguments=args))
+        yield LLMResponse(content="".join(text) or None, tool_calls=calls)
 
 
 # --------------------------------------------------------------------------- #
