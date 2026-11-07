@@ -26,6 +26,7 @@ from shiftwright_contracts.models import (
     Event,
     EventKind,
     Jurisdiction,
+    LawRuleType,
     Role,
     RuleStatus,
     Source,
@@ -33,6 +34,8 @@ from shiftwright_contracts.models import (
     StoreConfig,
     Strength,
 )
+
+from shiftwright_laws import resolve
 
 from .callouts import default_callouts
 from .catalog import (
@@ -68,6 +71,7 @@ NORMAL_RATIO = 1 / 1.05  # full coverage needs ~105% of the cap
 TRUCK_ROLES = ("truck_unload", "backroom", "pit_operator")
 
 AREA_CODES = ["512", "737", "210", "214", "713"]
+BASE_WAGE_FLOOR = 15.0  # lowest wage build_employees draws; lifted where the law-pack minimum is higher
 
 
 def _r(x: float) -> int:
@@ -79,6 +83,26 @@ def _parse_jurisdiction(j: str | Jurisdiction) -> Jurisdiction:
         return j
     state, _, city = j.partition("/")
     return Jurisdiction(state=state.strip().upper(), city=city.strip().lower() or None)
+
+
+def minimum_wage(jur: Jurisdiction) -> tuple[float, str] | None:
+    """(dollars_per_hour, law_rule_id) from the resolved law pack in effect on WEEK_START."""
+    pack = resolve(jur, on=WEEK_START)
+    rules = [r for r in pack.rules if r.type == LawRuleType.minimum_wage]
+    if not rules:
+        return None
+    r = max(rules, key=lambda r: float(r.params["dollars_per_hour"]))
+    return float(r.params["dollars_per_hour"]), r.id
+
+
+def _lift_wages(emps: list[Employee], floor: float | None) -> float:
+    """Shift every wage up by the same amount so the lowest possible draw meets the minimum wage."""
+    if floor is None or floor <= BASE_WAGE_FLOOR:
+        return 0.0
+    lift = math.ceil(floor * 4) / 4 - BASE_WAGE_FLOOR
+    for e in emps:
+        e.wage_per_hour = round(e.wage_per_hour + lift, 2)
+    return lift
 
 
 # --------------------------------------------------------------------------- #
@@ -377,7 +401,7 @@ def build_constraints(rng: random.Random, emps: list[Employee]) -> list[Constrai
 # --------------------------------------------------------------------------- #
 # Difficulty tweaks
 # --------------------------------------------------------------------------- #
-def _apply_legal_trap(rng: random.Random, emps: list[Employee]) -> dict:
+def _apply_legal_trap(rng: random.Random, emps: list[Employee], wage_law: tuple[float, str] | None) -> dict:
     minors = [e for e in emps if e.age < 18]
     pit = rng.sample(minors, min(2, len(minors)))
     for e in pit:
@@ -393,13 +417,23 @@ def _apply_legal_trap(rng: random.Random, emps: list[Employee]) -> dict:
             AvailabilityEntry(weekday=d + 1, start=780, end=1440, kind=AvailabilityKind.unavailable,
                               note=f"{DAY_NAMES[d + 1]}: mornings only (until 13:00)."),
         ]
-    return {
+    traps = {
         "minor_pit_trained": [e.id for e in pit],
         "clopen_prone": [e.id for e in clopen],
         "notes": "Minors trained on PIT must never be scheduled on pit_operator. Clopen-prone employees can "
                  "only close one day and open the next. Meal/rest-break traps depend on the jurisdiction's law pack "
-                 "(use CA for those).",
+                 "(use CA for those). The below_minimum_wage employee is a full-timer with open availability, so "
+                 "they get scheduled and the validator should flag them.",
     }
+    if wage_law is not None:
+        floor, rule_id = wage_law
+        low_pool = [e for e in adults if e not in clopen and e.status == EmploymentStatus.full_time] or \
+                   [e for e in adults if e not in clopen]
+        low = rng.choice(low_pool)
+        low.wage_per_hour = max(0.25, math.floor((floor - 1.0) * 4) / 4)
+        traps["below_minimum_wage"] = [low.id]
+        traps["minimum_wage"] = {"dollars_per_hour": floor, "law_rule_id": rule_id}
+    return traps
 
 
 def _apply_infeasible(rng: random.Random, emps: list[Employee]) -> tuple[list[str], str, str]:
@@ -433,7 +467,10 @@ def generate(
     size: Size = "M",
     difficulty: Difficulty = "normal",
     jurisdiction: str | Jurisdiction = "TX",
+    school_week: bool | None = True,
 ) -> Scenario:
+    """school_week: the default week (Nov 9-15 2026) is a normal school week, so True.
+    It isn't part of the seed key: only Store.school_week and expected change."""
     if size not in SIZE_STAFF:
         raise ValueError(f"size must be S, M or L, got {size!r}")
     if difficulty not in DIFFICULTIES:
@@ -449,15 +486,20 @@ def generate(
     need = required_hours(demand)
 
     emps = build_employees(rng, SIZE_STAFF[size], SIZE_LEADERS[size], role_ids, demand)
+    wage_law = minimum_wage(jur)
+    lift = _lift_wages(emps, wage_law[0] if wage_law else None)
     constraints = build_constraints(rng, emps)
 
     expected: dict = {
         "seed": seed, "size": size, "difficulty": difficulty,
         "jurisdiction": jur.model_dump(),
         "infeasible": False, "conflicting_ids": [], "traps": {}, "notes": [],
+        "school_week": school_week,
+        "minimum_wage": wage_law[0] if wage_law else None,
+        "wage_lift": lift,
     }
     if difficulty == "legal_trap":
-        expected["traps"] = _apply_legal_trap(rng, emps)
+        expected["traps"] = _apply_legal_trap(rng, emps, wage_law)
     elif difficulty == "infeasible":
         ids, variant, summary = _apply_infeasible(rng, emps)
         expected.update(infeasible=True, conflicting_ids=ids, infeasible_variant=variant, infeasible_summary=summary)
@@ -477,6 +519,7 @@ def generate(
             hours=[DayHours(day=d, open=OPEN, close=CLOSE) for d in range(7)],
             pre_open_minutes=PRE_OPEN,
             post_close_minutes=POST_CLOSE,
+            school_week=school_week,
         ),
         departments=[Department(id=d, name=n) for d, n in DEPARTMENTS if d in used_depts],
         roles=[Role(id=r, department_id=ROLES[r][0], name=ROLES[r][1], min_age=ROLES[r][2],

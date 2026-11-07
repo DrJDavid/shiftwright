@@ -50,7 +50,7 @@
     ],
     "pre_open_minutes": 240,
     "post_close_minutes": 60,
-    "school_week": null
+    "school_week": true
   },
   "departments": [
     {

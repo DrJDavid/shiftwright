@@ -3,10 +3,11 @@ name = "shiftwright-scenarios"
 version = "0.1.0"
 description = "Seeded synthetic stores and demo fixtures (WS4)."
 requires-python = ">=3.12"
-dependencies = ["shiftwright-contracts"]
+dependencies = ["shiftwright-contracts", "shiftwright-laws"]
 
 [tool.uv.sources]
 shiftwright-contracts = { workspace = true }
+shiftwright-laws = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

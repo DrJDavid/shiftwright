@@ -51,7 +51,7 @@
       ],
       "pre_open_minutes": 240,
       "post_close_minutes": 60,
-      "school_week": null
+      "school_week": true
     },
     "departments": [
       {
@@ -38191,6 +38191,9 @@
       "Built by shiftwright_scenarios.demo.build_demo_scenario (seed 417, M, normal) and hand-tuned.",
       "Call-outs were chosen before any engine schedule existed; confirm they are scheduled Saturday morning once solve_week lands, or re-pick with pick_callouts()."
     ],
+    "school_week": true,
+    "minimum_wage": 7.25,
+    "wage_lift": 0.0,
     "required_hours": 1463.0,
     "budget_ratio": 0.9524,
     "truck_days": [

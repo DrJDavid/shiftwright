@@ -825,10 +825,14 @@ version = "0.1.0"
 source = { editable = "packages/scenarios" }
 dependencies = [
     { name = "shiftwright-contracts" },
+    { name = "shiftwright-laws" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shiftwright-contracts", editable = "contracts" }]
+requires-dist = [
+    { name = "shiftwright-contracts", editable = "contracts" },
+    { name = "shiftwright-laws", editable = "data/laws" },
+]
 
 [[package]]
 name = "shiftwright-validator"
