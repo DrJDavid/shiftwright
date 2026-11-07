@@ -47,7 +47,7 @@ def test_ny_16_17_school_week_is_28_hours():
 
 
 # States researched where state law adds no hour limits beyond federal; they say so in notes.
-NO_EXTRA_STATE_LIMITS = ["GA"]
+NO_EXTRA_STATE_LIMITS = ["GA", "VA"]
 
 
 @pytest.mark.parametrize("state", NO_EXTRA_STATE_LIMITS)
