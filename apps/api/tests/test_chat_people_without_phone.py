@@ -114,3 +114,34 @@ def test_rule_card_resolves_short_names_and_defaults_preference_weight(tmp_path)
         assert res.content.get("ok"), res.content
         saved = next(x for x in db.get_config(sid).constraints if x.kind.value == "not_together" and x.status.value == "confirmed")
         assert saved.weight_dollars == T.DEFAULT_SOFT_WEIGHT
+
+
+def test_incomplete_rules_are_refused_and_never_crash_a_build(tmp_path):
+    from fastapi.testclient import TestClient
+    from api_helpers import make_store
+    from shiftwright_api import rules
+    from shiftwright_api.main import create_app
+    from shiftwright_api.settings import Settings
+
+    assert "minutes" in rules.problem("min_shift_length", {})
+    assert rules.problem("min_shift_length", {"minutes": 240}) is None
+
+    s = Settings.from_env()
+    s.database_url = f"sqlite:///{tmp_path}/t.db"
+    s.openrouter_api_key = ""
+    with TestClient(create_app(settings=s)) as c:
+        sid = make_store(c, template="tiny")["store"]["id"]
+        db = c.app.state.db
+        ctx = T.ToolContext(db=db, store_id=sid)
+        out = T.propose_rule(ctx, {"constraint": {"kind": "min_shift_length", "params": {}, "strength": "hard"},
+                                   "plain_text": "Nobody comes in for less than 4 hours"})
+        assert isinstance(out, T.ToolResult) and "minutes" in out.content["error"]
+        # an incomplete rule that got in some other way is set aside, and the week still builds
+        cfg = c.get(f"/api/stores/{sid}/config").json()
+        cfg["constraints"].append({"id": "c_bad", "kind": "min_shift_length", "params": {}, "strength": "hard",
+                                   "status": "confirmed", "source": "leader"})
+        assert c.put(f"/api/stores/{sid}/config", json=cfg).status_code == 200
+        r = c.post(f"/api/stores/{sid}/solve", json={"time_limit_s": 10})
+        assert r.status_code == 200, r.text[:300]
+        sched = r.json()["schedule"]
+        assert sched["shifts"] and any("c_bad" in n for n in sched["solver_stats"]["notes"])

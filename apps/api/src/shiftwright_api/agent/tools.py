@@ -31,7 +31,7 @@ from shiftwright_contracts.models import (
     StoreConfig,
 )
 
-from .. import equipment, integrations, priorities, readiness
+from .. import equipment, integrations, priorities, readiness, rules
 from ..imports import AUTO_PRIORITY
 from ..db import ConfigInvalid, Database
 
@@ -575,6 +575,10 @@ def propose_rule(ctx: ToolContext, args: dict) -> Union[CardRequest, ToolResult]
     raw.setdefault("status", "provisional")
     raw.setdefault("strength", "soft")
     raw.setdefault("source", "leader")
+    why = rules.problem(raw.get("kind", ""), raw.get("params"))
+    if why:
+        return ToolResult({"error": f"Rule not shown: {why}. Fill in the params from what the leader said "
+                                    "and call propose_rule again."})
     try:
         constraint = Constraint.model_validate(raw)
     except ValidationError as e:
@@ -778,8 +782,11 @@ def _check_constraint(c: dict) -> None:
             raise ToolError("An inferred constraint needs evidence.")
         if c.get("status") == "confirmed":
             raise ToolError("Inferred rules stay provisional until the leader confirms them on a propose_rule card.")
+    why = rules.problem(c.get("kind", ""), c.get("params"))
+    if why:
+        raise ToolError(f"Rule not saved: {why}. Fill in the params from what the leader said and try again.")
     if c.get("strength") == "soft" and not (c.get("weight_dollars") or 0) > 0:
-        raise ToolError("A soft constraint needs weight_dollars > 0. Ask the leader what it is worth.")
+        c["weight_dollars"] = DEFAULT_SOFT_WEIGHT  # a preference: never ask the leader for dollars
 
 
 def add_constraint(ctx: ToolContext, args: dict) -> ToolResult:
