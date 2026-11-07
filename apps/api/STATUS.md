@@ -1,6 +1,6 @@
 # WS6 status — API + chat agent + messaging
 
-_Last updated: 2026-11-07 ~08:50 CT (rebased on main 94567f6, contracts v1.5)_
+_Last updated: 2026-11-07 ~09:40 CT (rebased on main 5287a2f, WS3 tipped + hazard law)_
 
 **Done (M1):**
 - `shiftwright_api.main:app` (lazy; `create_app(settings, llm)` factory for tests). SQLite via plain sqlite3
@@ -303,6 +303,21 @@ _Last updated: 2026-11-07 ~08:50 CT (rebased on main 94567f6, contracts v1.5)_
   closed-day hours rejected, the agent confirming a tag the owner hadn't answered (rule 12). Not exercised yet:
   tipped cash wages (no `tipped_minimum_wage` in the dataset yet ⇒ full minimum applies, so a $9.48 cash wage
   blocks readiness — correct per SEMANTICS #20) and the fryer rule blocking a 15-year-old (needs WS3's rule).
+
+**Done (taqueria re-run with WS3's tipped + hazard law):**
+- Prompts core v3.1 / onboard v4.1: no law statement (incl. "minor-labor rules limit this") without an earlier
+  `lookup_law` + rule id; add every person the leader lists (law keeps minors off barred roles; never hold someone
+  back over an open tag question).
+- Readiness `minors_on_tagged_roles` names the barring rule per minor from the law pack, e.g. "Line cook (fryer,
+  cooking): Tommy Ruiz (15; barred by US.minor_prohibited_roles.7)".
+- Cold start re-run (Chicago, chat only; owner states a $13.00 tipped cash wage and lists a 15-year-old line cook
+  trained on the fryer): ready after 4 owner turns (6 with rules/availability), 18 LLM calls, ≈0.77M prompt chars,
+  74 s. Agent called lookup_law before explaining tags; 11 people saved incl. Tommy; tipped_wage_per_hour 13.00 for
+  the two servers + bartender; `minimum_wage` passes (Chicago tipped minimum $12.96, IL.chicago.tipped_minimum_wage.1);
+  line cook tagged fryer + cooking and confirmed by the owner. Solve (20 s): 48 shifts, 64.3% coverage, **no minor on
+  a tagged role**; validator hard codes only `metrics_mismatch`: engine total_wage_cost $6,248.15 vs validator
+  $5,750.15 (tipped pay, SEMANTICS #20, not applied by the engine yet; without tipped wages the validator passes).
+  Remaining slip: the agent confirmed line cook's tags one turn before the owner's explicit "keep both".
 
 **Next:** re-run the Seattle what-if once WS1 honours `FixRequest.outreach_mode` (expect a group_offer thread).
 

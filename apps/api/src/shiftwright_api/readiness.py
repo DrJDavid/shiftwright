@@ -70,11 +70,20 @@ def compute(config: StoreConfig, equipment_review: dict | None = None) -> Readin
         else ("Tagged roles: " + "; ".join(f"{names[r]} ({', '.join(t)})" for r, t in tagged.items()) + "."
               if tagged else "No hazard or equipment roles tagged."), severity="warn" if auto else "ok")
 
-    minors = {r: [e.name for e in config.employees if e.age < 18 and r in e.trained_role_ids] for r in tagged}
+    bans = [rl for rl in (pack.rules if pack else []) if rl.type == LawRuleType.minor_prohibited_roles]
+
+    def banned_by(age: int, tags: list[str]) -> list[str]:
+        return [rl.id for rl in bans if set(rl.params.get("role_tags") or []) & set(tags)
+                and (rl.params.get("age_min") or 0) <= age < int(rl.params.get("age_below") or 0)]
+    minors = {r: [e for e in config.employees if e.age < 18 and r in e.trained_role_ids] for r in tagged}
     minors = {r: v for r, v in minors.items() if v}
+
+    def who(r: str) -> str:
+        return ", ".join(f"{e.name} ({e.age}" + (f"; barred by {', '.join(banned_by(e.age, tagged[r]))})"
+                                                 if banned_by(e.age, tagged[r]) else ")") for e in minors[r])
     add("minors_on_tagged_roles", "Minors trained on tagged roles", True,
-        ("Minor-labor rules in the law pack decide whether they may work these: " + "; ".join(
-            f"{names[r]} ({', '.join(tagged[r])}): {', '.join(v)}" for r, v in minors.items()) + ".") if minors
+        ("The schedule keeps these people off roles the law pack bars at their age: " + "; ".join(
+            f"{names[r]} ({', '.join(tagged[r])}): {who(r)}" for r in minors) + ".") if minors
         else "No minors trained on tagged roles.", severity="warn" if minors else "ok")
 
     add("business_type", "Business type", True,
